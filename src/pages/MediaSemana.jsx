@@ -10,7 +10,7 @@ const MediaSemana = () => {
   useEffect(() => {
     const getUser = async () => {
       try {
-        const response = await fetch('http://localhost:3001/api/me', {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/me`, {
           credentials: 'include'
         })
 
