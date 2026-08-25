@@ -25,7 +25,7 @@ const REFRESH_TOKEN_EXPIRES_IN = '7d'
 app.use(express.json())
 app.use(cookieParser())
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5174', 'https://cascarita-production.up.railway.app', 'https://quiet-praline-798045.netlify.app', 'https://joyful-lokum-18b54b.netlify.app'],
+  origin: ['http://localhost:5173', 'http://localhost:5174', 'https://cascarita-production.up.railway.app', 'https://quiet-praline-798045.netlify.app', 'https://joyful-lokum-18b54b.netlify.app', 'https://la-cascarita.vercel.app'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
