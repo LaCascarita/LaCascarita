@@ -17,7 +17,7 @@ const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY
 const supabase = createClient(supabaseUrl, supabaseKey)
 
 // Configuración JWT
-const JWT_SECRET = process.env.JWT_SECRET || 'default_secret_change_in_production'
+const JWT_SECRET = process.env.JWT_SECRET || process.env.VITE_JWT_SECRET || 'default_secret_change_in_production'
 const JWT_EXPIRES_IN = '15m'
 const REFRESH_TOKEN_EXPIRES_IN = '7d'
 
