@@ -75,8 +75,8 @@ const Register = () => {
     setLoading(true)
 
     try {
-      // Llamar al backend para registrar
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/register`, {
+      const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
+      const response = await fetch(`${apiUrl}/api/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

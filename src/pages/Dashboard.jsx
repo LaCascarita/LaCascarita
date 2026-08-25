@@ -49,7 +49,8 @@ const Dashboard = () => {
   useEffect(() => {
     const getUser = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/me`, {
+        const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
+      const response = await fetch(`${apiUrl}/api/me`, {
           credentials: 'include'
         })
 
@@ -71,7 +72,8 @@ const Dashboard = () => {
 
   const handleLogout = async () => {
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/logout`, {
+      const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
+      await fetch(`${apiUrl}/api/logout`, {
         method: 'POST',
         credentials: 'include'
       })

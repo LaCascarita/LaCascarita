@@ -31,7 +31,8 @@ const Login = () => {
 
     try {
       // Llamar al backend para login
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/login`, {
+      const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
+      const response = await fetch(`${apiUrl}/api/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
