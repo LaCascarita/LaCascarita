@@ -42,9 +42,13 @@ export default async function handler(req, res) {
 
     const response = await fetch(url)
     
+    console.log('API Response status:', response.status, response.statusText)
+    
     if (!response.ok) {
       console.error('API Response error:', response.status, response.statusText)
-      return res.status(500).json({ error: `API request failed: ${response.status} ${response.statusText}` })
+      const errorText = await response.text()
+      console.error('API Response body:', errorText)
+      return res.status(500).json({ error: `API request failed: ${response.status} ${response.statusText}`, details: errorText })
     }
     
     const data = await response.json()
