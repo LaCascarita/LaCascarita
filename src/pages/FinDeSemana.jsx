@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { getNextBagDate } from '../utils/bagDates'
 
 const FinDeSemana = () => {
   const navigate = useNavigate()
@@ -36,8 +37,8 @@ const FinDeSemana = () => {
     const fetchMatches = async () => {
       try {
         const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
-        const today = new Date().toISOString().split('T')[0]
-        const response = await fetch(`${apiUrl}/api/football/fixtures?date=${today}&bagType=fin-de-semana`)
+        const bagDate = getNextBagDate('fin-de-semana')
+        const response = await fetch(`${apiUrl}/api/football/fixtures?date=${bagDate}&bagType=fin-de-semana`)
         
         if (response.ok) {
           const data = await response.json()
