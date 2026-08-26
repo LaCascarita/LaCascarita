@@ -18,20 +18,37 @@ export default async function handler(req, res) {
     const { date, bagType, leagueId } = req.query
 
     if (!date) {
+      console.error('Error: Date parameter is required')
       return res.status(400).json({ error: 'Date parameter is required' })
     }
 
-    const API_KEY = process.env.API_FOOTBALL_KEY || ''
-    const BASE_URL = 'https://apifootball.com/api/'
+    const API_KEY = process.env.API_FOOTBALL_KEY
+    
+    if (!API_KEY) {
+      console.error('Error: API_FOOTBALL_KEY environment variable is not set')
+      return res.status(500).json({ error: 'API key not configured' })
+    }
 
+    console.log('Fetching fixtures for date:', date, 'bagType:', bagType, 'leagueId:', leagueId)
+    
+    const BASE_URL = 'https://apifootball.com/api/'
     let url = `${BASE_URL}?action=get_events&from=${date}&to=${date}&APIkey=${API_KEY}`
 
     if (leagueId) {
       url += `&league_id=${leagueId}`
     }
 
+    console.log('API Request URL:', url.replace(API_KEY, '***'))
+
     const response = await fetch(url)
+    
+    if (!response.ok) {
+      console.error('API Response error:', response.status, response.statusText)
+      return res.status(500).json({ error: `API request failed: ${response.status} ${response.statusText}` })
+    }
+    
     const data = await response.json()
+    console.log('API Response data type:', Array.isArray(data) ? 'array' : typeof data, 'length:', Array.isArray(data) ? data.length : 'N/A')
 
     // Si se especifica bagType, filtrar por ligas correspondientes
     if (bagType) {
@@ -46,6 +63,7 @@ export default async function handler(req, res) {
         const filteredData = data.filter(match => 
           leagueIds.includes(parseInt(match.league_id))
         )
+        console.log('Filtered matches:', filteredData.length, 'from', data.length)
         return res.json(filteredData)
       }
     }
@@ -53,7 +71,8 @@ export default async function handler(req, res) {
     res.json(data)
 
   } catch (error) {
-    console.error('Error fetching fixtures:', error)
-    res.status(500).json({ error: 'Error fetching fixtures' })
+    console.error('Error fetching fixtures:', error.message)
+    console.error('Error stack:', error.stack)
+    res.status(500).json({ error: 'Error fetching fixtures', details: error.message })
   }
 }
