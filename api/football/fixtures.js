@@ -31,45 +31,27 @@ export default async function handler(req, res) {
 
     console.log('Fetching fixtures for date:', date, 'bagType:', bagType, 'leagueId:', leagueId)
     
-    // Probar diferentes formatos de API-Football
+    // Construir URL según documentación de API-Football
     const BASE_URL = 'https://apifootball.com/api/'
+    let url = `${BASE_URL}?action=get_events&APIkey=${API_KEY}&from=${date}&to=${date}`
     
-    // Formato 1: action=get_events
-    let url1 = `${BASE_URL}?action=get_events&from=${date}&to=${date}&APIkey=${API_KEY}`
-    if (leagueId) url1 += `&league_id=${leagueId}`
-    
-    // Formato 2: action=get_events con league_id diferente
-    let url2 = `${BASE_URL}?action=get_events&from=${date}&to=${date}&league_id=${leagueId || 140}&APIkey=${API_KEY}`
-    
-    console.log('Trying URL 1:', url1.replace(API_KEY, '***'))
-    
-    let response = await fetch(url1)
-    console.log('URL 1 Response status:', response.status, response.statusText)
-    
-    let data
-    let errorText
-    
-    if (!response.ok) {
-      errorText = await response.text()
-      console.error('URL 1 failed:', errorText)
-      
-      // Intentar formato 2
-      console.log('Trying URL 2:', url2.replace(API_KEY, '***'))
-      response = await fetch(url2)
-      console.log('URL 2 Response status:', response.status, response.statusText)
-      
-      if (!response.ok) {
-        errorText = await response.text()
-        console.error('URL 2 failed:', errorText)
-        return res.status(500).json({ 
-          error: `API request failed: ${response.status} ${response.statusText}`, 
-          details: errorText,
-          triedUrls: [url1.replace(API_KEY, '***'), url2.replace(API_KEY, '***')]
-        })
-      }
+    if (leagueId) {
+      url += `&league_id=${leagueId}`
     }
     
-    data = await response.json()
+    console.log('API Request URL:', url.replace(API_KEY, '***'))
+
+    const response = await fetch(url)
+    console.log('API Response status:', response.status, response.statusText)
+    
+    if (!response.ok) {
+      console.error('API Response error:', response.status, response.statusText)
+      const errorText = await response.text()
+      console.error('API Response body:', errorText)
+      return res.status(500).json({ error: `API request failed: ${response.status} ${response.statusText}`, details: errorText })
+    }
+    
+    const data = await response.json()
     console.log('API Response data type:', Array.isArray(data) ? 'array' : typeof data, 'length:', Array.isArray(data) ? data.length : 'N/A')
     console.log('Sample data:', JSON.stringify(data).substring(0, 200))
 
