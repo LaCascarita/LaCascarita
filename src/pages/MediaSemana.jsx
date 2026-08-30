@@ -75,9 +75,8 @@ const MediaSemana = () => {
 
   const getLeagueName = (leagueId) => {
     const leagues = {
-      235: 'Liga MX',
-      99: 'Liga Brasileña',
-      44: 'Liga Argentina'
+      153: 'Championship',
+      164: 'Ligue 2'
     }
     return leagues[leagueId] || 'Liga'
   }
@@ -135,13 +134,31 @@ const MediaSemana = () => {
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-3 sm:gap-4">
                       <span className="text-xl sm:text-2xl">⚽</span>
-                      <div>
-                        <p className="text-white font-semibold text-sm sm:text-base">
-                          {match.match_hometeam_name} vs {match.match_awayteam_name}
-                        </p>
-                        <p className="text-slate-400 text-xs sm:text-sm">
-                          {getLeagueName(match.league_id)} • {formatMatchDate(match.match_date)}
-                        </p>
+                      <div className="flex items-center gap-2">
+                        {match.team_home_badge && (
+                          <img 
+                            src={match.team_home_badge} 
+                            alt={match.match_hometeam_name}
+                            className="w-8 h-8 sm:w-10 sm:h-10 object-contain"
+                            onError={(e) => e.target.style.display = 'none'}
+                          />
+                        )}
+                        <div>
+                          <p className="text-white font-semibold text-sm sm:text-base">
+                            {match.match_hometeam_name} vs {match.match_awayteam_name}
+                          </p>
+                          <p className="text-slate-400 text-xs sm:text-sm">
+                            {getLeagueName(match.league_id)} • {formatMatchDate(match.match_date)}
+                          </p>
+                        </div>
+                        {match.team_away_badge && (
+                          <img 
+                            src={match.team_away_badge} 
+                            alt={match.match_awayteam_name}
+                            className="w-8 h-8 sm:w-10 sm:h-10 object-contain"
+                            onError={(e) => e.target.style.display = 'none'}
+                          />
+                        )}
                       </div>
                     </div>
                     <div className="flex gap-2 w-full sm:w-auto">

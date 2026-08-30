@@ -31,8 +31,8 @@ export default async function handler(req, res) {
 
     console.log('Fetching fixtures for date:', date, 'bagType:', bagType, 'leagueId:', leagueId)
     
-    // Construir URL según documentación de API-Football
-    const BASE_URL = 'https://apifootball.com/api/'
+    // Construir URL según API v3 de API-Football
+    const BASE_URL = 'https://apiv3.apifootball.com/'
     let url = `${BASE_URL}?action=get_events&APIkey=${API_KEY}&from=${date}&to=${date}`
     
     if (leagueId) {
@@ -55,12 +55,12 @@ export default async function handler(req, res) {
     console.log('API Response data type:', Array.isArray(data) ? 'array' : typeof data, 'length:', Array.isArray(data) ? data.length : 'N/A')
     console.log('Sample data:', JSON.stringify(data).substring(0, 200))
 
-    // Si se especifica bagType, filtrar por ligas correspondientes
+    // Si se especifica bagType, filtrar por ligas correspondientes (usando ligas de prueba)
     if (bagType) {
       const leagueMappings = {
-        'media-semana': [235, 99, 44], // Liga MX, Liga Brasileña, Liga Argentina
-        'fin-de-semana': [148, 140, 135, 78, 61, 253], // Premier League, La Liga, Serie A, Bundesliga, Ligue 1, MLS
-        'dominical': [88, 235, 140] // Eredivisie, Liga MX, La Liga
+        'media-semana': [153, 164], // Championship, Ligue 2 (pruebas)
+        'fin-de-semana': [153, 164], // Championship, Ligue 2 (pruebas)
+        'dominical': [153, 164] // Championship, Ligue 2 (pruebas)
       }
 
       const leagueIds = leagueMappings[bagType]
