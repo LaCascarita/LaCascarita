@@ -1,14 +1,23 @@
 import { Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getNextBagDate } from '../utils/bagDates'
 
 const FinDeSemana = () => {
   const navigate = useNavigate()
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [matches, setMatches] = useState([])
-  const [loadingMatches, setLoadingMatches] = useState(true)
+
+  // Datos harcodeados de partidos
+  const matches = [
+    { id: 1, home: 'Manchester City', away: 'Liverpool', date: 'Viernes 16:00', league: 'Premier League' },
+    { id: 2, home: 'Real Madrid', away: 'Barcelona', date: 'Viernes 18:00', league: 'La Liga' },
+    { id: 3, home: 'Inter', away: 'Milan', date: 'Viernes 15:00', league: 'Serie A' },
+    { id: 4, home: 'Bayern Munich', away: 'Dortmund', date: 'Viernes 17:30', league: 'Bundesliga' },
+    { id: 5, home: 'PSG', away: 'Marseille', date: 'Viernes 20:00', league: 'Ligue 1' },
+    { id: 6, home: 'LA Galaxy', away: 'Inter Miami', date: 'Viernes 19:00', league: 'MLS' },
+    { id: 7, home: 'Arsenal', away: 'Chelsea', date: 'Viernes 12:30', league: 'Premier League' },
+    { id: 8, home: 'Atlético Madrid', away: 'Sevilla', date: 'Viernes 21:00', league: 'La Liga' }
+  ]
 
   useEffect(() => {
     const getUser = async () => {
@@ -33,56 +42,12 @@ const FinDeSemana = () => {
     getUser()
   }, [navigate])
 
-  useEffect(() => {
-    const fetchMatches = async () => {
-      try {
-        const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
-        const bagDate = getNextBagDate('fin-de-semana')
-        const response = await fetch(`${apiUrl}/api/football/fixtures?date=${bagDate}&bagType=fin-de-semana`)
-        
-        if (response.ok) {
-          const data = await response.json()
-          setMatches(Array.isArray(data) ? data : [])
-        } else {
-          console.error('Error fetching matches:', response.statusText)
-        }
-      } catch (error) {
-        console.error('Error fetching matches:', error)
-      } finally {
-        setLoadingMatches(false)
-      }
-    }
-    fetchMatches()
-  }, [])
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
         <div className="text-white text-xl">Cargando...</div>
       </div>
     )
-  }
-
-  const formatMatchDate = (dateString) => {
-    if (!dateString) return 'Fecha no disponible'
-    const date = new Date(dateString)
-    return date.toLocaleDateString('es-ES', { 
-      weekday: 'long', 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    })
-  }
-
-  const getLeagueName = (leagueId) => {
-    const leagues = {
-      148: 'Premier League',
-      140: 'La Liga',
-      135: 'Serie A',
-      78: 'Bundesliga',
-      61: 'Ligue 1',
-      253: 'MLS'
-    }
-    return leagues[leagueId] || 'Liga'
   }
 
   return (
@@ -100,9 +65,9 @@ const FinDeSemana = () => {
             <p className="text-slate-400 mt-2">{matches.length} partidos • Cierre: Viernes 20:00</p>
           </div>
           <div className="flex items-center gap-4">
-            <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg px-4 py-2">
+            <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-lg px-4 py-2">
               <p className="text-slate-400 text-xs">Saldo</p>
-              <p className="text-blue-400 font-bold text-lg">
+              <p className="text-emerald-400 font-bold text-lg">
                 ${user?.balance?.toFixed(2) || '0.00'}
               </p>
             </div>
@@ -110,15 +75,15 @@ const FinDeSemana = () => {
         </div>
 
         {/* Info Card */}
-        <div className="bg-blue-500/20 border border-blue-500/30 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8">
+        <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-lg sm:text-xl font-semibold text-white mb-2">💰 Bolsa Actual</h2>
-              <p className="text-2xl sm:text-3xl font-bold text-blue-400">$4,250</p>
+              <p className="text-2xl sm:text-3xl font-bold text-emerald-400">$4,200</p>
             </div>
             <div className="text-left sm:text-right">
               <p className="text-slate-300 text-sm">Participantes</p>
-              <p className="text-white font-semibold text-lg">38</p>
+              <p className="text-white font-semibold text-lg">32</p>
             </div>
           </div>
         </div>
@@ -126,46 +91,37 @@ const FinDeSemana = () => {
         {/* Matches */}
         <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 sm:p-6 border border-white/20">
           <h3 className="text-lg sm:text-xl font-semibold text-white mb-4">📅 Partidos</h3>
-          
-          {loadingMatches ? (
-            <div className="text-center text-slate-400 py-8">Cargando partidos...</div>
-          ) : matches.length === 0 ? (
-            <div className="text-center text-slate-400 py-8">No hay partidos disponibles para hoy</div>
-          ) : (
-            <div className="space-y-3">
-              {matches.map((match) => (
-                <div key={match.match_id} className="bg-white/5 rounded-lg p-4 border border-white/10">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 sm:gap-4">
-                      <span className="text-xl sm:text-2xl">⚽</span>
-                      <div>
-                        <p className="text-white font-semibold text-sm sm:text-base">
-                          {match.match_hometeam_name} vs {match.match_awayteam_name}
-                        </p>
-                        <p className="text-slate-400 text-xs sm:text-sm">
-                          {getLeagueName(match.league_id)} • {formatMatchDate(match.match_date)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 w-full sm:w-auto">
-                      <button className="flex-1 sm:flex-none bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors">
-                        Local
-                      </button>
-                      <button className="flex-1 sm:flex-none bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors">
-                        Empate
-                      </button>
-                      <button className="flex-1 sm:flex-none bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors">
-                        Visitante
-                      </button>
+          <div className="space-y-3">
+            {matches.map((match) => (
+              <div key={match.id} className="bg-white/5 rounded-lg p-4 border border-white/10">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <span className="text-xl sm:text-2xl">⚽</span>
+                    <div>
+                      <p className="text-white font-semibold text-sm sm:text-base">
+                        {match.home} vs {match.away}
+                      </p>
+                      <p className="text-slate-400 text-xs sm:text-sm">{match.date} • {match.league}</p>
                     </div>
                   </div>
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <button className="flex-1 sm:flex-none bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors">
+                      Local
+                    </button>
+                    <button className="flex-1 sm:flex-none bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors">
+                      Empate
+                    </button>
+                    <button className="flex-1 sm:flex-none bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors">
+                      Visitante
+                    </button>
+                  </div>
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            ))}
+          </div>
 
           {/* Submit Button */}
-          <button className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-4 px-6 rounded-xl mt-6 transition-all duration-300 transform hover:scale-105 shadow-lg">
+          <button className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-4 px-6 rounded-xl mt-6 transition-all duration-300 transform hover:scale-105 shadow-lg">
             Enviar Quiniela ($10)
           </button>
         </div>

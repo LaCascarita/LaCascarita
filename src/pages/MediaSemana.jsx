@@ -1,14 +1,21 @@
 import { Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getNextBagDate } from '../utils/bagDates'
 
 const MediaSemana = () => {
   const navigate = useNavigate()
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [matches, setMatches] = useState([])
-  const [loadingMatches, setLoadingMatches] = useState(true)
+
+  // Datos harcodeados de partidos
+  const matches = [
+    { id: 1, home: 'América', away: 'Chivas', date: 'Miércoles 21:00', league: 'Liga MX' },
+    { id: 2, home: 'Flamengo', away: 'Palmeiras', date: 'Miércoles 19:30', league: 'Liga Brasileña' },
+    { id: 3, home: 'Boca Juniors', away: 'River Plate', date: 'Miércoles 20:00', league: 'Liga Argentina' },
+    { id: 4, home: 'Tigres', away: 'Monterrey', date: 'Miércoles 22:00', league: 'Liga MX' },
+    { id: 5, home: 'São Paulo', away: 'Corinthians', date: 'Miércoles 18:00', league: 'Liga Brasileña' },
+    { id: 6, home: 'Independiente', away: 'Racing', date: 'Miércoles 21:30', league: 'Liga Argentina' }
+  ]
 
   useEffect(() => {
     const getUser = async () => {
@@ -33,53 +40,12 @@ const MediaSemana = () => {
     getUser()
   }, [navigate])
 
-  useEffect(() => {
-    const fetchMatches = async () => {
-      try {
-        const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
-        const bagDate = getNextBagDate('media-semana')
-        const response = await fetch(`${apiUrl}/api/football/fixtures?date=${bagDate}&bagType=media-semana`)
-        
-        if (response.ok) {
-          const data = await response.json()
-          setMatches(Array.isArray(data) ? data : [])
-        } else {
-          console.error('Error fetching matches:', response.statusText)
-        }
-      } catch (error) {
-        console.error('Error fetching matches:', error)
-      } finally {
-        setLoadingMatches(false)
-      }
-    }
-    fetchMatches()
-  }, [])
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
         <div className="text-white text-xl">Cargando...</div>
       </div>
     )
-  }
-
-  const formatMatchDate = (dateString) => {
-    if (!dateString) return 'Fecha no disponible'
-    const date = new Date(dateString)
-    return date.toLocaleDateString('es-ES', { 
-      weekday: 'long', 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    })
-  }
-
-  const getLeagueName = (leagueId) => {
-    const leagues = {
-      235: 'Liga MX',
-      99: 'Liga Brasileña',
-      44: 'Liga Argentina'
-    }
-    return leagues[leagueId] || 'Liga'
   }
 
   return (
@@ -123,43 +89,34 @@ const MediaSemana = () => {
         {/* Matches */}
         <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 sm:p-6 border border-white/20">
           <h3 className="text-lg sm:text-xl font-semibold text-white mb-4">📅 Partidos</h3>
-          
-          {loadingMatches ? (
-            <div className="text-center text-slate-400 py-8">Cargando partidos...</div>
-          ) : matches.length === 0 ? (
-            <div className="text-center text-slate-400 py-8">No hay partidos disponibles para hoy</div>
-          ) : (
-            <div className="space-y-3">
-              {matches.map((match) => (
-                <div key={match.match_id} className="bg-white/5 rounded-lg p-4 border border-white/10">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 sm:gap-4">
-                      <span className="text-xl sm:text-2xl">⚽</span>
-                      <div>
-                        <p className="text-white font-semibold text-sm sm:text-base">
-                          {match.match_hometeam_name} vs {match.match_awayteam_name}
-                        </p>
-                        <p className="text-slate-400 text-xs sm:text-sm">
-                          {getLeagueName(match.league_id)} • {formatMatchDate(match.match_date)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 w-full sm:w-auto">
-                      <button className="flex-1 sm:flex-none bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors">
-                        Local
-                      </button>
-                      <button className="flex-1 sm:flex-none bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors">
-                        Empate
-                      </button>
-                      <button className="flex-1 sm:flex-none bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors">
-                        Visitante
-                      </button>
+          <div className="space-y-3">
+            {matches.map((match) => (
+              <div key={match.id} className="bg-white/5 rounded-lg p-4 border border-white/10">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <span className="text-xl sm:text-2xl">⚽</span>
+                    <div>
+                      <p className="text-white font-semibold text-sm sm:text-base">
+                        {match.home} vs {match.away}
+                      </p>
+                      <p className="text-slate-400 text-xs sm:text-sm">{match.date} • {match.league}</p>
                     </div>
                   </div>
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <button className="flex-1 sm:flex-none bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors">
+                      Local
+                    </button>
+                    <button className="flex-1 sm:flex-none bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors">
+                      Empate
+                    </button>
+                    <button className="flex-1 sm:flex-none bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors">
+                      Visitante
+                    </button>
+                  </div>
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            ))}
+          </div>
 
           {/* Submit Button */}
           <button className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-4 px-6 rounded-xl mt-6 transition-all duration-300 transform hover:scale-105 shadow-lg">
