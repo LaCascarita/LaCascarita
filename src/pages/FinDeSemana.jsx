@@ -66,11 +66,17 @@ const FinDeSemana = () => {
   const formatMatchDate = (dateString) => {
     if (!dateString) return 'Fecha no disponible'
     const date = new Date(dateString)
-    return date.toLocaleDateString('es-ES', { 
+    // Usar timezone local para evitar desplazamiento de días
+    const options = { 
       weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric',
       hour: '2-digit', 
-      minute: '2-digit' 
-    })
+      minute: '2-digit',
+      timeZone: 'UTC'
+    }
+    return date.toLocaleDateString('es-ES', options)
   }
 
   const getLeagueName = (leagueId) => {
