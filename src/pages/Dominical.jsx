@@ -58,6 +58,16 @@ const Dominical = () => {
     fetchMatches()
   }, [])
 
+  // Calcular total de quinielas y monto
+  useEffect(() => {
+    let total = 0
+    Object.values(selections).forEach(matchSelections => {
+      total += matchSelections.length
+    })
+    setTotalQuinielas(total)
+    setTotalAmount(total * 10)
+  }, [selections])
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
@@ -122,16 +132,6 @@ const Dominical = () => {
       }
     })
   }
-
-  // Calcular total de quinielas y monto
-  useEffect(() => {
-    let total = 0
-    Object.values(selections).forEach(matchSelections => {
-      total += matchSelections.length
-    })
-    setTotalQuinielas(total)
-    setTotalAmount(total * 10)
-  }, [selections])
 
   const isSelected = (matchId, option) => {
     return selections[matchId]?.includes(option) || false
