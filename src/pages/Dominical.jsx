@@ -67,12 +67,23 @@ const Dominical = () => {
     if (!dateString) return 'Fecha no disponible'
     
     const date = new Date(dateString)
-    // Usar date-fns-tz para convertir a México automáticamente
-    const formattedDate = format(date, "EEEE d 'de' MMMM 'de' yyyy • HH:mm", {
+    
+    // Obtener fecha original sin conversión de timezone (usando UTC)
+    const dayOptions = { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric',
+      timeZone: 'UTC'
+    }
+    const dayString = date.toLocaleDateString('es-MX', dayOptions)
+    
+    // Obtener hora convertida a México usando date-fns-tz
+    const timeString = format(date, "HH:mm", {
       timeZone: 'America/Mexico_City'
     })
     
-    return formattedDate
+    return `${dayString} • ${timeString}`
   }
 
   const getLeagueName = (leagueId) => {
