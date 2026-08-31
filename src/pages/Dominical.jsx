@@ -9,6 +9,9 @@ const Dominical = () => {
   const [loading, setLoading] = useState(true)
   const [matches, setMatches] = useState([])
   const [loadingMatches, setLoadingMatches] = useState(true)
+  const [selections, setSelections] = useState({}) // { matchId: ['local', 'empate', etc] }
+  const [totalQuinielas, setTotalQuinielas] = useState(0)
+  const [totalAmount, setTotalAmount] = useState(0)
 
   useEffect(() => {
     const getUser = async () => {
@@ -94,6 +97,56 @@ const Dominical = () => {
     return leagues[leagueId] || 'Liga'
   }
 
+  const handleSelection = (matchId, option) => {
+    setSelections(prev => {
+      const currentSelections = prev[matchId] || []
+      let newSelections
+      
+      if (currentSelections.includes(option)) {
+        // Deseleccionar si ya está seleccionado
+        newSelections = currentSelections.filter(s => s !== option)
+      } else {
+        // Agregar selección
+        newSelections = [...currentSelections, option]
+      }
+      
+      // Si no hay selecciones para este partido, eliminar la entrada
+      if (newSelections.length === 0) {
+        const { [matchId]: removed, ...rest } = prev
+        return rest
+      }
+      
+      return {
+        ...prev,
+        [matchId]: newSelections
+      }
+    })
+  }
+
+  // Calcular total de quinielas y monto
+  useEffect(() => {
+    let total = 0
+    Object.values(selections).forEach(matchSelections => {
+      total += matchSelections.length
+    })
+    setTotalQuinielas(total)
+    setTotalAmount(total * 10)
+  }, [selections])
+
+  const isSelected = (matchId, option) => {
+    return selections[matchId]?.includes(option) || false
+  }
+
+  const handleSubmit = () => {
+    if (totalQuinielas < 2) {
+      alert('Mínimo de participación: 2 quinielas ($20 MXN)')
+      return
+    }
+    // Aquí iría la lógica para enviar la quiniela al backend
+    console.log('Enviando quiniela:', selections)
+    alert(`Quiniela enviada: ${totalQuinielas} selecciones por $${totalAmount} MXN`)
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
@@ -128,6 +181,20 @@ const Dominical = () => {
             <div className="text-left sm:text-right">
               <p className="text-slate-300 text-sm">Participantes</p>
               <p className="text-white font-semibold text-lg">18</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Selection Counter */}
+        <div className="bg-blue-500/20 border border-blue-500/30 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg sm:text-xl font-semibold text-white mb-2">🎯 Tu Selección</h2>
+              <p className="text-2xl sm:text-3xl font-bold text-blue-400">{totalQuinielas} Quinielas</p>
+            </div>
+            <div className="text-left sm:text-right">
+              <p className="text-slate-300 text-sm">Total</p>
+              <p className="text-white font-semibold text-lg">${totalAmount} MXN</p>
             </div>
           </div>
         </div>
@@ -174,15 +241,56 @@ const Dominical = () => {
                         )}
                       </div>
                     </div>
-                    <div className="flex gap-2 w-full sm:w-auto">
-                      <button className="flex-1 sm:flex-none bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors">
+                    <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                      <button 
+                        onClick={() => handleSelection(match.match_id, 'local')}
+                        className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors ${
+                          isSelected(match.match_id, 'local') 
+                            ? 'bg-emerald-600 text-white ring-2 ring-emerald-400' 
+                            : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                        }`}
+                      >
                         Local
                       </button>
-                      <button className="flex-1 sm:flex-none bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors">
+                      <button 
+                        onClick={() => handleSelection(match.match_id, 'empate')}
+                        className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors ${
+                          isSelected(match.match_id, 'empate') 
+                            ? 'bg-blue-600 text-white ring-2 ring-blue-400' 
+                            : 'bg-blue-500 hover:bg-blue-600 text-white'
+                        }`}
+                      >
                         Empate
                       </button>
-                      <button className="flex-1 sm:flex-none bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors">
+                      <button 
+                        onClick={() => handleSelection(match.match_id, 'visitante')}
+                        className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors ${
+                          isSelected(match.match_id, 'visitante') 
+                            ? 'bg-purple-600 text-white ring-2 ring-purple-400' 
+                            : 'bg-purple-500 hover:bg-purple-600 text-white'
+                        }`}
+                      >
                         Visitante
+                      </button>
+                      <button 
+                        onClick={() => handleSelection(match.match_id, 'local-empate')}
+                        className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors ${
+                          isSelected(match.match_id, 'local-empate') 
+                            ? 'bg-teal-600 text-white ring-2 ring-teal-400' 
+                            : 'bg-teal-500 hover:bg-teal-600 text-white'
+                        }`}
+                      >
+                        L+E
+                      </button>
+                      <button 
+                        onClick={() => handleSelection(match.match_id, 'visitante-empate')}
+                        className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors ${
+                          isSelected(match.match_id, 'visitante-empate') 
+                            ? 'bg-pink-600 text-white ring-2 ring-pink-400' 
+                            : 'bg-pink-500 hover:bg-pink-600 text-white'
+                        }`}
+                      >
+                        V+E
                       </button>
                     </div>
                   </div>
@@ -192,8 +300,16 @@ const Dominical = () => {
           )}
 
           {/* Submit Button */}
-          <button className="w-full bg-purple-500 hover:bg-purple-600 text-white font-semibold py-4 px-6 rounded-xl mt-6 transition-all duration-300 transform hover:scale-105 shadow-lg">
-            Enviar Quiniela ($10)
+          <button 
+            onClick={handleSubmit}
+            disabled={totalQuinielas < 2}
+            className={`w-full font-semibold py-4 px-6 rounded-xl mt-6 transition-all duration-300 transform hover:scale-105 shadow-lg ${
+              totalQuinielas < 2 
+                ? 'bg-slate-500 text-slate-300 cursor-not-allowed' 
+                : 'bg-purple-500 hover:bg-purple-600 text-white'
+            }`}
+          >
+            Enviar Quiniela (${totalAmount} MXN)
           </button>
         </div>
 
