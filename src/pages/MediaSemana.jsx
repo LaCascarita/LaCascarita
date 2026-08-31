@@ -66,7 +66,7 @@ const MediaSemana = () => {
   const formatMatchDate = (dateString) => {
     if (!dateString) return 'Fecha no disponible'
     const date = new Date(dateString)
-    // Usar timezone UTC para evitar desplazamiento de días
+    // Convertir a zona horaria de México (America/Mexico_City)
     const options = { 
       weekday: 'long', 
       year: 'numeric', 
@@ -74,9 +74,9 @@ const MediaSemana = () => {
       day: 'numeric',
       hour: '2-digit', 
       minute: '2-digit',
-      timeZone: 'UTC'
+      timeZone: 'America/Mexico_City'
     }
-    return date.toLocaleDateString('es-ES', options)
+    return date.toLocaleDateString('es-MX', options)
   }
 
   const getLeagueName = (leagueId) => {
