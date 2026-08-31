@@ -66,16 +66,25 @@ const Dominical = () => {
   const formatMatchDate = (dateString) => {
     if (!dateString) return 'Fecha no disponible'
     const date = new Date(dateString)
-    // Mostrar fecha y hora sin conversión de timezone para evitar cambios de día
-    const options = { 
+    
+    // Obtener día correcto del timezone original
+    const dayOptions = { 
       weekday: 'long', 
       year: 'numeric', 
       month: 'long', 
-      day: 'numeric',
-      hour: '2-digit', 
-      minute: '2-digit'
+      day: 'numeric'
     }
-    return date.toLocaleDateString('es-MX', options)
+    const dayString = date.toLocaleDateString('es-MX', dayOptions)
+    
+    // Obtener hora convertida a México
+    const timeOptions = { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      timeZone: 'America/Mexico_City'
+    }
+    const timeString = date.toLocaleTimeString('es-MX', timeOptions)
+    
+    return `${dayString} • ${timeString}`
   }
 
   const getLeagueName = (leagueId) => {
