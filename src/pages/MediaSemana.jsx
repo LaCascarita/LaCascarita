@@ -66,15 +66,14 @@ const MediaSemana = () => {
   const formatMatchDate = (dateString) => {
     if (!dateString) return 'Fecha no disponible'
     const date = new Date(dateString)
-    // Convertir a zona horaria de México (America/Mexico_City)
+    // Mostrar fecha y hora sin conversión de timezone para evitar cambios de día
     const options = { 
       weekday: 'long', 
       year: 'numeric', 
       month: 'long', 
       day: 'numeric',
       hour: '2-digit', 
-      minute: '2-digit',
-      timeZone: 'America/Mexico_City'
+      minute: '2-digit'
     }
     return date.toLocaleDateString('es-MX', options)
   }
