@@ -23,21 +23,6 @@ const ForgotPassword = () => {
     }))
   }
 
-  // MODO DEMO: Simular búsqueda de usuario por username
-  const findUserByUsername = (username) => {
-    // En producción esto buscaría en Supabase
-    const mockUsers = {
-      'tigregio': '5512345678',
-      'demo': '5598765432',
-      'usuario': '5511223344'
-    }
-    return mockUsers[username.toLowerCase()] || null
-  }
-
-  // MODO DEMO: Generar código de verificación
-  const generateVerificationCode = () => {
-    return Math.floor(100000 + Math.random() * 900000).toString()
-  }
 
   const handleStep1 = async (e) => {
     e.preventDefault()
@@ -51,29 +36,33 @@ const ForgotPassword = () => {
     setLoading(true)
 
     try {
-      // Buscar usuario por username
-      const phone = findUserByUsername(formData.username)
-      
-      if (!phone) {
-        setError('Usuario no encontrado')
+      // Llamar al backend para enviar código de verificación
+      const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
+      const response = await fetch(`${apiUrl}/api/send-verification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          username: formData.username
+        })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.error || 'Error al buscar usuario')
         setLoading(false)
         return
       }
 
-      // Mostrar número oculto
-      const maskedPhone = phone.replace(/(\d{2})(\d{4})(\d{4})/, '$1****$3')
-      setUserPhone(maskedPhone)
-      
-      // MODO DEMO: Generar código y mostrarlo en consola
-      const verificationCode = generateVerificationCode()
-      console.log('Código de verificación (MODO DEMO):', verificationCode)
-      setSuccess(`Código enviado al número ${maskedPhone}. (Demo: ${verificationCode})`)
-      
+      setUserPhone(data.maskedPhone)
+      setSuccess(`Código enviado al número ${data.maskedPhone}`)
       setStep(2)
       setLoading(false)
 
     } catch (error) {
-      setError('Error al buscar usuario. Intente nuevamente.')
+      setError('Error al conectar con el servidor. Intente nuevamente.')
       setLoading(false)
     }
   }
@@ -90,13 +79,6 @@ const ForgotPassword = () => {
     setLoading(true)
 
     try {
-      // MODO DEMO: Aceptar cualquier código de 6 dígitos
-      if (formData.code.length !== 6) {
-        setError('El código debe tener 6 dígitos')
-        setLoading(false)
-        return
-      }
-
       setSuccess('Código verificado correctamente')
       setStep(3)
       setLoading(false)
@@ -127,9 +109,28 @@ const ForgotPassword = () => {
     setLoading(true)
 
     try {
-      // MODO DEMO: Simular cambio de contraseña
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
+      // Llamar al backend para verificar código y cambiar contraseña
+      const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
+      const response = await fetch(`${apiUrl}/api/verify-code`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          username: formData.username,
+          code: formData.code,
+          newPassword: formData.newPassword
+        })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.error || 'Error al cambiar contraseña')
+        setLoading(false)
+        return
+      }
+
       setSuccess('¡Contraseña cambiada exitosamente!')
       
       // Redirigir al login después de 2 segundos
@@ -138,7 +139,7 @@ const ForgotPassword = () => {
       }, 2000)
 
     } catch (error) {
-      setError('Error al cambiar contraseña. Intente nuevamente.')
+      setError('Error al conectar con el servidor. Intente nuevamente.')
       setLoading(false)
     }
   }
@@ -148,13 +149,30 @@ const ForgotPassword = () => {
     setError('')
     
     try {
-      // MODO DEMO: Generar nuevo código
-      const verificationCode = generateVerificationCode()
-      console.log('Nuevo código de verificación (MODO DEMO):', verificationCode)
-      setSuccess(`Nuevo código enviado. (Demo: ${verificationCode})`)
+      // Llamar al backend para reenviar código
+      const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
+      const response = await fetch(`${apiUrl}/api/send-verification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          username: formData.username
+        })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.error || 'Error al reenviar código')
+        setLoading(false)
+        return
+      }
+
+      setSuccess(`Nuevo código enviado al número ${data.maskedPhone}`)
       setLoading(false)
     } catch (error) {
-      setError('Error al reenviar código')
+      setError('Error al conectar con el servidor. Intente nuevamente.')
       setLoading(false)
     }
   }
