@@ -1,7 +1,7 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { getNextBagDate } from '../utils/bagDates'
+import { format } from 'date-fns-tz'
 
 const Dominical = () => {
   const navigate = useNavigate()
@@ -66,39 +66,13 @@ const Dominical = () => {
   const formatMatchDate = (dateString) => {
     if (!dateString) return 'Fecha no disponible'
     
-    // Parsear fecha como UTC para mantener el día correcto
     const date = new Date(dateString)
+    // Usar date-fns-tz para convertir a México automáticamente
+    const formattedDate = format(date, "EEEE d 'de' MMMM 'de' yyyy • HH:mm", {
+      timeZone: 'America/Mexico_City'
+    })
     
-    // Obtener día sin conversión de timezone (usando UTC como base)
-    const dayOptions = { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric',
-      timeZone: 'UTC'
-    }
-    const dayString = date.toLocaleDateString('es-MX', dayOptions)
-    
-    // Calcular hora en México restando la diferencia de timezone
-    // Inglaterra (UTC+0 o UTC+1) vs México (UTC-6 o UTC-5)
-    const utcHours = date.getUTCHours()
-    const utcMinutes = date.getUTCMinutes()
-    
-    // Diferencia aproximada: México está 6-7 horas atrás de Inglaterra
-    // Usamos -7 para horario de verano, -6 para horario estándar
-    const mexicoOffset = -7 // Horario de verano
-    let mexicoHours = utcHours + mexicoOffset
-    
-    // Ajustar si pasa de medianoche
-    if (mexicoHours < 0) {
-      mexicoHours += 24
-    } else if (mexicoHours >= 24) {
-      mexicoHours -= 24
-    }
-    
-    const timeString = `${mexicoHours.toString().padStart(2, '0')}:${utcMinutes.toString().padStart(2, '0')}`
-    
-    return `${dayString} • ${timeString}`
+    return formattedDate
   }
 
   const getLeagueName = (leagueId) => {
