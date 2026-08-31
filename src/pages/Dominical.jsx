@@ -65,24 +65,38 @@ const Dominical = () => {
 
   const formatMatchDate = (dateString) => {
     if (!dateString) return 'Fecha no disponible'
+    
+    // Parsear fecha como UTC para mantener el día correcto
     const date = new Date(dateString)
     
-    // Obtener día correcto del timezone original
+    // Obtener día sin conversión de timezone (usando UTC como base)
     const dayOptions = { 
       weekday: 'long', 
       year: 'numeric', 
       month: 'long', 
-      day: 'numeric'
+      day: 'numeric',
+      timeZone: 'UTC'
     }
     const dayString = date.toLocaleDateString('es-MX', dayOptions)
     
-    // Obtener hora convertida a México
-    const timeOptions = { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      timeZone: 'America/Mexico_City'
+    // Calcular hora en México restando la diferencia de timezone
+    // Inglaterra (UTC+0 o UTC+1) vs México (UTC-6 o UTC-5)
+    const utcHours = date.getUTCHours()
+    const utcMinutes = date.getUTCMinutes()
+    
+    // Diferencia aproximada: México está 6-7 horas atrás de Inglaterra
+    // Usamos -7 para horario de verano, -6 para horario estándar
+    const mexicoOffset = -7 // Horario de verano
+    let mexicoHours = utcHours + mexicoOffset
+    
+    // Ajustar si pasa de medianoche
+    if (mexicoHours < 0) {
+      mexicoHours += 24
+    } else if (mexicoHours >= 24) {
+      mexicoHours -= 24
     }
-    const timeString = date.toLocaleTimeString('es-MX', timeOptions)
+    
+    const timeString = `${mexicoHours.toString().padStart(2, '0')}:${utcMinutes.toString().padStart(2, '0')}`
     
     return `${dayString} • ${timeString}`
   }
