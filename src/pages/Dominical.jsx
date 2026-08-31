@@ -241,7 +241,7 @@ const Dominical = () => {
                         )}
                       </div>
                     </div>
-                    <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                    <div className="flex gap-2 w-full sm:w-auto">
                       <button 
                         onClick={() => handleSelection(match.match_id, 'local')}
                         className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors ${
@@ -271,26 +271,6 @@ const Dominical = () => {
                         }`}
                       >
                         Visitante
-                      </button>
-                      <button 
-                        onClick={() => handleSelection(match.match_id, 'local-empate')}
-                        className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors ${
-                          isSelected(match.match_id, 'local-empate') 
-                            ? 'bg-teal-600 text-white ring-2 ring-teal-400' 
-                            : 'bg-teal-500 hover:bg-teal-600 text-white'
-                        }`}
-                      >
-                        L+E
-                      </button>
-                      <button 
-                        onClick={() => handleSelection(match.match_id, 'visitante-empate')}
-                        className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors ${
-                          isSelected(match.match_id, 'visitante-empate') 
-                            ? 'bg-pink-600 text-white ring-2 ring-pink-400' 
-                            : 'bg-pink-500 hover:bg-pink-600 text-white'
-                        }`}
-                      >
-                        V+E
                       </button>
                     </div>
                   </div>
