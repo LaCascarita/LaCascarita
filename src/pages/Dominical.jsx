@@ -57,12 +57,15 @@ const Dominical = () => {
     fetchMatches()
   }, [])
 
-  // Calcular total de quinielas y monto
+  // Calcular total de quinielas y monto (producto de opciones seleccionadas)
   useEffect(() => {
-    let total = 0
-    Object.values(selections).forEach(matchSelections => {
-      total += matchSelections.length
-    })
+    const matchSelections = Object.values(selections)
+    if (matchSelections.length === 0) {
+      setTotalQuinielas(0)
+      setTotalAmount(0)
+      return
+    }
+    const total = matchSelections.reduce((acc, selections) => acc * selections.length, 1)
     setTotalQuinielas(total)
     setTotalAmount(total * 10)
   }, [selections])
