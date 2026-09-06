@@ -107,6 +107,23 @@ const FinDeSemana = () => {
     return leagues[leagueId] || 'Liga'
   }
 
+  const getMatchResult = (match) => {
+    // Verificar si el partido ya terminó
+    if (match.match_status === 'FT' || match.match_status === 'AET' || match.match_status === 'PEN') {
+      const homeScore = parseInt(match.match_hometeam_score) || 0
+      const awayScore = parseInt(match.match_awayteam_score) || 0
+      
+      if (homeScore > awayScore) {
+        return { winner: 'home', status: 'finished', homeScore, awayScore }
+      } else if (awayScore > homeScore) {
+        return { winner: 'away', status: 'finished', homeScore, awayScore }
+      } else {
+        return { winner: 'draw', status: 'finished', homeScore, awayScore }
+      }
+    }
+    return { winner: null, status: 'upcoming' }
+  }
+
   const handleSelection = (matchId, option) => {
     setSelections(prev => {
       const currentSelections = prev[matchId] || []
@@ -210,7 +227,7 @@ const FinDeSemana = () => {
           ) : (
             <div className="space-y-3">
               {matches.map((match) => (
-                <div key={match.match_id} className="bg-white/5 rounded-lg p-4 border border-white/10">
+                <div key={match.match_id} className={`bg-white/5 rounded-lg p-4 border ${getMatchResult(match).status === 'finished' ? 'border-yellow-500/30' : 'border-white/10'}`}>
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-3 sm:gap-4">
                       <span className="text-xl sm:text-2xl">⚽</span>
@@ -219,59 +236,72 @@ const FinDeSemana = () => {
                           <img 
                             src={match.team_home_badge} 
                             alt={match.match_hometeam_name}
-                            className="w-8 h-8 sm:w-10 sm:h-10 object-contain"
+                            className={`w-8 h-8 sm:w-10 sm:h-10 object-contain ${getMatchResult(match).winner === 'home' ? 'ring-2 ring-emerald-400 rounded-full' : getMatchResult(match).winner === 'away' ? 'opacity-50' : ''}`}
                             onError={(e) => e.target.style.display = 'none'}
                           />
                         )}
                         <div>
-                          <p className="text-white font-semibold text-sm sm:text-base">
+                          <p className={`font-semibold text-sm sm:text-base ${getMatchResult(match).winner === 'home' ? 'text-emerald-400' : getMatchResult(match).winner === 'away' ? 'text-red-400' : getMatchResult(match).winner === 'draw' ? 'text-yellow-400' : 'text-white'}`}>
                             {match.match_hometeam_name} vs {match.match_awayteam_name}
                           </p>
                           <p className="text-slate-400 text-xs sm:text-sm">
                             {getLeagueName(match.league_id)} • {formatMatchDate(match.match_date)}
+                            {getMatchResult(match).status === 'finished' && (
+                              <span className="ml-2 text-yellow-400">• {match.match_hometeam_score} - {match.match_awayteam_score}</span>
+                            )}
                           </p>
                         </div>
                         {match.team_away_badge && (
                           <img 
                             src={match.team_away_badge} 
                             alt={match.match_awayteam_name}
-                            className="w-8 h-8 sm:w-10 sm:h-10 object-contain"
+                            className={`w-8 h-8 sm:w-10 sm:h-10 object-contain ${getMatchResult(match).winner === 'away' ? 'ring-2 ring-emerald-400 rounded-full' : getMatchResult(match).winner === 'home' ? 'opacity-50' : ''}`}
                             onError={(e) => e.target.style.display = 'none'}
                           />
                         )}
                       </div>
                     </div>
                     <div className="flex gap-2 w-full sm:w-auto">
-                      <button 
-                        onClick={() => handleSelection(match.match_id, 'local')}
-                        className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors ${
-                          isSelected(match.match_id, 'local') 
-                            ? 'bg-emerald-600 text-white ring-2 ring-emerald-400' 
-                            : 'bg-emerald-500 hover:bg-emerald-600 text-white'
-                        }`}
-                      >
-                        Local
-                      </button>
-                      <button 
-                        onClick={() => handleSelection(match.match_id, 'empate')}
-                        className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors ${
-                          isSelected(match.match_id, 'empate') 
-                            ? 'bg-blue-600 text-white ring-2 ring-blue-400' 
-                            : 'bg-blue-500 hover:bg-blue-600 text-white'
-                        }`}
-                      >
-                        Empate
-                      </button>
-                      <button 
-                        onClick={() => handleSelection(match.match_id, 'visitante')}
-                        className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors ${
-                          isSelected(match.match_id, 'visitante') 
-                            ? 'bg-purple-600 text-white ring-2 ring-purple-400' 
-                            : 'bg-purple-500 hover:bg-purple-600 text-white'
-                        }`}
-                      >
-                        Visitante
-                      </button>
+                      {getMatchResult(match).status === 'finished' ? (
+                        <div className="flex items-center gap-2 px-3 py-2">
+                          {getMatchResult(match).winner === 'home' && <span className="text-emerald-400 text-sm font-semibold">🏆 Local</span>}
+                          {getMatchResult(match).winner === 'away' && <span className="text-emerald-400 text-sm font-semibold">🏆 Visitante</span>}
+                          {getMatchResult(match).winner === 'draw' && <span className="text-yellow-400 text-sm font-semibold">🤝 Empate</span>}
+                        </div>
+                      ) : (
+                        <>
+                          <button 
+                            onClick={() => handleSelection(match.match_id, 'local')}
+                            className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors ${
+                              isSelected(match.match_id, 'local') 
+                                ? 'bg-emerald-600 text-white ring-2 ring-emerald-400' 
+                                : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                            }`}
+                          >
+                            Local
+                          </button>
+                          <button 
+                            onClick={() => handleSelection(match.match_id, 'empate')}
+                            className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors ${
+                              isSelected(match.match_id, 'empate') 
+                                ? 'bg-blue-600 text-white ring-2 ring-blue-400' 
+                                : 'bg-blue-500 hover:bg-blue-600 text-white'
+                            }`}
+                          >
+                            Empate
+                          </button>
+                          <button 
+                            onClick={() => handleSelection(match.match_id, 'visitante')}
+                            className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors ${
+                              isSelected(match.match_id, 'visitante') 
+                                ? 'bg-purple-600 text-white ring-2 ring-purple-400' 
+                                : 'bg-purple-500 hover:bg-purple-600 text-white'
+                            }`}
+                          >
+                            Visitante
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>

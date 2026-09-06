@@ -35,6 +35,9 @@ export default async function handler(req, res) {
     const BASE_URL = 'https://apiv3.apifootball.com/'
     let url = `${BASE_URL}?action=get_events&APIkey=${API_KEY}&from=${date}&to=${date}`
     
+    // Agregar parámetro para incluir resultados de partidos ya jugados
+    url += `&match_status=FT` // FT = Full Time (partidos terminados)
+    
     if (leagueId) {
       url += `&league_id=${leagueId}`
     }
