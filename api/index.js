@@ -371,9 +371,10 @@ app.get('/api/admin/leagues', async (req, res) => {
     if (!response.ok) throw new Error(`API request failed: ${response.statusText}`)
 
     const data = await response.json()
+    const allowedLeagues = [153, 164]
     const relevantLeagues = data.filter(league => {
       const leagueId = parseInt(league.league_id)
-      return [140, 135, 78, 61, 39, 153, 164, 253, 254, 256].includes(leagueId)
+      return allowedLeagues.includes(leagueId)
     })
 
     res.json({ leagues: relevantLeagues })
@@ -400,7 +401,20 @@ app.get('/api/admin/fixtures', async (req, res) => {
     if (!response.ok) throw new Error(`API request failed: ${response.statusText}`)
 
     const data = await response.json()
-    res.json({ matches: data })
+    const matches = data.map(match => ({
+      match_id: match.match_id,
+      league_id: match.league_id,
+      league_name: match.league_name,
+      home_team_name: match.match_hometeam_name,
+      away_team_name: match.match_awayteam_name,
+      home_team_badge: match.team_home_badge,
+      away_team_badge: match.team_away_badge,
+      match_date: match.match_date && match.match_time
+        ? `${match.match_date}T${match.match_time}:00`
+        : match.match_date
+    }))
+
+    res.json({ matches })
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch fixtures' })
   }
