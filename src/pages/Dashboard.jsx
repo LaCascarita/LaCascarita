@@ -3,12 +3,17 @@ import { useNavigate, Link } from 'react-router-dom'
 import DashboardCard from '../components/DashboardCard'
 import StatCard from '../components/StatCard'
 import NoticeBanner from '../components/NoticeBanner'
+import WalletSection from '../components/WalletSection'
 
 const Dashboard = () => {
   const navigate = useNavigate()
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeSection, setActiveSection] = useState('overview')
+  const [balance, setBalance] = useState(0)
+  const [transactions, setTransactions] = useState([])
+  const [participations, setParticipations] = useState([])
+  const [walletLoading, setWalletLoading] = useState(false)
 
   // Datos de ejemplo (se conectarán con Supabase después)
   const userStats = {
@@ -50,13 +55,15 @@ const Dashboard = () => {
     const getUser = async () => {
       try {
         const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
-      const response = await fetch(`${apiUrl}/api/me`, {
+        const response = await fetch(`${apiUrl}/api/me`, {
           credentials: 'include'
         })
 
         if (response.ok) {
           const data = await response.json()
           setUser(data.user)
+          setBalance(data.user.balance || 0)
+          fetchBalanceData()
         } else {
           // Si no está autenticado, redirigir al login
           navigate('/login')
@@ -67,6 +74,27 @@ const Dashboard = () => {
       }
       setLoading(false)
     }
+
+    const fetchBalanceData = async () => {
+      try {
+        setWalletLoading(true)
+        const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
+        const response = await fetch(`${apiUrl}/api/balance`, {
+          credentials: 'include'
+        })
+        if (response.ok) {
+          const data = await response.json()
+          setBalance(data.balance)
+          setTransactions(data.transactions || [])
+          setParticipations(data.participations || [])
+        }
+      } catch (error) {
+        console.error('Error al cargar saldo:', error)
+      } finally {
+        setWalletLoading(false)
+      }
+    }
+
     getUser()
   }, [])
 
@@ -81,6 +109,70 @@ const Dashboard = () => {
       console.error('Error al hacer logout:', error)
     }
     navigate('/')
+  }
+
+  const handleDeposit = async ({ amount, method }) => {
+    try {
+      setWalletLoading(true)
+      const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
+      const endpoint = method === 'mercadopago' ? '/api/payments/deposit' : '/api/payments/spei-request'
+      const response = await fetch(`${apiUrl}${endpoint}`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount })
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Error al crear pago')
+
+      if (method === 'mercadopago' && data.init_point) {
+        window.location.href = data.init_point
+      } else {
+        alert(`Referencia SPEI: ${data.external_reference}\nBanco: ${data.bank_name}\nCuenta: ${data.account_number}\nCLABE: ${data.clabe}\nBeneficiario: ${data.beneficiary}`)
+      }
+    } catch (error) {
+      alert('Error: ' + error.message)
+    } finally {
+      setWalletLoading(false)
+    }
+  }
+
+  const handleWithdraw = async ({ amount, bank_name, account_number, clabe, card_holder }) => {
+    try {
+      setWalletLoading(true)
+      const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
+      const response = await fetch(`${apiUrl}/api/withdrawals`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, bank_name, account_number, clabe, card_holder })
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Error al solicitar retiro')
+      alert('Solicitud de retiro creada. Se procesará en cuanto sea revisada.')
+      refreshBalance()
+    } catch (error) {
+      alert('Error: ' + error.message)
+    } finally {
+      setWalletLoading(false)
+    }
+  }
+
+  const refreshBalance = async () => {
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
+      const response = await fetch(`${apiUrl}/api/balance`, {
+        credentials: 'include'
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setBalance(data.balance)
+        setTransactions(data.transactions || [])
+        setParticipations(data.participations || [])
+      }
+    } catch (error) {
+      console.error('Error al actualizar saldo:', error)
+    }
   }
 
   if (loading) {
@@ -105,7 +197,7 @@ const Dashboard = () => {
             <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-lg px-4 py-2 w-full sm:w-auto">
               <p className="text-slate-400 text-xs">Saldo Disponible</p>
               <p className="text-emerald-400 font-bold text-lg">
-                ${user?.balance?.toFixed(2) || '0.00'}
+                ${balance.toFixed(2)}
               </p>
             </div>
             <div className="text-center sm:text-right">
@@ -125,6 +217,8 @@ const Dashboard = () => {
         <div className="flex flex-wrap gap-2 mb-6 sm:mb-8">
           {[
             { id: 'overview', label: 'Resumen' },
+            { id: 'wallet', label: 'Recargar / Retirar' },
+            { id: 'history', label: 'Historial' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -536,52 +630,16 @@ const Dashboard = () => {
           </div>
         )}
 
-        {activeSection === 'history' && (
-          <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 sm:p-6 border border-white/20">
-            <h3 className="text-lg sm:text-xl font-semibold text-white mb-4">📋 Historial Completo</h3>
-            <p className="text-slate-400 mb-6">Tu historial de participaciones, aciertos y premios.</p>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs sm:text-sm">
-                <thead>
-                  <tr className="border-b border-white/10">
-                    <th className="text-left text-slate-400 pb-3 px-2">Folio</th>
-                    <th className="text-left text-slate-400 pb-3 px-2">Tipo</th>
-                    <th className="text-left text-slate-400 pb-3 px-2">Fecha</th>
-                    <th className="text-left text-slate-400 pb-3 px-2">Aciertos</th>
-                    <th className="text-left text-slate-400 pb-3 px-2">Premio</th>
-                    <th className="text-left text-slate-400 pb-3 px-2">Estado</th>
-                  </tr>
-                </thead>
-                <tbody className="text-white">
-                  <tr className="border-b border-white/5">
-                    <td className="py-3 px-2">LC-FS-001254</td>
-                    <td className="py-3 px-2">Fin de Semana</td>
-                    <td className="py-3 px-2">15/08/2026</td>
-                    <td className="py-3 px-2">8/9</td>
-                    <td className="py-3 px-2 text-emerald-400">$4,250</td>
-                    <td className="py-3 px-2"><span className="bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded text-xs">Pagado</span></td>
-                  </tr>
-                  <tr className="border-b border-white/5">
-                    <td className="py-3 px-2">LC-FS-001180</td>
-                    <td className="py-3 px-2">Fin de Semana</td>
-                    <td className="py-3 px-2">08/08/2026</td>
-                    <td className="py-3 px-2">7/9</td>
-                    <td className="py-3 px-2 text-orange-400">$1,060</td>
-                    <td className="py-3 px-2"><span className="bg-orange-500/20 text-orange-400 px-2 py-1 rounded text-xs">Pendiente</span></td>
-                  </tr>
-                  <tr className="border-b border-white/5">
-                    <td className="py-3 px-2">LC-MS-001095</td>
-                    <td className="py-3 px-2">Media Semana</td>
-                    <td className="py-3 px-2">05/08/2026</td>
-                    <td className="py-3 px-2">6/9</td>
-                    <td className="py-3 px-2 text-slate-400">-</td>
-                    <td className="py-3 px-2"><span className="bg-slate-500/20 text-slate-400 px-2 py-1 rounded text-xs">Sin premio</span></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+        {activeSection === 'wallet' && (
+          <WalletSection
+            balance={balance}
+            transactions={transactions}
+            participations={participations}
+            walletLoading={walletLoading}
+            onDeposit={handleDeposit}
+            onWithdraw={handleWithdraw}
+            onRefresh={refreshBalance}
+          />
         )}
       </div>
     </div>

@@ -65,7 +65,8 @@ app.post('/api/login', async (req, res) => {
       username: user.username,
       user_id: user.user_id,
       phone: user.phone,
-      balance: user.balance
+      balance: user.balance,
+      role: user.role
     }
 
     const accessToken = jwt.sign(userData, JWT_SECRET, { expiresIn: '15m' })
@@ -177,7 +178,18 @@ app.get('/api/me', async (req, res) => {
     }
 
     const decoded = jwt.verify(access_token, JWT_SECRET)
-    res.json({ user: decoded })
+
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('id, username, user_id, phone, balance, role')
+      .eq('id', decoded.id)
+      .single()
+
+    if (userError || !userData) {
+      return res.status(404).json({ error: 'Usuario no encontrado' })
+    }
+
+    res.json({ user: userData })
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
       return res.status(403).json({ error: 'Token inválido' })
@@ -595,6 +607,401 @@ app.get('/api/football/jornada-matches', async (req, res) => {
     res.json({ jornada, matches })
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch jornada matches' })
+  }
+})
+
+// ============================================================
+// HELPERS DE AUTENTICACION Y SALDO
+// ============================================================
+const getUserFromToken = (req) => {
+  try {
+    const cookies = req.headers.cookie || ''
+    const access_token = cookies.split('; ').find(cookie => cookie.startsWith('access_token='))?.split('=')[1]
+    if (!access_token) return null
+    return jwt.verify(access_token, JWT_SECRET)
+  } catch (error) {
+    return null
+  }
+}
+
+const createBalanceTransaction = async ({ user_id, type, amount, balance_before, balance_after, reference_id = null, participation_id = null, description = '' }) => {
+  const { error } = await supabase
+    .from('user_balance_transactions')
+    .insert([{ user_id, type, amount, balance_before, balance_after, reference_id, participation_id, description, status: 'completed' }])
+  if (error) throw new Error('Error creating transaction: ' + error.message)
+}
+
+const creditUserBalance = async (userId, amount, referenceId, description) => {
+  const { data: user, error: userError } = await supabase
+    .from('users')
+    .select('balance')
+    .eq('id', userId)
+    .single()
+
+  if (userError || !user) throw new Error('User not found')
+
+  const balanceBefore = parseFloat(user.balance) || 0
+  const balanceAfter = balanceBefore + amount
+
+  const { error: updateError } = await supabase
+    .from('users')
+    .update({ balance: balanceAfter })
+    .eq('id', userId)
+
+  if (updateError) throw new Error('Error updating balance: ' + updateError.message)
+
+  await createBalanceTransaction({
+    user_id: userId,
+    type: 'deposit',
+    amount: amount,
+    balance_before: balanceBefore,
+    balance_after: balanceAfter,
+    reference_id: referenceId,
+    description
+  })
+
+  return balanceAfter
+}
+
+// ============================================================
+// MERCADO PAGO - CREAR DEPOSITO
+// ============================================================
+app.post('/api/payments/deposit', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const user = getUserFromToken(req)
+    if (!user) return res.status(401).json({ error: 'No autorizado' })
+
+    const { amount } = req.body
+    if (!amount || amount <= 0) return res.status(400).json({ error: 'Monto inválido' })
+
+    const accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN
+    if (!accessToken) return res.status(500).json({ error: 'Mercado Pago no configurado' })
+
+    const externalReference = `LC-${user.id}-${Date.now()}`
+
+    const { data: payment, error: paymentError } = await supabase
+      .from('payments')
+      .insert([{
+        user_id: user.id,
+        provider: 'mercadopago',
+        direction: 'deposit',
+        amount: amount,
+        status: 'pending',
+        external_reference: externalReference
+      }])
+      .select()
+      .single()
+
+    if (paymentError) throw paymentError
+
+    const origin = req.headers.origin || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://lacascarita.vercel.app')
+    const preference = {
+      items: [{
+        title: `Recarga de saldo La Cascarita - ${user.username}`,
+        quantity: 1,
+        currency_id: 'MXN',
+        unit_price: parseFloat(amount)
+      }],
+      external_reference: externalReference,
+      notification_url: `${origin}/api/webhooks/mercadopago`,
+      back_urls: {
+        success: `${origin}/dashboard?payment=success`,
+        failure: `${origin}/dashboard?payment=failure`,
+        pending: `${origin}/dashboard?payment=pending`
+      },
+      auto_return: 'approved'
+    }
+
+    const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(preference)
+    })
+
+    const mpData = await mpResponse.json()
+    if (!mpResponse.ok) {
+      throw new Error(mpData.message || 'Error creando preferencia en Mercado Pago')
+    }
+
+    await supabase
+      .from('payments')
+      .update({ provider_transaction_id: mpData.id, provider_metadata: mpData })
+      .eq('id', payment.id)
+
+    res.json({ init_point: mpData.init_point, payment_id: payment.id, external_reference: externalReference })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// ============================================================
+// SPEI - GENERAR REFERENCIA
+// ============================================================
+app.post('/api/payments/spei-request', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const user = getUserFromToken(req)
+    if (!user) return res.status(401).json({ error: 'No autorizado' })
+
+    const { amount } = req.body
+    if (!amount || amount <= 0) return res.status(400).json({ error: 'Monto inválido' })
+
+    const externalReference = `LC-SPEI-${user.id}-${Date.now()}`
+
+    const { data: payment, error: paymentError } = await supabase
+      .from('payments')
+      .insert([{
+        user_id: user.id,
+        provider: 'spei',
+        direction: 'deposit',
+        amount: amount,
+        status: 'pending',
+        external_reference: externalReference
+      }])
+      .select()
+      .single()
+
+    if (paymentError) throw paymentError
+
+    res.json({
+      payment_id: payment.id,
+      external_reference: externalReference,
+      amount: amount,
+      bank_name: process.env.SPEI_BANK_NAME || 'Banco ejemplo',
+      account_number: process.env.SPEI_ACCOUNT_NUMBER || '000000000000000000',
+      clabe: process.env.SPEI_CLABE || '000000000000000000',
+      beneficiary: process.env.SPEI_BENEFICIARY || 'La Cascarita',
+      message: 'Realiza la transferencia con la referencia indicada y un admin la confirmará.'
+    })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// ============================================================
+// WEBHOOK MERCADO PAGO
+// ============================================================
+app.post('/api/webhooks/mercadopago', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const body = req.body
+    const topic = body.type || body.topic
+    const paymentId = body.data?.id || body.id
+
+    if (topic === 'payment' && paymentId) {
+      const accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN
+      const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      })
+      const mpData = await mpResponse.json()
+
+      if (mpData.status === 'approved') {
+        const externalReference = mpData.external_reference
+
+        const { data: payment, error: findError } = await supabase
+          .from('payments')
+          .select('*')
+          .eq('external_reference', externalReference)
+          .single()
+
+        if (findError || !payment) {
+          return res.status(200).json({ message: 'Pago no encontrado en sistema' })
+        }
+
+        if (payment.status !== 'paid') {
+          await supabase
+            .from('payments')
+            .update({ status: 'paid', paid_at: new Date().toISOString(), provider_metadata: mpData })
+            .eq('id', payment.id)
+
+          await creditUserBalance(payment.user_id, parseFloat(payment.amount), payment.id, 'Recarga Mercado Pago')
+        }
+      }
+    }
+
+    res.status(200).json({ received: true })
+  } catch (error) {
+    res.status(200).json({ received: true, error: error.message })
+  }
+})
+
+// ============================================================
+// ADMIN CONFIRMAR SPEI
+// ============================================================
+app.post('/api/admin/confirm-spei', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const admin = getUserFromToken(req)
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' })
+
+    const { payment_id } = req.body
+    if (!payment_id) return res.status(400).json({ error: 'payment_id requerido' })
+
+    const { data: payment, error: findError } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('id', payment_id)
+      .eq('provider', 'spei')
+      .single()
+
+    if (findError || !payment) return res.status(404).json({ error: 'Pago no encontrado' })
+    if (payment.status === 'paid') return res.status(400).json({ error: 'Pago ya confirmado' })
+
+    await supabase
+      .from('payments')
+      .update({ status: 'paid', paid_at: new Date().toISOString() })
+      .eq('id', payment.id)
+
+    await creditUserBalance(payment.user_id, parseFloat(payment.amount), payment.id, 'Recarga SPEI confirmada')
+
+    res.json({ message: 'Recarga SPEI confirmada exitosamente' })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// ============================================================
+// CONSULTAR SALDO Y MOVIMIENTOS
+// ============================================================
+app.get('/api/balance', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const user = getUserFromToken(req)
+    if (!user) return res.status(401).json({ error: 'No autorizado' })
+
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('balance')
+      .eq('id', user.id)
+      .single()
+
+    if (userError || !userData) return res.status(404).json({ error: 'Usuario no encontrado' })
+
+    const { data: transactions, error: txError } = await supabase
+      .from('user_balance_transactions')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(50)
+
+    if (txError) throw txError
+
+    const { data: participations, error: partError } = await supabase
+      .from('participations')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(50)
+
+    if (partError) throw partError
+
+    res.json({
+      balance: parseFloat(userData.balance) || 0,
+      transactions: transactions || [],
+      participations: participations || []
+    })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// ============================================================
+// SOLICITAR RETIRO
+// ============================================================
+app.post('/api/withdrawals', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const user = getUserFromToken(req)
+    if (!user) return res.status(401).json({ error: 'No autorizado' })
+
+    const { amount, bank_name, account_number, clabe, card_holder } = req.body
+    if (!amount || amount <= 0) return res.status(400).json({ error: 'Monto inválido' })
+
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('balance')
+      .eq('id', user.id)
+      .single()
+
+    if (userError || !userData) return res.status(404).json({ error: 'Usuario no encontrado' })
+
+    const balance = parseFloat(userData.balance) || 0
+    if (balance < amount) return res.status(400).json({ error: 'Saldo insuficiente' })
+
+    const { data: withdrawal, error: withdrawError } = await supabase
+      .from('withdrawals')
+      .insert([{
+        user_id: user.id,
+        amount: amount,
+        bank_name,
+        account_number,
+        clabe,
+        card_holder,
+        status: 'pending'
+      }])
+      .select()
+      .single()
+
+    if (withdrawError) throw withdrawError
+
+    const newBalance = balance - amount
+    await supabase
+      .from('users')
+      .update({ balance: newBalance })
+      .eq('id', user.id)
+
+    await createBalanceTransaction({
+      user_id: user.id,
+      type: 'withdrawal',
+      amount: -amount,
+      balance_before: balance,
+      balance_after: newBalance,
+      description: 'Solicitud de retiro pendiente'
+    })
+
+    res.json({ message: 'Solicitud de retiro creada', withdrawal })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
   }
 })
 
