@@ -51,13 +51,15 @@ BEGIN
     -- 4. Insertar partidos de prueba para cada jornada (9 por jornada)
     FOR v_type IN SELECT * FROM (VALUES ('media_semana'), ('fin_de_semana'), ('dominical')) AS t(type)
     LOOP
-        -- Eliminar partidos de prueba previos de esta jornada para evitar duplicados
-        DELETE FROM admin_jornada_partidos
-        WHERE jornada_id = CASE
-            WHEN v_type = 'media_semana' THEN v_ms_id
-            WHEN v_type = 'fin_de_semana' THEN v_fs_id
-            WHEN v_type = 'dominical' THEN v_dom_id
-        END;
+        -- Si la jornada ya tiene partidos, no los borramos para evitar romper FKs con predicciones
+        CONTINUE WHEN EXISTS (
+            SELECT 1 FROM admin_jornada_partidos
+            WHERE jornada_id = CASE
+                WHEN v_type = 'media_semana' THEN v_ms_id
+                WHEN v_type = 'fin_de_semana' THEN v_fs_id
+                WHEN v_type = 'dominical' THEN v_dom_id
+            END
+        );
 
         FOR i IN 1..9 LOOP
             v_match_id := gen_random_uuid();
