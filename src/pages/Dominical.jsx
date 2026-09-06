@@ -152,14 +152,20 @@ const Dominical = () => {
     return selections[matchId]?.includes(option) || false
   }
 
+  const allMatchesSelected = matches.length > 0 && matches.every(match => selections[match.match_id]?.length > 0)
+
   const handleSubmit = () => {
+    if (!allMatchesSelected) {
+      alert(`Debes seleccionar al menos un resultado en cada uno de los ${matches.length} partidos.`)
+      return
+    }
     if (totalQuinielas < 2) {
-      alert('Mínimo de participación: 2 quinielas ($20 MXN)')
+      alert('Mínimo de participación: 2 quinielas ($20 MXN). Selecciona al menos un doble.')
       return
     }
     // Aquí iría la lógica para enviar la quiniela al backend
     console.log('Enviando quiniela:', selections)
-    alert(`Quiniela enviada: ${totalQuinielas} selecciones por $${totalAmount} MXN`)
+    alert(`Quiniela enviada: ${totalQuinielas} quinielas por $${totalAmount} MXN`)
   }
 
   return (
@@ -310,11 +316,11 @@ const Dominical = () => {
           {/* Submit Button */}
           <button 
             onClick={handleSubmit}
-            disabled={totalQuinielas < 2}
+            disabled={!allMatchesSelected || totalQuinielas < 2}
             className={`w-full font-semibold py-4 px-6 rounded-xl mt-6 transition-all duration-300 transform hover:scale-105 shadow-lg ${
-              totalQuinielas < 2 
+              !allMatchesSelected || totalQuinielas < 2
                 ? 'bg-slate-500 text-slate-300 cursor-not-allowed' 
-                : 'bg-purple-500 hover:bg-purple-600 text-white'
+                : 'bg-emerald-500 hover:bg-emerald-600 text-white'
             }`}
           >
             Enviar Quiniela (${totalAmount} MXN)
