@@ -16,6 +16,18 @@ import footballJornadaMatchesHandler from '../lib/handlers/football/jornada-matc
 const app = express()
 app.use(express.json())
 
+// Vercel rewrites /api/login -> /api/index?path=login
+// Reescribir req.url para que Express enrute correctamente
+app.use((req, res, next) => {
+  if (req.query.path) {
+    const originalPath = req.url.startsWith('/api/') 
+      ? `/api/${req.query.path}` 
+      : `/${req.query.path}`
+    req.url = originalPath
+  }
+  next()
+})
+
 // Auth
 app.all('/api/login', loginHandler)
 app.all('/api/register', registerHandler)
