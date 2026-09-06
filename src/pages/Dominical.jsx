@@ -40,12 +40,11 @@ const Dominical = () => {
     const fetchMatches = async () => {
       try {
         const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
-        const bagDate = getNextBagDate('dominical')
-        const response = await fetch(`${apiUrl}/api/football/fixtures?date=${bagDate}&bagType=dominical`)
+        const response = await fetch(`${apiUrl}/api/football/jornada-matches?type=dominical`)
         
         if (response.ok) {
           const data = await response.json()
-          setMatches(Array.isArray(data) ? data : [])
+          setMatches(Array.isArray(data.matches) ? data.matches : [])
         } else {
           console.error('Error fetching matches:', response.statusText)
         }
@@ -99,19 +98,15 @@ const Dominical = () => {
     return `${dayString} • ${timeString}`
   }
 
-  const getLeagueName = (leagueId) => {
-    const leagues = {
-      153: 'Championship',
-      164: 'Ligue 2'
-    }
-    return leagues[leagueId] || 'Liga'
+  const getLeagueName = (match) => {
+    return match.league_name || 'Liga'
   }
 
   const getMatchResult = (match) => {
     // Verificar si el partido ya terminó
     if (match.match_status === 'FT' || match.match_status === 'AET' || match.match_status === 'PEN') {
-      const homeScore = parseInt(match.match_hometeam_score) || 0
-      const awayScore = parseInt(match.match_awayteam_score) || 0
+      const homeScore = parseInt(match.home_score) || 0
+      const awayScore = parseInt(match.away_score) || 0
       
       if (homeScore > awayScore) {
         return { winner: 'home', status: 'finished', homeScore, awayScore }
@@ -232,29 +227,29 @@ const Dominical = () => {
                     <div className="flex items-center gap-3 sm:gap-4">
                       <span className="text-xl sm:text-2xl">⚽</span>
                       <div className="flex items-center gap-2">
-                        {match.team_home_badge && (
+                        {match.home_team_badge && (
                           <img 
-                            src={match.team_home_badge} 
-                            alt={match.match_hometeam_name}
+                            src={match.home_team_badge} 
+                            alt={match.home_team_name}
                             className={`w-8 h-8 sm:w-10 sm:h-10 object-contain ${getMatchResult(match).winner === 'home' ? 'ring-2 ring-emerald-400 rounded-full' : getMatchResult(match).winner === 'away' ? 'opacity-50' : ''}`}
                             onError={(e) => e.target.style.display = 'none'}
                           />
                         )}
                         <div>
                           <p className={`font-semibold text-sm sm:text-base ${getMatchResult(match).winner === 'home' ? 'text-emerald-400' : getMatchResult(match).winner === 'away' ? 'text-red-400' : getMatchResult(match).winner === 'draw' ? 'text-yellow-400' : 'text-white'}`}>
-                            {match.match_hometeam_name} vs {match.match_awayteam_name}
+                            {match.home_team_name} vs {match.away_team_name}
                           </p>
                           <p className="text-slate-400 text-xs sm:text-sm">
-                            {getLeagueName(match.league_id)} • {formatMatchDate(match.match_date)}
+                            {getLeagueName(match)} • {formatMatchDate(match.match_date)}
                             {getMatchResult(match).status === 'finished' && (
-                              <span className="ml-2 text-yellow-400">• {match.match_hometeam_score} - {match.match_awayteam_score}</span>
+                              <span className="ml-2 text-yellow-400">• {match.home_score} - {match.away_score}</span>
                             )}
                           </p>
                         </div>
-                        {match.team_away_badge && (
+                        {match.away_team_badge && (
                           <img 
-                            src={match.team_away_badge} 
-                            alt={match.match_awayteam_name}
+                            src={match.away_team_badge} 
+                            alt={match.away_team_name}
                             className={`w-8 h-8 sm:w-10 sm:h-10 object-contain ${getMatchResult(match).winner === 'away' ? 'ring-2 ring-emerald-400 rounded-full' : getMatchResult(match).winner === 'home' ? 'opacity-50' : ''}`}
                             onError={(e) => e.target.style.display = 'none'}
                           />
