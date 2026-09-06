@@ -38,5 +38,18 @@ app.all('/api/football/fixtures', footballFixturesHandler)
 app.all('/api/football/jornada-matches', footballJornadaMatchesHandler)
 
 export default async function handler(req, res) {
-  await app(req, res)
+  try {
+    await new Promise((resolve, reject) => {
+      app(req, res, (err) => {
+        if (err) reject(err)
+        else resolve()
+      })
+    })
+  } catch (error) {
+    console.error('Error en api/index:', error)
+    res.status(500).json({ 
+      error: 'Error interno del servidor: ' + (error.message || 'Unknown error'),
+      stack: error.stack || 'No stack'
+    })
+  }
 }
