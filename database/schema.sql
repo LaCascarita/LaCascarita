@@ -18,6 +18,7 @@ CREATE TABLE users (
     email VARCHAR(255) UNIQUE, -- Opcional para futuras funcionalidades
     auth_id UUID UNIQUE, -- Referencia a Supabase Auth
     user_id VARCHAR(20) UNIQUE NOT NULL, -- Formato LC-XXXXXX
+    password_hash VARCHAR(255) NOT NULL, -- Contraseña hasheada con bcrypt
     first_name VARCHAR(100),
     last_name VARCHAR(100),
     profile_picture_url TEXT,

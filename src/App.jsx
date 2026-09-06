@@ -7,6 +7,8 @@ import ForgotPassword from './pages/ForgotPassword'
 import MediaSemana from './pages/MediaSemana'
 import FinDeSemana from './pages/FinDeSemana'
 import Dominical from './pages/Dominical'
+import AdminLogin from './pages/AdminLogin'
+import AdminDashboard from './pages/AdminDashboard'
 
 function App() {
   return (
@@ -20,6 +22,8 @@ function App() {
         <Route path="/media-semana" element={<MediaSemana />} />
         <Route path="/fin-de-semana" element={<FinDeSemana />} />
         <Route path="/dominical" element={<Dominical />} />
+        <Route path="/admin-login" element={<AdminLogin />} />
+        <Route path="/admin-dashboard" element={<AdminDashboard />} />
       </Routes>
     </Router>
   )
