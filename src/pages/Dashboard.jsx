@@ -350,40 +350,16 @@ const Dashboard = () => {
         )}
 
         {activeSection === 'participations' && (
-          <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 sm:p-6 border border-white/20">
-            <h3 className="text-lg sm:text-xl font-semibold text-white mb-4">🎯 Mis Participaciones</h3>
-            <p className="text-slate-400 mb-6">Aquí verás todas tus quinielas activas y su estado.</p>
-            
-            <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="bg-white/5 rounded-lg p-4 border border-white/10">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
-                    <div>
-                      <p className="text-white font-semibold text-sm sm:text-base">Quiniela Fin de Semana #{i}</p>
-                      <p className="text-slate-400 text-xs sm:text-sm">Folio: LC-FS-00125{i}</p>
-                    </div>
-                    <span className="bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full text-xs sm:text-sm self-start sm:self-auto">
-                      Confirmada
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 sm:gap-4 text-xs sm:text-sm">
-                    <div>
-                      <p className="text-slate-400">Participaciones</p>
-                      <p className="text-white font-semibold">4</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-400">Aciertos</p>
-                      <p className="text-white font-semibold">6/9</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-400">Estado</p>
-                      <p className="text-white font-semibold">En curso</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <WalletSection
+            defaultTab="participations"
+            balance={balance}
+            transactions={transactions}
+            participations={participations}
+            walletLoading={walletLoading}
+            onDeposit={handleDeposit}
+            onWithdraw={handleWithdraw}
+            onRefresh={refreshBalance}
+          />
         )}
 
         {activeSection === 'prizes' && (
