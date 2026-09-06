@@ -26,7 +26,12 @@ export default async function handler(req, res) {
   }
 
   try {
+    console.log('Iniciando registro...')
+    console.log('Supabase URL:', supabaseUrl ? 'Configurada' : 'No configurada')
+    console.log('Supabase Key:', supabaseKey ? 'Configurada' : 'No configurada')
+
     const { username, phone, password } = req.body
+    console.log('Datos recibidos:', { username, phone })
 
     // Validaciones
     if (!username || !phone || !password) {
@@ -38,6 +43,7 @@ export default async function handler(req, res) {
     }
 
     // Verificar si el usuario ya existe (verificar username y phone por separado)
+    console.log('Verificando username...')
     const { data: existingUsername, error: usernameError } = await supabase
       .from('users')
       .select('username')
@@ -53,6 +59,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'El nombre de usuario ya está registrado' })
     }
 
+    console.log('Verificando phone...')
     const { data: existingPhone, error: phoneError } = await supabase
       .from('users')
       .select('phone')
@@ -71,12 +78,15 @@ export default async function handler(req, res) {
     // Generar user_id único
     const randomNumber = Math.floor(Math.random() * 900000) + 100000
     const userId = `LC-${randomNumber}`
+    console.log('User ID generado:', userId)
 
     // Hashear contraseña
+    console.log('Hasheando contraseña...')
     const saltRounds = 10
     const passwordHash = await bcrypt.hash(password, saltRounds)
 
     // Insertar usuario en la base de datos
+    console.log('Insertando usuario en base de datos...')
     const { data: newUser, error: insertError } = await supabase
       .from('users')
       .insert([
@@ -92,8 +102,11 @@ export default async function handler(req, res) {
       .single()
 
     if (insertError) {
+      console.error('Error insertando usuario:', insertError)
       return res.status(500).json({ error: 'Error al registrar usuario: ' + insertError.message })
     }
+
+    console.log('Usuario insertado exitosamente:', newUser.id)
 
     // Generar tokens JWT
     const userData = {
