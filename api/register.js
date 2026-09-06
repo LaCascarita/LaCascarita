@@ -37,19 +37,35 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'El teléfono debe tener 10 dígitos' })
     }
 
-    // Verificar si el usuario ya existe
-    const { data: existingUser, error: checkError } = await supabase
+    // Verificar si el usuario ya existe (verificar username y phone por separado)
+    const { data: existingUsername, error: usernameError } = await supabase
       .from('users')
-      .select('username, phone')
-      .or(`username.eq.${username},phone.eq.${phone}`)
+      .select('username')
+      .eq('username', username)
       .limit(1)
 
-    if (checkError) {
-      return res.status(500).json({ error: 'Error al verificar usuario' })
+    if (usernameError) {
+      console.error('Error verificando username:', usernameError)
+      return res.status(500).json({ error: 'Error al verificar usuario: ' + usernameError.message })
     }
 
-    if (existingUser && existingUser.length > 0) {
-      return res.status(400).json({ error: 'El usuario o teléfono ya está registrado' })
+    if (existingUsername && existingUsername.length > 0) {
+      return res.status(400).json({ error: 'El nombre de usuario ya está registrado' })
+    }
+
+    const { data: existingPhone, error: phoneError } = await supabase
+      .from('users')
+      .select('phone')
+      .eq('phone', phone)
+      .limit(1)
+
+    if (phoneError) {
+      console.error('Error verificando phone:', phoneError)
+      return res.status(500).json({ error: 'Error al verificar usuario: ' + phoneError.message })
+    }
+
+    if (existingPhone && existingPhone.length > 0) {
+      return res.status(400).json({ error: 'El teléfono ya está registrado' })
     }
 
     // Generar user_id único
