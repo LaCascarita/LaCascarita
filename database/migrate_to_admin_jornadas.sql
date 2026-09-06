@@ -22,11 +22,5 @@ ALTER TABLE IF EXISTS predictions
   ADD CONSTRAINT predictions_match_id_fkey
   FOREIGN KEY (match_id) REFERENCES admin_jornada_partidos(id);
 
--- 4. Asegurar que las columnas de usuario sean UUID
-ALTER TABLE IF EXISTS participations
-  ALTER COLUMN jornada_id TYPE UUID,
-  ALTER COLUMN user_id TYPE UUID;
-
-ALTER TABLE IF EXISTS predictions
-  ALTER COLUMN participation_id TYPE UUID,
-  ALTER COLUMN match_id TYPE UUID;
+-- Nota: las columnas ya son UUID. No es necesario alterar tipos,
+-- ya que eso rompe vistas que dependen de ellas (user_rankings).
