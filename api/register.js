@@ -2,14 +2,6 @@ import { createClient } from '@supabase/supabase-js'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
-const supabase = createClient(supabaseUrl, supabaseKey)
-
-const JWT_SECRET = process.env.JWT_SECRET || process.env.VITE_JWT_SECRET || 'default_secret_change_in_production'
-const JWT_EXPIRES_IN = '15m'
-const REFRESH_TOKEN_EXPIRES_IN = '7d'
-
 export default async function handler(req, res) {
   // Habilitar CORS
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -27,8 +19,21 @@ export default async function handler(req, res) {
 
   try {
     console.log('Iniciando registro...')
+    
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
+    
     console.log('Supabase URL:', supabaseUrl ? 'Configurada' : 'No configurada')
-    console.log('Supabase Key:', supabaseKey ? 'Configurada' : 'No configurada')
+    console.log('Supabase Key:', supabaseKey ? 'Configurada (longitud: ' + supabaseKey.length + ')' : 'No configurada')
+    
+    if (!supabaseUrl || !supabaseKey) {
+      return res.status(500).json({ error: 'Variables de entorno de Supabase no configuradas' })
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey)
+    const JWT_SECRET = process.env.JWT_SECRET || process.env.VITE_JWT_SECRET || 'default_secret_change_in_production'
+    const JWT_EXPIRES_IN = '15m'
+    const REFRESH_TOKEN_EXPIRES_IN = '7d'
 
     const { username, phone, password } = req.body
     console.log('Datos recibidos:', { username, phone })
