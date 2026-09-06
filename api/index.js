@@ -922,7 +922,10 @@ app.get('/api/balance', async (req, res) => {
 
     const { data: participations, error: partError } = await supabase
       .from('participations')
-      .select('*')
+      .select(`
+        *,
+        admin_jornadas ( type, name )
+      `)
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(50)
@@ -1000,6 +1003,189 @@ app.post('/api/withdrawals', async (req, res) => {
     })
 
     res.json({ message: 'Solicitud de retiro creada', withdrawal })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// ============================================================
+// ENVIAR QUINIELA
+// ============================================================
+app.post('/api/quinielas', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const user = getUserFromToken(req)
+    if (!user) return res.status(401).json({ error: 'No autorizado' })
+
+    const { type, selections } = req.body
+    if (!type || !selections || Object.keys(selections).length === 0) {
+      return res.status(400).json({ error: 'Datos incompletos' })
+    }
+
+    const typeMap = { 'media_semana': 'MS', 'fin_de_semana': 'FS', 'dominical': 'DO' }
+    const typeShort = typeMap[type] || 'XX'
+
+    const { data: jornada, error: jornadaError } = await supabase
+      .from('admin_jornadas')
+      .select('*')
+      .eq('type', type)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (jornadaError || !jornada) return res.status(404).json({ error: 'No hay jornada activa para este tipo' })
+
+    const { data: partidos, error: partidosError } = await supabase
+      .from('admin_jornada_partidos')
+      .select('*')
+      .eq('jornada_id', jornada.id)
+      .order('position', { ascending: true })
+
+    if (partidosError) throw partidosError
+    if (!partidos || partidos.length === 0) return res.status(404).json({ error: 'La jornada no tiene partidos' })
+
+    const missing = partidos.some(p => !selections[p.match_id] || selections[p.match_id].length === 0)
+    if (missing) return res.status(400).json({ error: 'Debes seleccionar al menos un resultado en cada partido' })
+
+    const totalQuinielas = partidos.reduce((acc, p) => acc * (selections[p.match_id]?.length || 1), 1)
+    if (totalQuinielas < 2) return res.status(400).json({ error: 'Mínimo 2 quinielas (al menos un doble)' })
+
+    const costPerQuiniela = 10
+    const totalAmount = totalQuinielas * costPerQuiniela
+
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('balance')
+      .eq('id', user.id)
+      .single()
+
+    if (userError || !userData) return res.status(404).json({ error: 'Usuario no encontrado' })
+
+    const currentBalance = parseFloat(userData.balance) || 0
+    if (currentBalance < totalAmount) return res.status(400).json({ error: 'Saldo insuficiente' })
+
+    const matchIds = partidos.map(p => p.match_id)
+    const options = matchIds.map(id => selections[id].map(opt => ({ matchId: id, option: opt })))
+
+    const cartesian = (arr) => arr.reduce((a, b) => a.flatMap(d => b.map(e => [...d, e])), [[]])
+    const combinations = cartesian(options)
+    const createdParticipations = []
+
+    for (const combination of combinations) {
+      const folioNum = Math.floor(Math.random() * 1000000).toString().padStart(6, '0')
+      let folio = `LC-${typeShort}-${folioNum}`
+
+      const { data: existing } = await supabase
+        .from('participations')
+        .select('id')
+        .eq('folio', folio)
+        .maybeSingle()
+
+      if (existing) {
+        folio = `LC-${typeShort}-${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`
+      }
+
+      const { data: participation, error: partError } = await supabase
+        .from('participations')
+        .insert([{
+          folio,
+          user_id: user.id,
+          jornada_id: jornada.id,
+          payment_status: 'paid',
+          participation_status: 'confirmed',
+          payment_method: 'balance',
+          payment_amount: costPerQuiniela,
+          payment_date: new Date().toISOString(),
+          predictions_count: partidos.length,
+          correct_predictions: 0,
+          prize_amount: 0.00,
+          prize_status: 'none'
+        }])
+        .select()
+        .single()
+
+      if (partError) throw partError
+
+      const predictionsToInsert = combination.map(sel => {
+        const partido = partidos.find(p => p.match_id === sel.matchId)
+        let prediction
+        if (sel.option === 'local') prediction = 'home'
+        else if (sel.option === 'empate') prediction = 'draw'
+        else if (sel.option === 'visitante') prediction = 'away'
+        else prediction = sel.option
+
+        return {
+          participation_id: participation.id,
+          match_id: partido.id,
+          prediction
+        }
+      })
+
+      const { error: predError } = await supabase
+        .from('predictions')
+        .insert(predictionsToInsert)
+
+      if (predError) throw predError
+
+      createdParticipations.push(participation)
+    }
+
+    const newBalance = currentBalance - totalAmount
+    await supabase.from('users').update({ balance: newBalance }).eq('id', user.id)
+
+    await createBalanceTransaction({
+      user_id: user.id,
+      type: 'bet',
+      amount: -totalAmount,
+      balance_before: currentBalance,
+      balance_after: newBalance,
+      description: `Compra de ${totalQuinielas} quinielas en ${type}`
+    })
+
+    res.json({
+      message: 'Quinielas enviadas correctamente',
+      totalQuinielas,
+      totalAmount,
+      participations: createdParticipations
+    })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// ============================================================
+// HISTORIAL DE PARTICIPACIONES
+// ============================================================
+app.get('/api/participations', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const user = getUserFromToken(req)
+    if (!user) return res.status(401).json({ error: 'No autorizado' })
+
+    const { data, error } = await supabase
+      .from('participations')
+      .select(`
+        *,
+        admin_jornadas ( type, name )
+      `)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    res.json({ participations: data || [] })
   } catch (error) {
     res.status(500).json({ error: error.message })
   }

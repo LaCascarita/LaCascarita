@@ -154,7 +154,7 @@ const FinDeSemana = () => {
 
   const allMatchesSelected = matches.length > 0 && matches.every(match => selections[match.match_id]?.length > 0)
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!allMatchesSelected) {
       alert(`Debes seleccionar al menos un resultado en cada uno de los ${matches.length} partidos.`)
       return
@@ -163,9 +163,23 @@ const FinDeSemana = () => {
       alert('Mínimo de participación: 2 quinielas ($20 MXN). Selecciona al menos un doble.')
       return
     }
-    // Aquí iría la lógica para enviar la quiniela al backend
-    console.log('Enviando quiniela:', selections)
-    alert(`Quiniela enviada: ${totalQuinielas} quinielas por $${totalAmount} MXN`)
+
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
+      const response = await fetch(`${apiUrl}/api/quinielas`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'fin_de_semana', selections })
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Error al enviar quiniela')
+
+      alert(`Quinielas enviadas: ${data.totalQuinielas} por $${data.totalAmount} MXN`)
+      setSelections({})
+    } catch (error) {
+      alert('Error: ' + error.message)
+    }
   }
 
   return (

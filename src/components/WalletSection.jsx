@@ -58,6 +58,15 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
     return labels[status] || status
   }
 
+  const getJornadaName = (type) => {
+    const names = {
+      media_semana: 'Media Semana',
+      fin_de_semana: 'Fin de Semana',
+      dominical: 'Dominical'
+    }
+    return names[type] || type
+  }
+
   const tabs = [
     { id: 'deposit', label: 'Recargar' },
     { id: 'withdraw', label: 'Retirar' },
@@ -293,36 +302,26 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
               <thead>
                 <tr className="border-b border-white/10">
                   <th className="text-left text-slate-400 pb-3 px-2">Folio</th>
-                  <th className="text-left text-slate-400 pb-3 px-2">Monto</th>
-                  <th className="text-left text-slate-400 pb-3 px-2">Estado</th>
-                  <th className="text-left text-slate-400 pb-3 px-2">Premio</th>
+                  <th className="text-left text-slate-400 pb-3 px-2">Tipo</th>
                   <th className="text-left text-slate-400 pb-3 px-2">Fecha</th>
+                  <th className="text-left text-slate-400 pb-3 px-2">Aciertos</th>
+                  <th className="text-left text-slate-400 pb-3 px-2">Premio</th>
                 </tr>
               </thead>
               <tbody className="text-white">
                 {participations.map((p) => (
                   <tr key={p.id} className="border-b border-white/5">
                     <td className="py-3 px-2">{p.folio}</td>
-                    <td className="py-3 px-2">${parseFloat(p.payment_amount || 0).toFixed(2)}</td>
-                    <td className="py-3 px-2">
-                      <span className={`px-2 py-1 rounded text-xs ${
-                        p.participation_status === 'confirmed'
-                          ? 'bg-emerald-500/20 text-emerald-400'
-                          : p.participation_status === 'pending'
-                          ? 'bg-orange-500/20 text-orange-400'
-                          : 'bg-slate-500/20 text-slate-400'
-                      }`}>
-                        {p.participation_status}
-                      </span>
-                    </td>
+                    <td className="py-3 px-2">{getJornadaName(p.admin_jornadas?.type)}</td>
+                    <td className="py-3 px-2">{formatDate(p.created_at)}</td>
+                    <td className="py-3 px-2">{p.correct_predictions || 0}/{p.predictions_count || 0}</td>
                     <td className="py-3 px-2">
                       {parseFloat(p.prize_amount || 0) > 0 ? (
-                        <span className="text-emerald-400">+${parseFloat(p.prize_amount).toFixed(2)}</span>
+                        <span className="text-emerald-400 font-semibold">+${parseFloat(p.prize_amount).toFixed(2)}</span>
                       ) : (
                         '-'
                       )}
                     </td>
-                    <td className="py-3 px-2">{formatDate(p.created_at)}</td>
                   </tr>
                 ))}
               </tbody>
