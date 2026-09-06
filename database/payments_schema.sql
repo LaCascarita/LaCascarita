@@ -124,9 +124,9 @@ ON withdrawals TO service_role USING (true) WITH CHECK (true);
 -- ============================================
 CREATE OR REPLACE VIEW user_balance_history AS
 SELECT
-    u.id AS user_id,
+    u.id AS user_uuid,
     u.username,
-    u.user_id,
+    u.user_id AS public_user_id,
     t.id AS transaction_id,
     t.type,
     t.amount,
