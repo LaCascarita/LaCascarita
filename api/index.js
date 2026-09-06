@@ -1071,55 +1071,48 @@ app.post('/api/quinielas', async (req, res) => {
     const currentBalance = parseFloat(userData.balance) || 0
     if (currentBalance < totalAmount) return res.status(400).json({ error: 'Saldo insuficiente' })
 
-    const matchIds = partidos.map(p => p.match_id)
-    const options = matchIds.map(id => selections[id].map(opt => ({ matchId: id, option: opt })))
+    const folioNum = Math.floor(Math.random() * 1000000).toString().padStart(6, '0')
+    let folio = `LC-${typeShort}-${folioNum}`
 
-    const cartesian = (arr) => arr.reduce((a, b) => a.flatMap(d => b.map(e => [...d, e])), [[]])
-    const combinations = cartesian(options)
-    const createdParticipations = []
+    const { data: existing } = await supabase
+      .from('participations')
+      .select('id')
+      .eq('folio', folio)
+      .maybeSingle()
 
-    for (const combination of combinations) {
-      const folioNum = Math.floor(Math.random() * 1000000).toString().padStart(6, '0')
-      let folio = `LC-${typeShort}-${folioNum}`
+    if (existing) {
+      folio = `LC-${typeShort}-${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`
+    }
 
-      const { data: existing } = await supabase
-        .from('participations')
-        .select('id')
-        .eq('folio', folio)
-        .maybeSingle()
+    const { data: participation, error: partError } = await supabase
+      .from('participations')
+      .insert([{
+        folio,
+        user_id: user.id,
+        jornada_id: jornada.id,
+        payment_status: 'paid',
+        participation_status: 'confirmed',
+        payment_method: 'balance',
+        payment_amount: totalAmount,
+        payment_date: new Date().toISOString(),
+        predictions_count: partidos.length,
+        correct_predictions: 0,
+        prize_amount: 0.00,
+        prize_status: 'none'
+      }])
+      .select()
+      .single()
 
-      if (existing) {
-        folio = `LC-${typeShort}-${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`
-      }
+    if (partError) throw partError
 
-      const { data: participation, error: partError } = await supabase
-        .from('participations')
-        .insert([{
-          folio,
-          user_id: user.id,
-          jornada_id: jornada.id,
-          payment_status: 'paid',
-          participation_status: 'confirmed',
-          payment_method: 'balance',
-          payment_amount: costPerQuiniela,
-          payment_date: new Date().toISOString(),
-          predictions_count: partidos.length,
-          correct_predictions: 0,
-          prize_amount: 0.00,
-          prize_status: 'none'
-        }])
-        .select()
-        .single()
-
-      if (partError) throw partError
-
-      const predictionsToInsert = combination.map(sel => {
-        const partido = partidos.find(p => p.match_id === sel.matchId)
+    const predictionsToInsert = partidos.flatMap(partido => {
+      const matchSelections = selections[partido.match_id] || []
+      return matchSelections.map(opt => {
         let prediction
-        if (sel.option === 'local') prediction = 'home'
-        else if (sel.option === 'empate') prediction = 'draw'
-        else if (sel.option === 'visitante') prediction = 'away'
-        else prediction = sel.option
+        if (opt === 'local') prediction = 'home'
+        else if (opt === 'empate') prediction = 'draw'
+        else if (opt === 'visitante') prediction = 'away'
+        else prediction = opt
 
         return {
           participation_id: participation.id,
@@ -1127,15 +1120,15 @@ app.post('/api/quinielas', async (req, res) => {
           prediction
         }
       })
+    })
 
-      const { error: predError } = await supabase
-        .from('predictions')
-        .insert(predictionsToInsert)
+    const { error: predError } = await supabase
+      .from('predictions')
+      .insert(predictionsToInsert)
 
-      if (predError) throw predError
+    if (predError) throw predError
 
-      createdParticipations.push(participation)
-    }
+    const createdParticipations = [participation]
 
     const newBalance = currentBalance - totalAmount
     await supabase.from('users').update({ balance: newBalance }).eq('id', user.id)
