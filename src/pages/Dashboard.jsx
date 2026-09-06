@@ -641,6 +641,19 @@ const Dashboard = () => {
             onRefresh={refreshBalance}
           />
         )}
+
+        {activeSection === 'history' && (
+          <WalletSection
+            defaultTab="participations"
+            balance={balance}
+            transactions={transactions}
+            participations={participations}
+            walletLoading={walletLoading}
+            onDeposit={handleDeposit}
+            onWithdraw={handleWithdraw}
+            onRefresh={refreshBalance}
+          />
+        )}
       </div>
     </div>
   )

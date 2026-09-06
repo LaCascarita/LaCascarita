@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
-const WalletSection = ({ balance, transactions, participations, walletLoading, onDeposit, onWithdraw, onRefresh }) => {
-  const [activeTab, setActiveTab] = useState('deposit')
+const WalletSection = ({ balance, transactions, participations, walletLoading, onDeposit, onWithdraw, onRefresh, defaultTab = 'deposit' }) => {
+  const [activeTab, setActiveTab] = useState(defaultTab)
   const [depositAmount, setDepositAmount] = useState('')
   const [depositMethod, setDepositMethod] = useState('mercadopago')
   const [withdrawAmount, setWithdrawAmount] = useState('')

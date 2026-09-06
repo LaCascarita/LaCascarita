@@ -172,13 +172,15 @@ const FinDeSemana = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'fin_de_semana', selections })
       })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.error || 'Error al enviar quiniela')
+      const contentType = response.headers.get('content-type') || ''
+      const data = contentType.includes('application/json') ? await response.json() : { error: await response.text() }
+      if (!response.ok) throw new Error(data.error || `Error ${response.status}`)
 
       alert(`Quinielas enviadas: ${data.totalQuinielas} por $${data.totalAmount} MXN`)
       setSelections({})
+      navigate('/dashboard')
     } catch (error) {
-      alert('Error: ' + error.message)
+      alert('Error al enviar quiniela: ' + error.message)
     }
   }
 
