@@ -107,12 +107,15 @@ ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_balance_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE withdrawals ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Service role full access on payments" ON payments;
 CREATE POLICY "Service role full access on payments"
 ON payments TO service_role USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Service role full access on user_balance_transactions" ON user_balance_transactions;
 CREATE POLICY "Service role full access on user_balance_transactions"
 ON user_balance_transactions TO service_role USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Service role full access on withdrawals" ON withdrawals;
 CREATE POLICY "Service role full access on withdrawals"
 ON withdrawals TO service_role USING (true) WITH CHECK (true);
 
