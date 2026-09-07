@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { getNextBagDate } from '../utils/bagDates'
 import { format } from 'date-fns-tz'
+import { apiFetch } from '../utils/api'
 
 const MediaSemana = () => {
   const navigate = useNavigate()
@@ -16,10 +17,7 @@ const MediaSemana = () => {
   useEffect(() => {
     const getUser = async () => {
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
-        const response = await fetch(`${apiUrl}/api/me`, {
-          credentials: 'include'
-        })
+        const response = await apiFetch('/api/me')
 
         if (response.ok) {
           const data = await response.json()
@@ -39,8 +37,7 @@ const MediaSemana = () => {
   useEffect(() => {
     const fetchMatches = async () => {
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
-        const response = await fetch(`${apiUrl}/api/football/jornada-matches?type=media_semana`)
+        const response = await apiFetch('/api/football/jornada-matches?type=media_semana')
         
         if (response.ok) {
           const data = await response.json()
@@ -165,10 +162,8 @@ const MediaSemana = () => {
     }
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
-      const response = await fetch(`${apiUrl}/api/quinielas`, {
+      const response = await apiFetch('/api/quinielas', {
         method: 'POST',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'media_semana', selections })
       })

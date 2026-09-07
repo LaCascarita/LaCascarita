@@ -191,6 +191,9 @@ app.get('/api/me', async (req, res) => {
 
     res.json({ user: userData })
   } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token expirado' })
+    }
     if (error.name === 'JsonWebTokenError') {
       return res.status(403).json({ error: 'Token inválido' })
     }
@@ -212,6 +215,58 @@ app.post('/api/logout', async (req, res) => {
   ])
 
   res.json({ message: 'Logout exitoso' })
+})
+
+app.post('/api/refresh', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const cookies = req.headers.cookie || ''
+    const refresh_token = cookies.split('; ').find(cookie => cookie.startsWith('refresh_token='))?.split('=')[1]
+
+    if (!refresh_token) {
+      return res.status(401).json({ error: 'No autorizado' })
+    }
+
+    const decoded = jwt.verify(refresh_token, JWT_SECRET)
+
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('id, username, user_id, phone, balance, role')
+      .eq('id', decoded.id)
+      .single()
+
+    if (userError || !userData) {
+      return res.status(404).json({ error: 'Usuario no encontrado' })
+    }
+
+    const payload = {
+      id: userData.id,
+      username: userData.username,
+      user_id: userData.user_id,
+      phone: userData.phone,
+      balance: userData.balance,
+      role: userData.role
+    }
+
+    const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' })
+
+    res.setHeader('Set-Cookie', [
+      `access_token=${accessToken}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${60 * 60}`
+    ])
+
+    res.json({ user: payload })
+  } catch (error) {
+    if (error.name === 'TokenExpiredError' || error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ error: 'Sesión inválida' })
+    }
+    res.status(500).json({ error: 'Error interno del servidor' })
+  }
 })
 
 app.post('/api/send-verification', async (req, res) => {

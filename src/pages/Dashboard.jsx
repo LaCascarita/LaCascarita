@@ -4,6 +4,7 @@ import DashboardCard from '../components/DashboardCard'
 import StatCard from '../components/StatCard'
 import NoticeBanner from '../components/NoticeBanner'
 import WalletSection from '../components/WalletSection'
+import { apiFetch } from '../utils/api'
 
 const Dashboard = () => {
   const navigate = useNavigate()
@@ -54,10 +55,7 @@ const Dashboard = () => {
   useEffect(() => {
     const getUser = async () => {
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
-        const response = await fetch(`${apiUrl}/api/me`, {
-          credentials: 'include'
-        })
+        const response = await apiFetch('/api/me')
 
         if (response.ok) {
           const data = await response.json()
@@ -78,10 +76,7 @@ const Dashboard = () => {
     const fetchBalanceData = async () => {
       try {
         setWalletLoading(true)
-        const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
-        const response = await fetch(`${apiUrl}/api/balance`, {
-          credentials: 'include'
-        })
+        const response = await apiFetch('/api/balance')
         if (response.ok) {
           const data = await response.json()
           setBalance(data.balance)
@@ -97,10 +92,7 @@ const Dashboard = () => {
 
     const fetchUpcomingMatches = async () => {
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
-        const response = await fetch(`${apiUrl}/api/football/upcoming-matches`, {
-          credentials: 'include'
-        })
+        const response = await apiFetch('/api/football/upcoming-matches')
         if (response.ok) {
           const data = await response.json()
           setUpcomingMatches(data || [])
@@ -130,11 +122,9 @@ const Dashboard = () => {
   const handleDeposit = async ({ amount, method }) => {
     try {
       setWalletLoading(true)
-      const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
       const endpoint = method === 'mercadopago' ? '/api/payments/deposit' : '/api/payments/spei-request'
-      const response = await fetch(`${apiUrl}${endpoint}`, {
+      const response = await apiFetch(endpoint, {
         method: 'POST',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount })
       })
@@ -156,10 +146,8 @@ const Dashboard = () => {
   const handleWithdraw = async ({ amount, bank_name, account_number, clabe, card_holder }) => {
     try {
       setWalletLoading(true)
-      const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
-      const response = await fetch(`${apiUrl}/api/withdrawals`, {
+      const response = await apiFetch('/api/withdrawals', {
         method: 'POST',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount, bank_name, account_number, clabe, card_holder })
       })
@@ -176,10 +164,7 @@ const Dashboard = () => {
 
   const refreshBalance = async () => {
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
-      const response = await fetch(`${apiUrl}/api/balance`, {
-        credentials: 'include'
-      })
+      const response = await apiFetch('/api/balance')
       if (response.ok) {
         const data = await response.json()
         setBalance(data.balance)
