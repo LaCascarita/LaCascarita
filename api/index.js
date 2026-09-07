@@ -610,6 +610,73 @@ app.get('/api/football/jornada-matches', async (req, res) => {
   }
 })
 
+app.get('/api/football/upcoming-matches', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const types = ['media_semana', 'fin_de_semana', 'dominical']
+    const bagLabels = {
+      media_semana: 'Media Semana',
+      fin_de_semana: 'Fin de Semana',
+      dominical: 'Dominical'
+    }
+    const result = []
+
+    for (const type of types) {
+      const { data: jornada, error: jornadaError } = await supabase
+        .from('admin_jornadas')
+        .select('id, name, type')
+        .eq('type', type)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (jornadaError && jornadaError.code === 'PGRST116') continue
+      if (jornadaError) throw jornadaError
+      if (!jornada) continue
+
+      const { data: matches, error: matchesError } = await supabase
+        .from('admin_jornada_partidos')
+        .select('id, home_team_name, away_team_name, match_date')
+        .eq('jornada_id', jornada.id)
+        .order('position', { ascending: true })
+        .limit(1)
+
+      if (matchesError) throw matchesError
+      if (!matches || matches.length === 0) continue
+
+      const match = matches[0]
+      const dateObj = new Date(match.match_date)
+      const dateStr = dateObj.toLocaleString('es-MX', {
+        timeZone: 'America/Mexico_City',
+        weekday: 'long',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      })
+
+      result.push({
+        id: match.id,
+        home: match.home_team_name,
+        away: match.away_team_name,
+        date: dateStr.charAt(0).toUpperCase() + dateStr.slice(1),
+        type: bagLabels[type] || jornada.name
+      })
+    }
+
+    res.json(result)
+  } catch (error) {
+    console.error('Error fetching upcoming matches:', error)
+    res.status(500).json({ error: 'Failed to fetch upcoming matches' })
+  }
+})
+
 // ============================================================
 // HELPERS DE AUTENTICACION Y SALDO
 // ============================================================

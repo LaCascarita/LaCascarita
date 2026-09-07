@@ -13,6 +13,7 @@ const Dashboard = () => {
   const [balance, setBalance] = useState(0)
   const [transactions, setTransactions] = useState([])
   const [participations, setParticipations] = useState([])
+  const [upcomingMatches, setUpcomingMatches] = useState([])
   const [walletLoading, setWalletLoading] = useState(false)
 
   const userStats = {
@@ -34,12 +35,6 @@ const Dashboard = () => {
     finDeSemana: '$12,300',
     dominical: '$5,200'
   }
-
-  const upcomingMatches = [
-    { id: 1, home: 'América', away: 'Monterrey', date: 'Sábado 16:00', type: 'Fin de Semana' },
-    { id: 2, home: 'Chivas', away: 'Pumas', date: 'Sábado 18:00', type: 'Fin de Semana' },
-    { id: 3, home: 'Tigres', away: 'Santos', date: 'Domingo 12:00', type: 'Dominical' },
-  ]
 
   const notices = [
     {
@@ -100,7 +95,23 @@ const Dashboard = () => {
       }
     }
 
+    const fetchUpcomingMatches = async () => {
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
+        const response = await fetch(`${apiUrl}/api/football/upcoming-matches`, {
+          credentials: 'include'
+        })
+        if (response.ok) {
+          const data = await response.json()
+          setUpcomingMatches(data || [])
+        }
+      } catch (error) {
+        console.error('Error al cargar proximos partidos:', error)
+      }
+    }
+
     getUser()
+    fetchUpcomingMatches()
   }, [])
 
   const handleLogout = async () => {
