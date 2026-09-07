@@ -15,13 +15,18 @@ const Dashboard = () => {
   const [participations, setParticipations] = useState([])
   const [walletLoading, setWalletLoading] = useState(false)
 
-  // Datos de ejemplo (se conectarán con Supabase después)
   const userStats = {
-    participations: 12,
-    prizes: '$2,450',
     ranking: 5,
     accuracy: '68%',
     activeQuinielas: 3
+  }
+
+  const totalPrizes = participations
+    .filter(p => parseFloat(p.prize_amount) > 0 && p.prize_status !== 'none')
+    .reduce((sum, p) => sum + parseFloat(p.prize_amount), 0)
+
+  const formatPrize = (amount) => {
+    return amount.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0 })
   }
 
   const currentBags = {
@@ -276,7 +281,7 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
               <DashboardCard
                 title="Mis Participaciones"
-                value={userStats.participations}
+                value={participations.length}
                 subtitle="Quinielas jugadas"
                 icon="🎯"
                 color="emerald"
@@ -284,7 +289,7 @@ const Dashboard = () => {
               />
               <DashboardCard
                 title="Mis Premios"
-                value={userStats.prizes}
+                value={formatPrize(totalPrizes)}
                 subtitle="Ganancias totales"
                 icon="🏆"
                 color="orange"
