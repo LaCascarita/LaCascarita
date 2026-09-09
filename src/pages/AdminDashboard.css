@@ -288,3 +288,261 @@
     gap: 8px;
   }
 }
+
+/* ============================================
+   VISTA TIPO EXCEL DE PARTICIPACIONES
+   ============================================ */
+
+.admin-tabs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.admin-tab {
+  padding: 12px 24px;
+  border: 2px solid #667eea;
+  background: white;
+  color: #667eea;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.admin-tab.active,
+.admin-tab:hover {
+  background: #667eea;
+  color: white;
+}
+
+.participations-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+  padding: 20px;
+  background: #f0f4ff;
+  border-radius: 8px;
+}
+
+.participations-summary p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.participations-table-wrapper {
+  overflow-x: auto;
+  margin-top: 24px;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.participations-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 800px;
+  font-size: 14px;
+}
+
+.participations-table th,
+.participations-table td {
+  padding: 12px;
+  border: 1px solid #e0e0e0;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.participations-table th {
+  background: #667eea;
+  color: white;
+  font-weight: 600;
+  min-width: 120px;
+}
+
+.participations-table th:first-child,
+.participations-table td:first-child {
+  position: sticky;
+  left: 0;
+  background: white;
+  z-index: 10;
+  min-width: 160px;
+  text-align: left;
+}
+
+.participations-table th:first-child {
+  background: #667eea;
+  color: white;
+}
+
+.participations-table tbody tr:nth-child(even) {
+  background: #f8f9fa;
+}
+
+.participations-table tbody tr:hover {
+  background: #f0f4ff;
+}
+
+.match-column {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.vs-small {
+  color: #b0b0b0;
+  font-size: 11px;
+}
+
+.user-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.user-cell .folio {
+  font-size: 11px;
+  color: #666;
+}
+
+.predictions-cell {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.prediction-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #667eea;
+  color: white;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.no-prediction {
+  color: #999;
+}
+
+.view-button {
+  padding: 6px 12px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.view-button:hover {
+  background: #5568c4;
+}
+
+.no-results {
+  text-align: center;
+  color: #666;
+  margin-top: 20px;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  padding: 30px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal-content h3 {
+  margin: 0 0 16px 0;
+  color: #333;
+}
+
+.modal-content p {
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+.modal-predictions {
+  margin: 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modal-prediction-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.modal-match {
+  font-weight: 600;
+  color: #333;
+}
+
+.modal-choices {
+  color: #667eea;
+  font-weight: 700;
+}
+
+.close-button {
+  width: 100%;
+  padding: 12px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 16px;
+}
+
+.close-button:hover {
+  background: #5568c4;
+}
+
+@media (max-width: 768px) {
+  .admin-tabs {
+    flex-direction: column;
+  }
+
+  .participations-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .participations-table th,
+  .participations-table td {
+    padding: 8px;
+    font-size: 12px;
+  }
+
+  .match-column {
+    font-size: 10px;
+  }
+}

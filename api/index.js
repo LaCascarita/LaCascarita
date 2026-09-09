@@ -1306,6 +1306,155 @@ app.get('/api/participations', async (req, res) => {
   }
 })
 
+// ============================================================
+// ACUMULADO DE BOLSAS (70% PREMIOS)
+// ============================================================
+app.get('/api/football/bag-prizes', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const types = ['media_semana', 'fin_de_semana', 'dominical']
+    const bagLabels = {
+      media_semana: 'Media Semana',
+      fin_de_semana: 'Fin de Semana',
+      dominical: 'Dominical'
+    }
+    const result = []
+
+    for (const type of types) {
+      const { data: jornada, error: jornadaError } = await supabase
+        .from('admin_jornadas')
+        .select('id, name, type')
+        .eq('type', type)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (jornadaError && jornadaError.code === 'PGRST116') continue
+      if (jornadaError) throw jornadaError
+      if (!jornada) continue
+
+      const { data: partidos, error: partidosError } = await supabase
+        .from('admin_jornada_partidos')
+        .select('id')
+        .eq('jornada_id', jornada.id)
+
+      if (partidosError) throw partidosError
+
+      const { data: participations, error: partError } = await supabase
+        .from('participations')
+        .select('payment_amount')
+        .eq('jornada_id', jornada.id)
+        .eq('participation_status', 'confirmed')
+
+      if (partError) throw partError
+
+      const totalCollected = (participations || []).reduce(
+        (sum, p) => sum + (parseFloat(p.payment_amount) || 0),
+        0
+      )
+      const prizePool = totalCollected * 0.7
+
+      result.push({
+        type,
+        label: bagLabels[type],
+        jornada_id: jornada.id,
+        jornada_name: jornada.name,
+        total_collected: totalCollected,
+        prize_pool: prizePool,
+        house_amount: totalCollected * 0.3,
+        participations_count: (participations || []).length,
+        matches_count: (partidos || []).length
+      })
+    }
+
+    res.json(result)
+  } catch (error) {
+    console.error('Error fetching bag prizes:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// ============================================================
+// PARTICIPACIONES POR JORNADA PARA PANEL ADMIN (EXCEL)
+// ============================================================
+app.get('/api/admin/jornada-participations', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const { type } = req.query
+    if (!type) return res.status(400).json({ error: 'Missing type parameter' })
+
+    const { data: jornada, error: jornadaError } = await supabase
+      .from('admin_jornadas')
+      .select('id, name, type, start_date, end_date')
+      .eq('type', type)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (jornadaError && jornadaError.code === 'PGRST116') return res.json({ jornada: null, matches: [], participations: [] })
+    if (jornadaError) throw jornadaError
+    if (!jornada) return res.json({ jornada: null, matches: [], participations: [] })
+
+    const { data: matches, error: matchesError } = await supabase
+      .from('admin_jornada_partidos')
+      .select('*')
+      .eq('jornada_id', jornada.id)
+      .order('position', { ascending: true })
+
+    if (matchesError) throw matchesError
+
+    const { data: participations, error: partError } = await supabase
+      .from('participations')
+      .select('id, folio, user_id, payment_amount, predictions_count, created_at, users(username)')
+      .eq('jornada_id', jornada.id)
+      .eq('participation_status', 'confirmed')
+      .order('created_at', { ascending: false })
+
+    if (partError) throw partError
+
+    const participationIds = (participations || []).map(p => p.id)
+    let predictions = []
+
+    if (participationIds.length > 0) {
+      const { data: preds, error: predError } = await supabase
+        .from('predictions')
+        .select('id, participation_id, match_id, prediction')
+        .in('participation_id', participationIds)
+
+      if (predError) throw predError
+      predictions = preds || []
+    }
+
+    const participationsWithPredictions = (participations || []).map(p => ({
+      ...p,
+      predictions: predictions.filter(pred => pred.participation_id === p.id)
+    }))
+
+    res.json({
+      jornada,
+      matches: matches || [],
+      participations: participationsWithPredictions
+    })
+  } catch (error) {
+    console.error('Error fetching jornada participations:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
 export default async function handler(req, res) {
   try {
     await new Promise((resolve, reject) => {

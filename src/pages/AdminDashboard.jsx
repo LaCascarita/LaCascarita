@@ -15,6 +15,12 @@ const AdminDashboard = () => {
   const [currentJornada, setCurrentJornada] = useState(null)
   const [dateRange, setDateRange] = useState({ from: '', to: '' })
 
+  const [activeView, setActiveView] = useState('jornada')
+  const [participationsType, setParticipationsType] = useState('media_semana')
+  const [participationsData, setParticipationsData] = useState(null)
+  const [participationsLoading, setParticipationsLoading] = useState(false)
+  const [selectedParticipation, setSelectedParticipation] = useState(null)
+
   useEffect(() => {
     fetchLeagues()
     fetchCurrentJornada()
@@ -141,6 +147,38 @@ const AdminDashboard = () => {
     { value: 'dominical', label: 'Domingo' }
   ]
 
+  const predictionLabel = (prediction) => {
+    if (prediction === 'home') return 'L'
+    if (prediction === 'draw') return 'E'
+    if (prediction === 'away') return 'V'
+    return prediction
+  }
+
+  const formatMoney = (amount) => {
+    return new Intl.NumberFormat('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount || 0)
+  }
+
+  const fetchParticipations = async () => {
+    setParticipationsLoading(true)
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || window.location.origin
+      const response = await fetch(
+        `${API_URL}/api/admin/jornada-participations?type=${participationsType}`
+      )
+      const data = await response.json()
+      setParticipationsData(data)
+    } catch (error) {
+      console.error('Error fetching participations:', error)
+    } finally {
+      setParticipationsLoading(false)
+    }
+  }
+
   return (
     <div className="admin-dashboard">
       <header className="admin-header">
@@ -149,8 +187,25 @@ const AdminDashboard = () => {
       </header>
 
       <div className="admin-content">
-        <div className="admin-section">
-          <h2>Configurar Jornada</h2>
+        <div className="admin-tabs">
+          <button
+            onClick={() => setActiveView('jornada')}
+            className={`admin-tab ${activeView === 'jornada' ? 'active' : ''}`}
+          >
+            Configurar Jornada
+          </button>
+          <button
+            onClick={() => setActiveView('participaciones')}
+            className={`admin-tab ${activeView === 'participaciones' ? 'active' : ''}`}
+          >
+            Ver Participaciones
+          </button>
+        </div>
+
+        {activeView === 'jornada' && (
+          <>
+            <div className="admin-section">
+              <h2>Configurar Jornada</h2>
           
           <div className="form-group">
             <label>Tipo de Jornada</label>
@@ -304,6 +359,140 @@ const AdminDashboard = () => {
             {saving ? 'Guardando...' : 'Guardar Jornada'}
           </button>
         </div>
+        </>)}
+
+        {activeView === 'participaciones' && (
+          <div className="admin-section">
+            <h2>Participaciones - {jornadaTypes.find(t => t.value === participationsType)?.label}</h2>
+
+            <div className="form-group">
+              <label>Tipo de Jornada</label>
+              <select
+                value={participationsType}
+                onChange={(e) => setParticipationsType(e.target.value)}
+                className="form-select"
+              >
+                {jornadaTypes.map(type => (
+                  <option key={type.value} value={type.value}>{type.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              onClick={fetchParticipations}
+              className="action-button"
+              disabled={participationsLoading}
+            >
+              {participationsLoading ? 'Cargando...' : 'Cargar Participaciones'}
+            </button>
+
+            {participationsData && (
+              <div className="participations-summary">
+                <p><strong>Participantes:</strong> {participationsData.participations?.length || 0}</p>
+                <p><strong>Total recaudado:</strong> {formatMoney(participationsData.participations?.reduce((sum, p) => sum + (parseFloat(p.payment_amount) || 0), 0))}</p>
+                <p><strong>Bolsa de premios (70%):</strong> {formatMoney(participationsData.participations?.reduce((sum, p) => sum + (parseFloat(p.payment_amount) || 0), 0) * 0.7)}</p>
+                <p><strong>Casa (30%):</strong> {formatMoney(participationsData.participations?.reduce((sum, p) => sum + (parseFloat(p.payment_amount) || 0), 0) * 0.3)}</p>
+              </div>
+            )}
+
+            {participationsData?.participations?.length > 0 && (
+              <div className="participations-table-wrapper">
+                <table className="participations-table">
+                  <thead>
+                    <tr>
+                      <th>Usuario</th>
+                      {participationsData.matches.map((match) => (
+                        <th key={match.id}>
+                          <div className="match-column">
+                            <span>{match.home_team_name}</span>
+                            <span className="vs-small">vs</span>
+                            <span>{match.away_team_name}</span>
+                          </div>
+                        </th>
+                      ))}
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {participationsData.participations.map((participation) => (
+                      <tr key={participation.id}>
+                        <td>
+                          <div className="user-cell">
+                            <strong>{participation.users?.username || participation.user_id}</strong>
+                            <span className="folio">{participation.folio}</span>
+                          </div>
+                        </td>
+                        {participationsData.matches.map((match) => {
+                          const matchPredictions = participation.predictions.filter(pred => pred.match_id === match.id)
+                          return (
+                            <td key={match.id}>
+                              {matchPredictions.length > 0 ? (
+                                <div className="predictions-cell">
+                                  {matchPredictions.map((pred, idx) => (
+                                    <span key={idx} className="prediction-badge">
+                                      {predictionLabel(pred.prediction)}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="no-prediction">-</span>
+                              )}
+                            </td>
+                          )
+                        })}
+                        <td>
+                          <button
+                            onClick={() => setSelectedParticipation(participation)}
+                            className="view-button"
+                          >
+                            Ver
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {participationsData && participationsData.participations?.length === 0 && (
+              <p className="no-results">No hay participaciones para esta jornada.</p>
+            )}
+
+            {selectedParticipation && (
+              <div className="modal-overlay" onClick={() => setSelectedParticipation(null)}>
+                <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                  <h3>Detalle de Quiniela</h3>
+                  <p><strong>Usuario:</strong> {selectedParticipation.users?.username || selectedParticipation.user_id}</p>
+                  <p><strong>Folio:</strong> {selectedParticipation.folio}</p>
+                  <p><strong>Monto:</strong> {formatMoney(selectedParticipation.payment_amount)}</p>
+                  <p><strong>Fecha:</strong> {new Date(selectedParticipation.created_at).toLocaleString('es-MX')}</p>
+                  <div className="modal-predictions">
+                    {participationsData.matches.map((match) => {
+                      const matchPredictions = selectedParticipation.predictions.filter(pred => pred.match_id === match.id)
+                      return (
+                        <div key={match.id} className="modal-prediction-row">
+                          <span className="modal-match">{match.home_team_name} vs {match.away_team_name}</span>
+                          <span className="modal-choices">
+                            {matchPredictions.length > 0
+                              ? matchPredictions.map(pred => predictionLabel(pred.prediction)).join(' / ')
+                              : '-'}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <button
+                    onClick={() => setSelectedParticipation(null)}
+                    className="close-button"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

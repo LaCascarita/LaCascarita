@@ -31,10 +31,15 @@ const Dashboard = () => {
     return amount.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0 })
   }
 
-  const currentBags = {
-    mediaSemana: '$8,500',
-    finDeSemana: '$12,300',
-    dominical: '$5,200'
+  const [bagPrizes, setBagPrizes] = useState([])
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount || 0)
   }
 
   const notices = [
@@ -102,8 +107,21 @@ const Dashboard = () => {
       }
     }
 
+    const fetchBagPrizes = async () => {
+      try {
+        const response = await apiFetch('/api/football/bag-prizes')
+        if (response.ok) {
+          const data = await response.json()
+          setBagPrizes(data || [])
+        }
+      } catch (error) {
+        console.error('Error al cargar bolsas:', error)
+      }
+    }
+
     getUser()
     fetchUpcomingMatches()
+    fetchBagPrizes()
   }, [])
 
   const handleLogout = async () => {
@@ -239,21 +257,44 @@ const Dashboard = () => {
         <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 sm:p-6 border border-white/20 mb-6 sm:mb-8">
           <h3 className="text-lg sm:text-xl font-semibold text-white mb-4">💰 Bolsas Actuales</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <Link to="/media-semana" className="bg-emerald-500/20 hover:bg-emerald-500/30 rounded-lg p-4 border border-emerald-500/30 transition-all cursor-pointer">
-              <p className="text-slate-400 text-sm mb-1">Media Semana</p>
-              <p className="text-xl sm:text-2xl font-bold text-emerald-400">{currentBags.mediaSemana}</p>
-              <p className="text-slate-400 text-xs mt-2">9 partidos</p>
-            </Link>
-            <Link to="/fin-de-semana" className="bg-blue-500/20 hover:bg-blue-500/30 rounded-lg p-4 border border-blue-500/30 transition-all cursor-pointer">
-              <p className="text-slate-400 text-sm mb-1">Fin de Semana</p>
-              <p className="text-xl sm:text-2xl font-bold text-blue-400">{currentBags.finDeSemana}</p>
-              <p className="text-slate-400 text-xs mt-2">9 partidos Liga MX</p>
-            </Link>
-            <Link to="/dominical" className="bg-purple-500/20 hover:bg-purple-500/30 rounded-lg p-4 border border-purple-500/30 sm:col-span-2 lg:col-span-1 transition-all cursor-pointer">
-              <p className="text-slate-400 text-sm mb-1">Dominical</p>
-              <p className="text-xl sm:text-2xl font-bold text-purple-400">{currentBags.dominical}</p>
-              <p className="text-slate-400 text-xs mt-2">7 partidos</p>
-            </Link>
+            {bagPrizes.length === 0 ? (
+              <div className="col-span-full text-center text-slate-400 py-4">
+                No hay bolsas activas por el momento
+              </div>
+            ) : (
+              bagPrizes.map((bag) => {
+                const styles = {
+                  media_semana: {
+                    route: '/media-semana',
+                    classes: 'bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/30 text-emerald-400'
+                  },
+                  fin_de_semana: {
+                    route: '/fin-de-semana',
+                    classes: 'bg-blue-500/20 hover:bg-blue-500/30 border-blue-500/30 text-blue-400'
+                  },
+                  dominical: {
+                    route: '/dominical',
+                    classes: 'bg-purple-500/20 hover:bg-purple-500/30 border-purple-500/30 text-purple-400'
+                  }
+                }
+                const style = styles[bag.type] || styles.media_semana
+                return (
+                  <Link
+                    key={bag.type}
+                    to={style.route}
+                    className={`${style.classes} rounded-lg p-4 border transition-all cursor-pointer`}
+                  >
+                    <p className="text-slate-400 text-sm mb-1">{bag.label}</p>
+                    <p className="text-xl sm:text-2xl font-bold">
+                      {formatCurrency(bag.prize_pool)}
+                    </p>
+                    <p className="text-slate-400 text-xs mt-2">
+                      {bag.matches_count} partido{bag.matches_count !== 1 ? 's' : ''} · {bag.participations_count} participación{ bag.participations_count !== 1 ? 'es' : ''}
+                    </p>
+                  </Link>
+                )
+              })
+            )}
           </div>
         </div>
 
