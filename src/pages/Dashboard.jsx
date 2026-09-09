@@ -285,11 +285,12 @@ const Dashboard = () => {
                     className={`${style.classes} rounded-lg p-4 border transition-all cursor-pointer`}
                   >
                     <p className="text-slate-400 text-sm mb-1">{bag.label}</p>
+                    <p className="text-slate-300 text-xs mb-1">Bolsa actual</p>
                     <p className="text-xl sm:text-2xl font-bold">
                       {formatCurrency(bag.prize_pool)}
                     </p>
                     <p className="text-slate-400 text-xs mt-2">
-                      {bag.matches_count} partido{bag.matches_count !== 1 ? 's' : ''} · {bag.participations_count} participación{ bag.participations_count !== 1 ? 'es' : ''}
+                      {bag.participants_count} participante{bag.participants_count !== 1 ? 's' : ''} · {bag.matches_count} partido{bag.matches_count !== 1 ? 's' : ''}
                     </p>
                   </Link>
                 )

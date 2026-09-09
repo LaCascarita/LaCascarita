@@ -1349,7 +1349,7 @@ app.get('/api/football/bag-prizes', async (req, res) => {
 
       const { data: participations, error: partError } = await supabase
         .from('participations')
-        .select('payment_amount')
+        .select('payment_amount, user_id')
         .eq('jornada_id', jornada.id)
         .eq('participation_status', 'confirmed')
 
@@ -1360,6 +1360,7 @@ app.get('/api/football/bag-prizes', async (req, res) => {
         0
       )
       const prizePool = totalCollected * 0.7
+      const participantsCount = new Set((participations || []).map(p => p.user_id)).size
 
       result.push({
         type,
@@ -1370,6 +1371,7 @@ app.get('/api/football/bag-prizes', async (req, res) => {
         prize_pool: prizePool,
         house_amount: totalCollected * 0.3,
         participations_count: (participations || []).length,
+        participants_count: participantsCount,
         matches_count: (partidos || []).length
       })
     }
