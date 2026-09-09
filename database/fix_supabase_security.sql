@@ -11,7 +11,7 @@
 -- ============================================
 DO $$
 DECLARE
-    t record;
+    t text;
     policy_name text;
     tables_list text[] := ARRAY[
         'users',
