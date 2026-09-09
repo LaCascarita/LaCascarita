@@ -111,8 +111,6 @@ WITH (security_invoker = on)
 AS
 SELECT
     j.*,
-    j.current_participants,
-    j.prize_pool,
     COUNT(DISTINCT m.id) AS total_matches,
     COUNT(DISTINCT CASE WHEN m.status = 'finished' THEN m.id END) AS finished_matches
 FROM public.jornadas j
