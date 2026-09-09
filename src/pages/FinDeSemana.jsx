@@ -13,6 +13,7 @@ const FinDeSemana = () => {
   const [selections, setSelections] = useState({}) // { matchId: ['local', 'empate', etc] }
   const [totalQuinielas, setTotalQuinielas] = useState(0)
   const [totalAmount, setTotalAmount] = useState(0)
+  const [bag, setBag] = useState(null)
 
   useEffect(() => {
     const getUser = async () => {
@@ -67,12 +68,37 @@ const FinDeSemana = () => {
     setTotalAmount(total * 10)
   }, [selections])
 
+  useEffect(() => {
+    const fetchBag = async () => {
+      try {
+        const response = await apiFetch('/api/football/bag-prizes')
+        if (response.ok) {
+          const data = await response.json()
+          const bagInfo = data.find(b => b.type === 'fin_de_semana')
+          setBag(bagInfo || null)
+        }
+      } catch (error) {
+        console.error('Error fetching bag:', error)
+      }
+    }
+    fetchBag()
+  }, [])
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
         <div className="text-white text-xl">Cargando...</div>
       </div>
     )
+  }
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount || 0)
   }
 
   const formatMatchDate = (dateString) => {
@@ -208,11 +234,11 @@ const FinDeSemana = () => {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-lg sm:text-xl font-semibold text-white mb-2">💰 Bolsa Actual</h2>
-              <p className="text-2xl sm:text-3xl font-bold text-emerald-400">$4,200</p>
+              <p className="text-2xl sm:text-3xl font-bold text-emerald-400">{formatCurrency(bag?.prize_pool)}</p>
             </div>
             <div className="text-left sm:text-right">
               <p className="text-slate-300 text-sm">Participantes</p>
-              <p className="text-white font-semibold text-lg">32</p>
+              <p className="text-white font-semibold text-lg">{bag?.participants_count ?? 0}</p>
             </div>
           </div>
         </div>
