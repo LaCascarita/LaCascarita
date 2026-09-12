@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { apiFetch } from '../utils/api'
 
 const WalletSection = ({ balance, transactions, participations, walletLoading, onDeposit, onWithdraw, onRefresh, defaultTab = 'deposit' }) => {
   const [activeTab, setActiveTab] = useState(defaultTab)
@@ -11,6 +12,9 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
     clabe: '',
     card_holder: ''
   })
+  const [selectedParticipation, setSelectedParticipation] = useState(null)
+  const [detailData, setDetailData] = useState(null)
+  const [detailLoading, setDetailLoading] = useState(false)
 
   const handleDepositSubmit = (e) => {
     e.preventDefault()
@@ -67,12 +71,42 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
     return names[type] || type
   }
 
+  const formatMoney = (amount) => {
+    return '$' + parseFloat(amount || 0).toFixed(2)
+  }
+
+  const predictionLabel = (prediction) => {
+    if (prediction === 'home') return 'L'
+    if (prediction === 'draw') return 'E'
+    if (prediction === 'away') return 'V'
+    return prediction
+  }
+
   const tabs = [
     { id: 'deposit', label: 'Recargar' },
     { id: 'withdraw', label: 'Retirar' },
     { id: 'history', label: 'Movimientos' },
     { id: 'participations', label: 'Participaciones' }
   ]
+
+  useEffect(() => {
+    if (!selectedParticipation) return
+    setDetailLoading(true)
+    const fetchDetail = async () => {
+      try {
+        const response = await apiFetch(`/api/participations/${selectedParticipation.id}`)
+        if (response.ok) {
+          const data = await response.json()
+          setDetailData(data)
+        }
+      } catch (error) {
+        console.error('Error al cargar detalle:', error)
+      } finally {
+        setDetailLoading(false)
+      }
+    }
+    fetchDetail()
+  }, [selectedParticipation])
 
   return (
     <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 sm:p-6 border border-white/20">
@@ -306,6 +340,7 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
                   <th className="text-left text-slate-400 pb-3 px-2">Fecha</th>
                   <th className="text-left text-slate-400 pb-3 px-2">Aciertos</th>
                   <th className="text-left text-slate-400 pb-3 px-2">Premio</th>
+                  <th className="text-left text-slate-400 pb-3 px-2">Acciones</th>
                 </tr>
               </thead>
               <tbody className="text-white">
@@ -322,11 +357,100 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
                         '-'
                       )}
                     </td>
+                    <td className="py-3 px-2">
+                      <button
+                        onClick={() => setSelectedParticipation(p)}
+                        className="bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold px-3 py-1 rounded transition-colors"
+                      >
+                        Ver
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
+        </div>
+      )}
+
+      {selectedParticipation && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => {
+            setSelectedParticipation(null)
+            setDetailData(null)
+          }}
+        >
+          <div
+            className="bg-slate-900 border border-white/20 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg sm:text-xl font-semibold text-white mb-4">Detalle de Quiniela</h3>
+            {detailLoading ? (
+              <p className="text-slate-400">Cargando detalle...</p>
+            ) : detailData ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                  <p className="text-slate-300"><strong className="text-white">Folio:</strong> {detailData.participation.folio}</p>
+                  <p className="text-slate-300"><strong className="text-white">Jornada:</strong> {detailData.participation.admin_jornadas?.name || getJornadaName(detailData.participation.admin_jornadas?.type)}</p>
+                  <p className="text-slate-300"><strong className="text-white">Fecha:</strong> {formatDate(detailData.participation.created_at)}</p>
+                  <p className="text-slate-300"><strong className="text-white">Monto:</strong> {formatMoney(detailData.participation.payment_amount)}</p>
+                  <p className="text-slate-300"><strong className="text-white">Aciertos:</strong> {detailData.participation.correct_predictions || 0}/{detailData.participation.predictions_count || 0}</p>
+                  <p className="text-slate-300"><strong className="text-white">Premio:</strong> {parseFloat(detailData.participation.prize_amount || 0) > 0 ? formatMoney(detailData.participation.prize_amount) : '-'}</p>
+                </div>
+
+                <div className="bg-white/5 rounded-lg border border-white/10 overflow-hidden">
+                  <table className="w-full text-xs sm:text-sm">
+                    <thead>
+                      <tr className="border-b border-white/10">
+                        <th className="text-left text-slate-400 py-2 px-3">Partido</th>
+                        <th className="text-left text-slate-400 py-2 px-3">Predicción</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-white">
+                      {detailData.matches.map((match) => {
+                        const matchPredictions = detailData.predictions.filter(pred => pred.match_id === match.id)
+                        return (
+                          <tr key={match.id} className="border-b border-white/5">
+                            <td className="py-2 px-3">
+                              <span className="font-semibold">{match.home_team_name}</span>
+                              <span className="text-slate-400 mx-1">vs</span>
+                              <span className="font-semibold">{match.away_team_name}</span>
+                              <p className="text-slate-400 text-xs">{match.match_date ? new Date(match.match_date).toLocaleString('es-MX') : '-'}</p>
+                            </td>
+                            <td className="py-2 px-3">
+                              {matchPredictions.length > 0 ? (
+                                <span className="inline-flex gap-1 flex-wrap">
+                                  {matchPredictions.map((pred, idx) => (
+                                    <span key={idx} className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded text-xs">
+                                      {predictionLabel(pred.prediction)}
+                                    </span>
+                                  ))}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400">-</span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <p className="text-slate-400">No se pudo cargar el detalle.</p>
+            )}
+            <button
+              onClick={() => {
+                setSelectedParticipation(null)
+                setDetailData(null)
+              }}
+              className="mt-6 w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-2 rounded-lg transition-colors"
+            >
+              Cerrar
+            </button>
+          </div>
         </div>
       )}
     </div>

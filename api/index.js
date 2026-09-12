@@ -1307,6 +1307,73 @@ app.get('/api/participations', async (req, res) => {
 })
 
 // ============================================================
+// DETALLE DE PARTICIPACIÓN
+// ============================================================
+app.get('/api/participations/:id', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const user = getUserFromToken(req)
+    if (!user) return res.status(401).json({ error: 'No autorizado' })
+
+    const { id } = req.params
+    if (!id) return res.status(400).json({ error: 'Falta el ID de la participación' })
+
+    const { data: participation, error: partError } = await supabase
+      .from('participations')
+      .select(`
+        *,
+        admin_jornadas ( type, name )
+      `)
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single()
+
+    if (partError || !participation) return res.status(404).json({ error: 'Participación no encontrada' })
+
+    const { data: predictions, error: predError } = await supabase
+      .from('predictions')
+      .select('*')
+      .eq('participation_id', participation.id)
+
+    if (predError) throw predError
+
+    const matchIds = (predictions || []).map(p => p.match_id)
+    let matches = []
+
+    if (matchIds.length > 0) {
+      const { data: matchData, error: matchesError } = await supabase
+        .from('admin_jornada_partidos')
+        .select('*')
+        .in('id', matchIds)
+        .order('position', { ascending: true })
+
+      if (matchesError) throw matchesError
+      matches = matchData || []
+    }
+
+    const predictionsWithMatches = (predictions || []).map(pred => ({
+      ...pred,
+      match: matches.find(m => m.id === pred.match_id) || null
+    }))
+
+    res.json({
+      participation,
+      matches,
+      predictions: predictionsWithMatches
+    })
+  } catch (error) {
+    console.error('Error fetching participation detail:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// ============================================================
 // ACUMULADO DE BOLSAS (70% PREMIOS)
 // ============================================================
 app.get('/api/football/bag-prizes', async (req, res) => {
