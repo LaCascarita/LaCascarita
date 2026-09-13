@@ -376,7 +376,7 @@ app.post('/api/verify-code', async (req, res) => {
 
 app.post('/api/admin-login', async (req, res) => {
   res.setHeader('Access-Control-Allow-Credentials', true)
-  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
 
@@ -410,7 +410,10 @@ app.post('/api/admin-login', async (req, res) => {
       { expiresIn: '24h' }
     )
 
-    res.setHeader('Set-Cookie', `admin_token=${token}; HttpOnly; Path=/; Max-Age=86400; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`)
+    const isProduction = process.env.NODE_ENV === 'production'
+    const secureFlag = isProduction ? '; Secure' : ''
+    const sameSite = isProduction ? 'None' : 'Lax'
+    res.setHeader('Set-Cookie', `admin_token=${token}; HttpOnly; Path=/; Max-Age=86400; SameSite=${sameSite}${secureFlag}`)
 
     res.status(200).json({
       success: true,
@@ -1536,7 +1539,7 @@ app.get('/api/admin/jornada-participations', async (req, res) => {
 })
 
 app.get('/api/admin/users', async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
   res.setHeader('Access-Control-Allow-Credentials', 'true')
