@@ -540,73 +540,58 @@ const Dashboard = () => {
             <h3 className="text-lg sm:text-xl font-semibold text-white mb-4">⚽ Quinielas Activas</h3>
             <p className="text-slate-400 mb-6">Selecciona una quiniela para participar.</p>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              <div className="bg-gradient-to-br from-emerald-500/20 to-emerald-600/20 rounded-xl p-4 sm:p-6 border border-emerald-500/30 cursor-pointer hover:scale-105 transition-all">
-                <h4 className="text-base sm:text-lg font-semibold text-white mb-2">Media Semana</h4>
-                <p className="text-slate-400 text-xs sm:text-sm mb-4">9 partidos</p>
-                <div className="space-y-2 mb-4">
-                  <div className="flex justify-between text-xs sm:text-sm">
-                    <span className="text-slate-400">Bolsa:</span>
-                    <span className="text-emerald-400 font-semibold">{currentBags.mediaSemana}</span>
-                  </div>
-                  <div className="flex justify-between text-xs sm:text-sm">
-                    <span className="text-slate-400">Participantes:</span>
-                    <span className="text-white">24</span>
-                  </div>
-                  <div className="flex justify-between text-xs sm:text-sm">
-                    <span className="text-slate-400">Cierre:</span>
-                    <span className="text-white">Miércoles 20:00</span>
-                  </div>
-                </div>
-                <button className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-2 rounded-lg transition-all text-sm sm:text-base">
-                  Participar
-                </button>
+            {bagPrizes.length === 0 ? (
+              <p className="text-slate-400 text-center py-6">No hay quinielas activas por el momento.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                {bagPrizes.map((bag) => {
+                  const styles = {
+                    media_semana: {
+                      route: '/media-semana',
+                      card: 'bg-gradient-to-br from-emerald-500/20 to-emerald-600/20 border-emerald-500/30',
+                      text: 'text-emerald-400',
+                      button: 'bg-emerald-500 hover:bg-emerald-600'
+                    },
+                    fin_de_semana: {
+                      route: '/fin-de-semana',
+                      card: 'bg-gradient-to-br from-blue-500/20 to-blue-600/20 border-blue-500/30',
+                      text: 'text-blue-400',
+                      button: 'bg-blue-500 hover:bg-blue-600'
+                    },
+                    dominical: {
+                      route: '/dominical',
+                      card: 'bg-gradient-to-br from-purple-500/20 to-purple-600/20 border-purple-500/30',
+                      text: 'text-purple-400',
+                      button: 'bg-purple-500 hover:bg-purple-600'
+                    }
+                  }
+                  const style = styles[bag.type] || styles.media_semana
+                  return (
+                    <Link
+                      key={bag.type}
+                      to={style.route}
+                      className={`${style.card} rounded-xl p-4 sm:p-6 border hover:scale-105 transition-all block`}
+                    >
+                      <h4 className="text-base sm:text-lg font-semibold text-white mb-2">{bag.label}</h4>
+                      <p className="text-slate-400 text-xs sm:text-sm mb-4">{bag.matches_count} partido{bag.matches_count !== 1 ? 's' : ''}</p>
+                      <div className="space-y-2 mb-4">
+                        <div className="flex justify-between text-xs sm:text-sm">
+                          <span className="text-slate-400">Bolsa:</span>
+                          <span className={`${style.text} font-semibold`}>{formatCurrency(bag.prize_pool)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs sm:text-sm">
+                          <span className="text-slate-400">Participantes:</span>
+                          <span className="text-white">{bag.participants_count}</span>
+                        </div>
+                      </div>
+                      <div className={`${style.button} text-white font-semibold py-2 rounded-lg text-center text-sm sm:text-base`}>
+                        Participar
+                      </div>
+                    </Link>
+                  )
+                })}
               </div>
-
-              <div className="bg-gradient-to-br from-blue-500/20 to-blue-600/20 rounded-xl p-4 sm:p-6 border border-blue-500/30 cursor-pointer hover:scale-105 transition-all">
-                <h4 className="text-base sm:text-lg font-semibold text-white mb-2">Fin de Semana</h4>
-                <p className="text-slate-400 text-xs sm:text-sm mb-4">9 partidos Liga MX</p>
-                <div className="space-y-2 mb-4">
-                  <div className="flex justify-between text-xs sm:text-sm">
-                    <span className="text-slate-400">Bolsa:</span>
-                    <span className="text-blue-400 font-semibold">{currentBags.finDeSemana}</span>
-                  </div>
-                  <div className="flex justify-between text-xs sm:text-sm">
-                    <span className="text-slate-400">Participantes:</span>
-                    <span className="text-white">38</span>
-                  </div>
-                  <div className="flex justify-between text-xs sm:text-sm">
-                    <span className="text-slate-400">Cierre:</span>
-                    <span className="text-white">Viernes 20:00</span>
-                  </div>
-                </div>
-                <button className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 rounded-lg transition-all text-sm sm:text-base">
-                  Participar
-                </button>
-              </div>
-
-              <div className="bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-xl p-4 sm:p-6 border border-purple-500/30 cursor-pointer hover:scale-105 transition-all sm:col-span-2 lg:col-span-1">
-                <h4 className="text-base sm:text-lg font-semibold text-white mb-2">Dominical</h4>
-                <p className="text-slate-400 text-xs sm:text-sm mb-4">7 partidos</p>
-                <div className="space-y-2 mb-4">
-                  <div className="flex justify-between text-xs sm:text-sm">
-                    <span className="text-slate-400">Bolsa:</span>
-                    <span className="text-purple-400 font-semibold">{currentBags.dominical}</span>
-                  </div>
-                  <div className="flex justify-between text-xs sm:text-sm">
-                    <span className="text-slate-400">Participantes:</span>
-                    <span className="text-white">18</span>
-                  </div>
-                  <div className="flex justify-between text-xs sm:text-sm">
-                    <span className="text-slate-400">Cierre:</span>
-                    <span className="text-white">Sábado 20:00</span>
-                  </div>
-                </div>
-                <button className="w-full bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 rounded-lg transition-all text-sm sm:text-base">
-                  Participar
-                </button>
-              </div>
-            </div>
+            )}
           </div>
         )}
 
