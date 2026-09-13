@@ -20,6 +20,8 @@ const AdminDashboard = () => {
   const [participationsData, setParticipationsData] = useState(null)
   const [participationsLoading, setParticipationsLoading] = useState(false)
   const [selectedParticipation, setSelectedParticipation] = useState(null)
+  const [users, setUsers] = useState([])
+  const [usersLoading, setUsersLoading] = useState(false)
 
   useEffect(() => {
     fetchLeagues()
@@ -179,6 +181,22 @@ const AdminDashboard = () => {
     }
   }
 
+  const fetchUsers = async () => {
+    setUsersLoading(true)
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || window.location.origin
+      const response = await fetch(`${API_URL}/api/admin/users`, {
+        credentials: 'include'
+      })
+      const data = await response.json()
+      setUsers(data.users || [])
+    } catch (error) {
+      console.error('Error fetching users:', error)
+    } finally {
+      setUsersLoading(false)
+    }
+  }
+
   return (
     <div className="admin-dashboard">
       <header className="admin-header">
@@ -199,6 +217,12 @@ const AdminDashboard = () => {
             className={`admin-tab ${activeView === 'participaciones' ? 'active' : ''}`}
           >
             Ver Participaciones
+          </button>
+          <button
+            onClick={() => setActiveView('saldos')}
+            className={`admin-tab ${activeView === 'saldos' ? 'active' : ''}`}
+          >
+            Saldos de Usuarios
           </button>
         </div>
 
@@ -493,6 +517,48 @@ const AdminDashboard = () => {
             )}
           </div>
         )}
+
+        {activeView === 'saldos' && (
+          <div className="admin-section">
+            <h2>Saldos de Usuarios</h2>
+
+            <button
+              onClick={fetchUsers}
+              className="action-button"
+              disabled={usersLoading}
+            >
+              {usersLoading ? 'Cargando...' : 'Cargar Usuarios'}
+            </button>
+
+            {users.length > 0 && (
+              <div className="participations-table-wrapper">
+                <table className="participations-table">
+                  <thead>
+                    <tr>
+                      <th>Usuario</th>
+                      <th>Teléfono</th>
+                      <th>Saldo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map((user) => (
+                      <tr key={user.id}>
+                        <td>{user.username}</td>
+                        <td>{user.phone || '-'}</td>
+                        <td>{formatMoney(user.balance)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {!usersLoading && users.length === 0 && (
+              <p className="no-results">No hay usuarios con saldo registrado.</p>
+            )}
+          </div>
+        )}
+
       </div>
     </div>
   )

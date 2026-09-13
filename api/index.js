@@ -746,6 +746,17 @@ const getUserFromToken = (req) => {
   }
 }
 
+const getAdminFromToken = (req) => {
+  try {
+    const cookies = req.headers.cookie || ''
+    const admin_token = cookies.split('; ').find(cookie => cookie.startsWith('admin_token='))?.split('=')[1]
+    if (!admin_token) return null
+    return jwt.verify(admin_token, JWT_SECRET)
+  } catch (error) {
+    return null
+  }
+}
+
 const createBalanceTransaction = async ({ user_id, type, amount, balance_before, balance_after, reference_id = null, participation_id = null, description = '' }) => {
   const { error } = await supabase
     .from('user_balance_transactions')
@@ -1521,6 +1532,33 @@ app.get('/api/admin/jornada-participations', async (req, res) => {
   } catch (error) {
     console.error('Error fetching jornada participations:', error)
     res.status(500).json({ error: error.message })
+  }
+})
+
+app.get('/api/admin/users', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const admin = getAdminFromToken(req)
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' })
+
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('id, username, phone, balance, created_at')
+      .eq('role', 'user')
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+
+    res.json({ users: users || [] })
+  } catch (error) {
+    console.error('Error fetching users:', error)
+    res.status(500).json({ error: 'Error al obtener usuarios' })
   }
 })
 
