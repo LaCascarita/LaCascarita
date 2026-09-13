@@ -51,8 +51,8 @@ const Login = () => {
         return
       }
 
-      // Redirigir al panel principal
-      navigate('/dashboard')
+      // Redirigir al panel principal sin guardar login en el historial
+      navigate('/dashboard', { replace: true })
 
     } catch (error) {
       setError('Error al conectar con el servidor. Intente nuevamente.')
