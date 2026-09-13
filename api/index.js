@@ -119,10 +119,11 @@ app.post('/api/register', async (req, res) => {
       .from('users')
       .select('phone')
       .eq('phone', phone)
+      .eq('role', 'user')
       .limit(1)
 
     if (existingPhone && existingPhone.length > 0) {
-      return res.status(400).json({ error: 'El teléfono ya está registrado' })
+      return res.status(400).json({ error: 'El teléfono ya está registrado para un usuario' })
     }
 
     const randomNumber = Math.floor(Math.random() * 900000) + 100000

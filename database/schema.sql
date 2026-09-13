@@ -14,7 +14,7 @@
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username VARCHAR(50) UNIQUE NOT NULL,
-    phone VARCHAR(10) UNIQUE NOT NULL,
+    phone VARCHAR(10) NOT NULL,
     email VARCHAR(255) UNIQUE, -- Opcional para futuras funcionalidades
     auth_id UUID UNIQUE, -- Referencia a Supabase Auth
     user_id VARCHAR(20) UNIQUE NOT NULL, -- Formato LC-XXXXXX
@@ -26,7 +26,8 @@ CREATE TABLE users (
     role VARCHAR(20) DEFAULT 'user' CHECK (role IN ('user', 'admin')),
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE (phone, role)
 );
 
 -- Índices para optimizar búsquedas
