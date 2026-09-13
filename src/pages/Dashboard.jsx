@@ -348,38 +348,8 @@ const Dashboard = () => {
                 color="emerald"
                 onClick={() => setActiveSection('quinielas')}
               />
-              <DashboardCard
-                title="Historial"
-                value="Ver todo"
-                subtitle="Tu historial completo"
-                icon="📋"
-                color="red"
-                onClick={() => setActiveSection('history')}
-              />
             </div>
 
-            {/* Próximas Jornadas */}
-            <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 sm:p-6 border border-white/20">
-              <h3 className="text-lg sm:text-xl font-semibold text-white mb-4">📅 Próximas Jornadas</h3>
-              <div className="space-y-3">
-                {upcomingMatches.map((match) => (
-                  <div key={match.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white/5 rounded-lg p-4 border border-white/10 gap-3">
-                    <div className="flex items-center gap-3 sm:gap-4">
-                      <span className="text-xl sm:text-2xl">⚽</span>
-                      <div>
-                        <p className="text-white font-semibold text-sm sm:text-base">
-                          {match.home} vs {match.away}
-                        </p>
-                        <p className="text-slate-400 text-xs sm:text-sm">{match.date}</p>
-                      </div>
-                    </div>
-                    <span className="bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full text-xs sm:text-sm self-start sm:self-auto">
-                      {match.type}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
           </>
         )}
 
