@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import DashboardCard from '../components/DashboardCard'
 import StatCard from '../components/StatCard'
-import NoticeBanner from '../components/NoticeBanner'
 import WalletSection from '../components/WalletSection'
 import { apiFetch } from '../utils/api'
 
@@ -16,6 +15,7 @@ const Dashboard = () => {
   const [participations, setParticipations] = useState([])
   const [upcomingMatches, setUpcomingMatches] = useState([])
   const [walletLoading, setWalletLoading] = useState(false)
+  const [showUserMenu, setShowUserMenu] = useState(false)
 
   const userStats = {
     ranking: 5,
@@ -41,21 +41,6 @@ const Dashboard = () => {
       maximumFractionDigits: 0
     }).format(amount || 0)
   }
-
-  const notices = [
-    {
-      type: 'success',
-      title: '¡Nueva Jornada Disponible!',
-      message: 'La quiniela de Fin de Semana ya está abierta. Fecha de cierre: Viernes 20:00',
-      icon: '🎉'
-    },
-    {
-      type: 'info',
-      title: 'Acumulado Actual',
-      message: 'El acumulado de la semana es de $25,000. ¡Participa para ganar!',
-      icon: '💰'
-    }
-  ]
 
   useEffect(() => {
     const getUser = async () => {
@@ -211,33 +196,52 @@ const Dashboard = () => {
             <h1 className="text-2xl sm:text-3xl font-bold text-white">⚽ La Cascarita</h1>
             <p className="text-slate-400 mt-1">Panel Principal</p>
           </div>
-          <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 w-full sm:w-auto">
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition-all border border-white/20"
+              >
+                <span className="font-semibold">{user?.username}</span>
+                <span className="text-slate-400 text-xs">▾</span>
+              </button>
+              {showUserMenu && (
+                <div className="absolute right-0 mt-2 w-48 bg-slate-800 border border-white/20 rounded-lg shadow-lg overflow-hidden z-50">
+                  <button
+                    onClick={() => { setActiveSection('wallet'); setShowUserMenu(false) }}
+                    className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-white/10 transition-colors"
+                  >
+                    Recargar / Retirar
+                  </button>
+                  <button
+                    onClick={() => { setActiveSection('history'); setShowUserMenu(false) }}
+                    className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-white/10 transition-colors"
+                  >
+                    Historial
+                  </button>
+                  <button
+                    onClick={() => { setShowUserMenu(false); handleLogout() }}
+                    className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-white/10 transition-colors border-t border-white/10"
+                  >
+                    Cerrar Sesión
+                  </button>
+                </div>
+              )}
+            </div>
             {/* Saldo del Usuario */}
-            <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-lg px-4 py-2 w-full sm:w-auto">
+            <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-lg px-4 py-2">
               <p className="text-slate-400 text-xs">Saldo Disponible</p>
               <p className="text-emerald-400 font-bold text-lg">
                 ${balance.toFixed(2)}
               </p>
             </div>
-            <div className="text-center sm:text-right">
-              <p className="text-white font-semibold">{user?.username}</p>
-              <p className="text-slate-400 text-sm">{user?.user_id}</p>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="bg-red-500/20 hover:bg-red-500/30 text-red-400 px-4 py-2 rounded-lg transition-all border border-red-500/30 w-full sm:w-auto"
-            >
-              Cerrar Sesión
-            </button>
           </div>
         </div>
 
         {/* Navigation Tabs */}
         <div className="flex flex-wrap gap-2 mb-6 sm:mb-8">
           {[
-            { id: 'overview', label: 'Resumen' },
-            { id: 'wallet', label: 'Recargar / Retirar' },
-            { id: 'history', label: 'Historial' },
+            { id: 'overview', label: 'Resumen' }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -255,11 +259,11 @@ const Dashboard = () => {
 
         {/* Bolsas Actuales - Movido al inicio */}
         <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 sm:p-6 border border-white/20 mb-6 sm:mb-8">
-          <h3 className="text-lg sm:text-xl font-semibold text-white mb-4">💰 Bolsas Actuales</h3>
+          <h3 className="text-lg sm:text-xl font-semibold text-white mb-4">💰 Quinielas Actuales</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {bagPrizes.length === 0 ? (
               <div className="col-span-full text-center text-slate-400 py-4">
-                No hay bolsas activas por el momento
+                No hay quinielas activas por el momento
               </div>
             ) : (
               bagPrizes.map((bag) => {
@@ -297,19 +301,6 @@ const Dashboard = () => {
               })
             )}
           </div>
-        </div>
-
-        {/* Anuncios Importantes */}
-        <div className="space-y-4 mb-8">
-          {notices.map((notice, index) => (
-            <NoticeBanner
-              key={index}
-              type={notice.type}
-              title={notice.title}
-              message={notice.message}
-              icon={notice.icon}
-            />
-          ))}
         </div>
 
         {/* Content based on active section */}
