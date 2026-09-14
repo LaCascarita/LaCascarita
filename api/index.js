@@ -1315,7 +1315,23 @@ app.get('/api/participations', async (req, res) => {
       .order('created_at', { ascending: false })
 
     if (error) throw error
-    res.json({ participations: data || [] })
+
+    const jornadaIds = [...new Set((data || []).map(p => p.jornada_id).filter(Boolean))]
+    for (const jid of jornadaIds) {
+      await syncJornadaResults(jid)
+    }
+
+    const { data: updated, error: updatedError } = await supabase
+      .from('participations')
+      .select(`
+        *,
+        admin_jornadas ( type, name )
+      `)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+
+    if (updatedError) throw updatedError
+    res.json({ participations: updated || [] })
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
@@ -1338,6 +1354,17 @@ app.get('/api/participations/:id', async (req, res) => {
 
     const { id } = req.params
     if (!id) return res.status(400).json({ error: 'Falta el ID de la participación' })
+
+    const { data: base, error: baseError } = await supabase
+      .from('participations')
+      .select('jornada_id')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single()
+
+    if (baseError || !base) return res.status(404).json({ error: 'Participación no encontrada' })
+
+    await syncJornadaResults(base.jornada_id)
 
     const { data: participation, error: partError } = await supabase
       .from('participations')
@@ -1465,6 +1492,78 @@ app.get('/api/football/bag-prizes', async (req, res) => {
   }
 })
 
+const syncJornadaResults = async (jornada_id) => {
+  try {
+    const { data: matches } = await supabase
+      .from('admin_jornada_partidos')
+      .select('id, match_id, home_score, away_score, match_status')
+      .eq('jornada_id', jornada_id)
+
+    const pendingMatches = (matches || []).filter(m => m.home_score == null || m.away_score == null)
+    if (pendingMatches.length === 0) return
+
+    const API_FOOTBALL_KEY = process.env.API_FOOTBALL_KEY
+    if (!API_FOOTBALL_KEY) {
+      console.warn('API_FOOTBALL_KEY not configured')
+      return
+    }
+
+    const getWinner = (h, a) => h === a ? 'draw' : h > a ? 'home' : 'away'
+    const participationIds = new Set()
+
+    for (const match of pendingMatches) {
+      const response = await fetch(`https://apiv3.apifootball.com/?action=get_events&match_id=${match.match_id}&APIkey=${API_FOOTBALL_KEY}`)
+      if (!response.ok) continue
+      const data = await response.json()
+      if (!Array.isArray(data) || data.length === 0) continue
+      const event = data[0]
+      if (event.match_status !== 'FT' && event.match_status !== 'AET' && event.match_status !== 'PEN') continue
+
+      const homeScore = parseInt(event.match_hometeam_score, 10)
+      const awayScore = parseInt(event.match_awayteam_score, 10)
+      if (isNaN(homeScore) || isNaN(awayScore)) continue
+
+      const { error } = await supabase
+        .from('admin_jornada_partidos')
+        .update({ home_score: homeScore, away_score: awayScore, match_status: event.match_status })
+        .eq('id', match.id)
+      if (error) continue
+
+      const result = getWinner(homeScore, awayScore)
+      const { data: predictions } = await supabase
+        .from('predictions')
+        .select('id, participation_id, prediction')
+        .eq('match_id', match.id)
+
+      for (const pred of (predictions || [])) {
+        const isCorrect = pred.prediction === result
+        await supabase
+          .from('predictions')
+          .update({ is_correct: isCorrect, points: isCorrect ? 1 : 0 })
+          .eq('id', pred.id)
+        participationIds.add(pred.participation_id)
+      }
+    }
+
+    if (participationIds.size === 0) return
+
+    for (const pid of participationIds) {
+      const { data: preds } = await supabase
+        .from('predictions')
+        .select('is_correct')
+        .eq('participation_id', pid)
+      const total = (preds || []).length
+      const correct = (preds || []).filter(p => p.is_correct === true).length
+      await supabase
+        .from('participations')
+        .update({ correct_predictions: correct, predictions_count: total })
+        .eq('id', pid)
+    }
+  } catch (error) {
+    console.error('Error syncing jornada results:', error)
+  }
+}
+
 // ============================================================
 // PARTICIPACIONES POR JORNADA PARA PANEL ADMIN (EXCEL)
 // ============================================================
@@ -1492,6 +1591,8 @@ app.get('/api/admin/jornada-participations', async (req, res) => {
     if (jornadaError && jornadaError.code === 'PGRST116') return res.json({ jornada: null, matches: [], participations: [] })
     if (jornadaError) throw jornadaError
     if (!jornada) return res.json({ jornada: null, matches: [], participations: [] })
+
+    await syncJornadaResults(jornada.id)
 
     const { data: matches, error: matchesError } = await supabase
       .from('admin_jornada_partidos')
@@ -1563,85 +1664,6 @@ app.get('/api/admin/users', async (req, res) => {
   } catch (error) {
     console.error('Error fetching users:', error)
     res.status(500).json({ error: 'Error al obtener usuarios' })
-  }
-})
-
-app.post('/api/admin/set-results', async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-  res.setHeader('Access-Control-Allow-Credentials', 'true')
-
-  if (req.method === 'OPTIONS') return res.status(200).end()
-
-  try {
-    const admin = getAdminFromToken(req)
-    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' })
-
-    const { jornada_id, results } = req.body
-    if (!jornada_id || !Array.isArray(results) || results.length === 0) {
-      return res.status(400).json({ error: 'Datos incompletos' })
-    }
-
-    const matchResult = (home, away) => {
-      if (home === away) return 'draw'
-      if (home > away) return 'home'
-      return 'away'
-    }
-
-    const participationIds = new Set()
-
-    for (const r of results) {
-      const { match_id, home_score, away_score } = r
-      if (!match_id || home_score === '' || home_score === null || home_score === undefined || away_score === '' || away_score === null || away_score === undefined) {
-        continue
-      }
-
-      const h = parseInt(home_score, 10)
-      const a = parseInt(away_score, 10)
-      const result = matchResult(h, a)
-
-      const { error: updateError } = await supabase
-        .from('admin_jornada_partidos')
-        .update({ home_score: h, away_score: a })
-        .eq('id', match_id)
-        .eq('jornada_id', jornada_id)
-
-      if (updateError) throw updateError
-
-      const { data: predictions } = await supabase
-        .from('predictions')
-        .select('id, participation_id, prediction')
-        .eq('match_id', match_id)
-
-      for (const pred of (predictions || [])) {
-        const isCorrect = pred.prediction === result
-        const { error: predUpdateError } = await supabase
-          .from('predictions')
-          .update({ is_correct: isCorrect, points: isCorrect ? 1 : 0 })
-          .eq('id', pred.id)
-        if (predUpdateError) throw predUpdateError
-        participationIds.add(pred.participation_id)
-      }
-    }
-
-    for (const pid of participationIds) {
-      const { data: preds } = await supabase
-        .from('predictions')
-        .select('is_correct')
-        .eq('participation_id', pid)
-      const total = (preds || []).length
-      const correct = (preds || []).filter(p => p.is_correct === true).length
-      await supabase
-        .from('participations')
-        .update({ correct_predictions: correct, predictions_count: total })
-        .eq('id', pid)
-    }
-
-    res.json({ success: true, updated: results.length, participations: Array.from(participationIds) })
-  } catch (error) {
-    console.error('Error setting results:', error)
-    res.status(500).json({ error: 'Error al guardar resultados' })
   }
 })
 

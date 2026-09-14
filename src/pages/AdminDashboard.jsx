@@ -22,10 +22,6 @@ const AdminDashboard = () => {
   const [selectedParticipation, setSelectedParticipation] = useState(null)
   const [users, setUsers] = useState([])
   const [usersLoading, setUsersLoading] = useState(false)
-  const [resultsType, setResultsType] = useState('media_semana')
-  const [resultsMatches, setResultsMatches] = useState([])
-  const [resultsLoading, setResultsLoading] = useState(false)
-  const [resultsSaving, setResultsSaving] = useState(false)
 
   useEffect(() => {
     fetchLeagues()
@@ -201,61 +197,6 @@ const AdminDashboard = () => {
     }
   }
 
-  const fetchResultsJornada = async () => {
-    setResultsLoading(true)
-    try {
-      const API_URL = import.meta.env.VITE_API_URL || window.location.origin
-      const response = await fetch(`${API_URL}/api/admin/get-jornada?type=${resultsType}`)
-      const data = await response.json()
-      if (data.jornada) {
-        setResultsMatches((data.matches || []).map(m => ({
-          ...m,
-          home_score: m.home_score != null ? m.home_score : '',
-          away_score: m.away_score != null ? m.away_score : ''
-        })))
-      } else {
-        setResultsMatches([])
-      }
-    } catch (error) {
-      console.error('Error fetching results jornada:', error)
-    } finally {
-      setResultsLoading(false)
-    }
-  }
-
-  const handleSaveResults = async () => {
-    if (resultsMatches.length === 0) {
-      setMessage('No hay partidos para guardar resultados')
-      return
-    }
-    const results = resultsMatches
-      .filter(m => m.home_score !== '' && m.away_score !== '')
-      .map(m => ({ match_id: m.id, home_score: m.home_score, away_score: m.away_score }))
-    if (results.length === 0) {
-      setMessage('Ingresa al menos un marcador')
-      return
-    }
-    const jornada_id = resultsMatches[0]?.jornada_id
-    setResultsSaving(true)
-    try {
-      const API_URL = import.meta.env.VITE_API_URL || window.location.origin
-      const response = await fetch(`${API_URL}/api/admin/set-results`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ jornada_id, results })
-      })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.error || 'Error al guardar')
-      setMessage('Resultados guardados y aciertos calculados')
-      fetchResultsJornada()
-    } catch (error) {
-      setMessage(error.message)
-    } finally {
-      setResultsSaving(false)
-    }
-  }
-
   return (
     <div className="admin-dashboard">
       <header className="admin-header">
@@ -282,12 +223,6 @@ const AdminDashboard = () => {
             className={`admin-tab ${activeView === 'saldos' ? 'active' : ''}`}
           >
             Saldos de Usuarios
-          </button>
-          <button
-            onClick={() => setActiveView('resultados')}
-            className={`admin-tab ${activeView === 'resultados' ? 'active' : ''}`}
-          >
-            Resultados
           </button>
         </div>
 
@@ -525,8 +460,9 @@ const AdminDashboard = () => {
                                       key={idx}
                                       className="prediction-badge"
                                       style={{
-                                        backgroundColor: pred.is_correct === true ? '#10b981' : pred.is_correct === false ? '#ef4444' : undefined,
-                                        color: pred.is_correct === true || pred.is_correct === false ? 'white' : undefined
+                                        backgroundColor: 'transparent',
+                                        border: pred.is_correct === true ? '2px solid #10b981' : pred.is_correct === false ? '2px solid #ef4444' : '1px solid #64748b',
+                                        color: pred.is_correct === true ? '#10b981' : pred.is_correct === false ? '#ef4444' : '#94a3b8'
                                       }}
                                     >
                                       {predictionLabel(pred.prediction)}
@@ -634,88 +570,6 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {activeView === 'resultados' && (
-          <div className="admin-section">
-            <h2>Resultados - {jornadaTypes.find(t => t.value === resultsType)?.label}</h2>
-
-            <div className="form-group">
-              <label>Tipo de Jornada</label>
-              <select
-                value={resultsType}
-                onChange={(e) => setResultsType(e.target.value)}
-                className="form-select"
-              >
-                {jornadaTypes.map(type => (
-                  <option key={type.value} value={type.value}>{type.label}</option>
-                ))}
-              </select>
-            </div>
-
-            <button
-              onClick={fetchResultsJornada}
-              className="action-button"
-              disabled={resultsLoading}
-            >
-              {resultsLoading ? 'Cargando...' : 'Cargar Partidos'}
-            </button>
-
-            {resultsMatches.length > 0 && (
-              <div className="participations-table-wrapper">
-                <table className="participations-table">
-                  <thead>
-                    <tr>
-                      <th>Local</th>
-                      <th className="text-center">Marcador</th>
-                      <th>Visitante</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {resultsMatches.map((match) => (
-                      <tr key={match.id}>
-                        <td>{match.home_team_name}</td>
-                        <td>
-                          <div className="score-inputs" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                            <input
-                              type="number"
-                              min="0"
-                              value={match.home_score}
-                              onChange={(e) => setResultsMatches(resultsMatches.map(m => m.id === match.id ? { ...m, home_score: e.target.value } : m))}
-                              className="form-input"
-                              style={{ width: '60px', textAlign: 'center' }}
-                            />
-                            <span>-</span>
-                            <input
-                              type="number"
-                              min="0"
-                              value={match.away_score}
-                              onChange={(e) => setResultsMatches(resultsMatches.map(m => m.id === match.id ? { ...m, away_score: e.target.value } : m))}
-                              className="form-input"
-                              style={{ width: '60px', textAlign: 'center' }}
-                            />
-                          </div>
-                        </td>
-                        <td>{match.away_team_name}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-
-                <button
-                  onClick={handleSaveResults}
-                  className="save-button"
-                  disabled={resultsSaving}
-                  style={{ marginTop: '1rem' }}
-                >
-                  {resultsSaving ? 'Guardando...' : 'Guardar Resultados y Calcular Aciertos'}
-                </button>
-              </div>
-            )}
-
-            {!resultsLoading && resultsMatches.length === 0 && (
-              <p className="no-results">No hay partidos para esta jornada.</p>
-            )}
-          </div>
-        )}
 
       </div>
     </div>

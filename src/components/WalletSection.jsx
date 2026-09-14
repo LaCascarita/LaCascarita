@@ -437,12 +437,12 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
                               {matchPredictions.length > 0 ? (
                                 <span className="inline-flex gap-1 flex-wrap">
                                   {matchPredictions.map((pred, idx) => (
-                                    <span key={idx} className={`px-2 py-0.5 rounded text-xs ${
+                                    <span key={idx} className={`px-2 py-0.5 rounded text-xs border-2 ${
                                       pred.is_correct === true
-                                        ? 'bg-emerald-500/20 text-emerald-400'
+                                        ? 'border-emerald-500 text-emerald-400'
                                         : hasResult
-                                          ? 'bg-red-500/20 text-red-400'
-                                          : 'bg-slate-500/20 text-slate-400'
+                                          ? 'border-red-500 text-red-400'
+                                          : 'border-slate-500 text-slate-400'
                                     }`}>
                                       {predictionLabel(pred.prediction)}
                                     </span>
