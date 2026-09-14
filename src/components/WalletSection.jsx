@@ -404,12 +404,17 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
                     <thead>
                       <tr className="border-b border-white/10">
                         <th className="text-left text-slate-400 py-2 px-3">Partido</th>
+                        <th className="text-left text-slate-400 py-2 px-3">Resultado</th>
                         <th className="text-left text-slate-400 py-2 px-3">Predicción</th>
                       </tr>
                     </thead>
                     <tbody className="text-white">
                       {detailData.matches.map((match) => {
                         const matchPredictions = detailData.predictions.filter(pred => pred.match_id === match.id)
+                        const hasResult = match.home_score !== null && match.home_score !== undefined && match.away_score !== null && match.away_score !== undefined
+                        const matchResult = hasResult
+                          ? (match.home_score === match.away_score ? 'draw' : match.home_score > match.away_score ? 'home' : 'away')
+                          : null
                         return (
                           <tr key={match.id} className="border-b border-white/5">
                             <td className="py-2 px-3">
@@ -419,10 +424,26 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
                               <p className="text-slate-400 text-xs">{match.match_date ? new Date(match.match_date).toLocaleString('es-MX') : '-'}</p>
                             </td>
                             <td className="py-2 px-3">
+                              {hasResult ? (
+                                <div>
+                                  <div className="text-white font-semibold">{match.home_score} - {match.away_score}</div>
+                                  <div className="text-emerald-400 text-xs font-medium">Ganador: {predictionLabel(matchResult)}</div>
+                                </div>
+                              ) : (
+                                <span className="text-slate-400">-</span>
+                              )}
+                            </td>
+                            <td className="py-2 px-3">
                               {matchPredictions.length > 0 ? (
                                 <span className="inline-flex gap-1 flex-wrap">
                                   {matchPredictions.map((pred, idx) => (
-                                    <span key={idx} className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded text-xs">
+                                    <span key={idx} className={`px-2 py-0.5 rounded text-xs ${
+                                      pred.is_correct === true
+                                        ? 'bg-emerald-500/20 text-emerald-400'
+                                        : hasResult
+                                          ? 'bg-red-500/20 text-red-400'
+                                          : 'bg-slate-500/20 text-slate-400'
+                                    }`}>
                                       {predictionLabel(pred.prediction)}
                                     </span>
                                   ))}

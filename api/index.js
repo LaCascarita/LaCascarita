@@ -1566,6 +1566,85 @@ app.get('/api/admin/users', async (req, res) => {
   }
 })
 
+app.post('/api/admin/set-results', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const admin = getAdminFromToken(req)
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' })
+
+    const { jornada_id, results } = req.body
+    if (!jornada_id || !Array.isArray(results) || results.length === 0) {
+      return res.status(400).json({ error: 'Datos incompletos' })
+    }
+
+    const matchResult = (home, away) => {
+      if (home === away) return 'draw'
+      if (home > away) return 'home'
+      return 'away'
+    }
+
+    const participationIds = new Set()
+
+    for (const r of results) {
+      const { match_id, home_score, away_score } = r
+      if (!match_id || home_score === '' || home_score === null || home_score === undefined || away_score === '' || away_score === null || away_score === undefined) {
+        continue
+      }
+
+      const h = parseInt(home_score, 10)
+      const a = parseInt(away_score, 10)
+      const result = matchResult(h, a)
+
+      const { error: updateError } = await supabase
+        .from('admin_jornada_partidos')
+        .update({ home_score: h, away_score: a })
+        .eq('id', match_id)
+        .eq('jornada_id', jornada_id)
+
+      if (updateError) throw updateError
+
+      const { data: predictions } = await supabase
+        .from('predictions')
+        .select('id, participation_id, prediction')
+        .eq('match_id', match_id)
+
+      for (const pred of (predictions || [])) {
+        const isCorrect = pred.prediction === result
+        const { error: predUpdateError } = await supabase
+          .from('predictions')
+          .update({ is_correct: isCorrect, points: isCorrect ? 1 : 0 })
+          .eq('id', pred.id)
+        if (predUpdateError) throw predUpdateError
+        participationIds.add(pred.participation_id)
+      }
+    }
+
+    for (const pid of participationIds) {
+      const { data: preds } = await supabase
+        .from('predictions')
+        .select('is_correct')
+        .eq('participation_id', pid)
+      const total = (preds || []).length
+      const correct = (preds || []).filter(p => p.is_correct === true).length
+      await supabase
+        .from('participations')
+        .update({ correct_predictions: correct, predictions_count: total })
+        .eq('id', pid)
+    }
+
+    res.json({ success: true, updated: results.length, participations: Array.from(participationIds) })
+  } catch (error) {
+    console.error('Error setting results:', error)
+    res.status(500).json({ error: 'Error al guardar resultados' })
+  }
+})
+
 export default async function handler(req, res) {
   try {
     await new Promise((resolve, reject) => {
