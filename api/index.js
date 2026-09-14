@@ -1583,6 +1583,27 @@ const syncJornadaResults = async (jornada_id) => {
       }
     }
 
+    const scoredMatches = (matches || []).filter(m => m.home_score != null && m.away_score != null)
+    console.log('[syncJornadaResults] scored matches to validate:', scoredMatches.length)
+    for (const match of scoredMatches) {
+      console.log('[syncJornadaResults] validating scored match:', match.id, 'home:', match.home_score, 'away:', match.away_score)
+      const result = getWinner(parseInt(match.home_score, 10), parseInt(match.away_score, 10))
+      const { data: predictions } = await supabase
+        .from('predictions')
+        .select('id, participation_id, prediction')
+        .eq('match_id', match.id)
+      console.log('[syncJornadaResults] predictions for scored match:', match.id, 'count:', (predictions || []).length)
+      for (const pred of (predictions || [])) {
+        const isCorrect = pred.prediction === result
+        console.log('[syncJornadaResults] scored pred:', pred.id, 'prediction:', pred.prediction, 'is_correct:', isCorrect)
+        await supabase
+          .from('predictions')
+          .update({ is_correct: isCorrect, points: isCorrect ? 1 : 0 })
+          .eq('id', pred.id)
+        participationIds.add(pred.participation_id)
+      }
+    }
+
     console.log('[syncJornadaResults] participationIds to update:', participationIds.size)
     if (participationIds.size === 0) return
 
