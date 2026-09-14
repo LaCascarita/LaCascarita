@@ -1494,12 +1494,15 @@ app.get('/api/football/bag-prizes', async (req, res) => {
 
 const syncJornadaResults = async (jornada_id) => {
   try {
+    console.log('[syncJornadaResults] start jornada_id:', jornada_id)
     const { data: matches } = await supabase
       .from('admin_jornada_partidos')
       .select('id, match_id, home_score, away_score, match_status')
       .eq('jornada_id', jornada_id)
 
+    console.log('[syncJornadaResults] matches found:', (matches || []).length)
     const pendingMatches = (matches || []).filter(m => m.home_score == null || m.away_score == null)
+    console.log('[syncJornadaResults] pending matches:', pendingMatches.length)
     if (pendingMatches.length === 0) return
 
     const API_FOOTBALL_KEY = process.env.API_FOOTBALL_KEY
@@ -1508,35 +1511,61 @@ const syncJornadaResults = async (jornada_id) => {
       return
     }
 
+    console.log('[syncJornadaResults] API_FOOTBALL_KEY present')
+
     const getWinner = (h, a) => h === a ? 'draw' : h > a ? 'home' : 'away'
     const participationIds = new Set()
 
     for (const match of pendingMatches) {
+      console.log('[syncJornadaResults] checking match:', match.id, 'api match_id:', match.match_id)
       const response = await fetch(`https://apiv3.apifootball.com/?action=get_events&match_id=${match.match_id}&APIkey=${API_FOOTBALL_KEY}`)
+      console.log('[syncJornadaResults] response status:', response.status, 'ok:', response.ok)
       if (!response.ok) continue
       const data = await response.json()
-      if (!Array.isArray(data) || data.length === 0) continue
+      console.log('[syncJornadaResults] response data is array:', Array.isArray(data), 'length:', (data || []).length)
+      if (!Array.isArray(data) || data.length === 0) {
+        console.log('[syncJornadaResults] no data for match:', match.match_id)
+        continue
+      }
       const event = data[0]
-      if (event.match_status !== 'FT' && event.match_status !== 'AET' && event.match_status !== 'PEN') continue
+      console.log('[syncJornadaResults] event:', {
+        match_id: event.match_id,
+        match_status: event.match_status,
+        home: event.match_hometeam_score,
+        away: event.match_awayteam_score
+      })
+      if (event.match_status !== 'FT' && event.match_status !== 'AET' && event.match_status !== 'PEN') {
+        console.log('[syncJornadaResults] match not finished, status:', event.match_status)
+        continue
+      }
 
       const homeScore = parseInt(event.match_hometeam_score, 10)
       const awayScore = parseInt(event.match_awayteam_score, 10)
-      if (isNaN(homeScore) || isNaN(awayScore)) continue
+      console.log('[syncJornadaResults] parsed scores:', homeScore, awayScore)
+      if (isNaN(homeScore) || isNaN(awayScore)) {
+        console.log('[syncJornadaResults] invalid scores, skip')
+        continue
+      }
 
       const { error } = await supabase
         .from('admin_jornada_partidos')
         .update({ home_score: homeScore, away_score: awayScore, match_status: event.match_status })
         .eq('id', match.id)
+      console.log('[syncJornadaResults] update match error:', error ? error.message : 'none')
       if (error) continue
 
       const result = getWinner(homeScore, awayScore)
+      console.log('[syncJornadaResults] calculated result:', result)
+
       const { data: predictions } = await supabase
         .from('predictions')
         .select('id, participation_id, prediction')
         .eq('match_id', match.id)
+      console.log('[syncJornadaResults] predictions for match:', match.id, 'count:', (predictions || []).length)
 
       for (const pred of (predictions || [])) {
         const isCorrect = pred.prediction === result
+        console.log('[syncJornadaResults] pred:', pred.id, 'prediction:', pred.prediction, 'is_correct:', isCorrect)
         await supabase
           .from('predictions')
           .update({ is_correct: isCorrect, points: isCorrect ? 1 : 0 })
@@ -1545,6 +1574,7 @@ const syncJornadaResults = async (jornada_id) => {
       }
     }
 
+    console.log('[syncJornadaResults] participationIds to update:', participationIds.size)
     if (participationIds.size === 0) return
 
     for (const pid of participationIds) {
@@ -1554,6 +1584,7 @@ const syncJornadaResults = async (jornada_id) => {
         .eq('participation_id', pid)
       const total = (preds || []).length
       const correct = (preds || []).filter(p => p.is_correct === true).length
+      console.log('[syncJornadaResults] update participation:', pid, 'correct:', correct, 'total:', total)
       await supabase
         .from('participations')
         .update({ correct_predictions: correct, predictions_count: total })
