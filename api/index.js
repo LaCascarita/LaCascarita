@@ -1543,7 +1543,8 @@ const syncJornadaResults = async (jornada_id) => {
         console.log('[syncJornadaResults] match not found in events list:', match.match_id)
         continue
       }
-      if (event.match_status !== 'FT' && event.match_status !== 'AET' && event.match_status !== 'PEN') {
+      const finishedStatuses = ['FT', 'AET', 'PEN', 'Finished', 'FINISHED']
+      if (!finishedStatuses.includes(event.match_status)) {
         console.log('[syncJornadaResults] match not finished, status:', event.match_status)
         continue
       }
