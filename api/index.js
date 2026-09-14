@@ -1497,7 +1497,7 @@ const syncJornadaResults = async (jornada_id) => {
     console.log('[syncJornadaResults] start jornada_id:', jornada_id)
     const { data: matches } = await supabase
       .from('admin_jornada_partidos')
-      .select('id, match_id, home_score, away_score, match_status')
+      .select('id, match_id, home_score, away_score, match_status, league_id, match_date')
       .eq('jornada_id', jornada_id)
 
     console.log('[syncJornadaResults] matches found:', (matches || []).length)
@@ -1517,23 +1517,32 @@ const syncJornadaResults = async (jornada_id) => {
     const participationIds = new Set()
 
     for (const match of pendingMatches) {
-      console.log('[syncJornadaResults] checking match:', match.id, 'api match_id:', match.match_id)
-      const response = await fetch(`https://apiv3.apifootball.com/?action=get_events&match_id=${match.match_id}&APIkey=${API_FOOTBALL_KEY}`)
+      console.log('[syncJornadaResults] checking match:', match.id, 'api match_id:', match.match_id, 'league_id:', match.league_id, 'match_date:', match.match_date)
+      if (!match.league_id || !match.match_date) {
+        console.log('[syncJornadaResults] missing league_id or match_date for match:', match.id)
+        continue
+      }
+      const matchDate = match.match_date.split('T')[0]
+      const response = await fetch(`https://apiv3.apifootball.com/?action=get_events&from=${matchDate}&to=${matchDate}&league_id=${match.league_id}&APIkey=${API_FOOTBALL_KEY}`)
       console.log('[syncJornadaResults] response status:', response.status, 'ok:', response.ok)
       if (!response.ok) continue
       const data = await response.json()
       console.log('[syncJornadaResults] response data is array:', Array.isArray(data), 'length:', (data || []).length)
       if (!Array.isArray(data) || data.length === 0) {
-        console.log('[syncJornadaResults] no data for match:', match.match_id)
+        console.log('[syncJornadaResults] no data for match:', match.match_id, 'on', matchDate)
         continue
       }
-      const event = data[0]
-      console.log('[syncJornadaResults] event:', {
+      const event = data.find(e => String(e.match_id) === String(match.match_id))
+      console.log('[syncJornadaResults] found event:', event ? {
         match_id: event.match_id,
         match_status: event.match_status,
         home: event.match_hometeam_score,
         away: event.match_awayteam_score
-      })
+      } : null)
+      if (!event) {
+        console.log('[syncJornadaResults] match not found in events list:', match.match_id)
+        continue
+      }
       if (event.match_status !== 'FT' && event.match_status !== 'AET' && event.match_status !== 'PEN') {
         console.log('[syncJornadaResults] match not finished, status:', event.match_status)
         continue
