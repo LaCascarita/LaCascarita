@@ -1605,20 +1605,37 @@ const syncJornadaResults = async (jornada_id) => {
       }
     }
 
-    console.log('[syncJornadaResults] participationIds to update:', participationIds.size)
-    if (participationIds.size === 0) return
+    const totalMatches = (matches || []).length
+    console.log('[syncJornadaResults] total matches:', totalMatches)
 
-    for (const pid of participationIds) {
-      const { data: preds } = await supabase
-        .from('predictions')
-        .select('is_correct')
-        .eq('participation_id', pid)
-      const total = (preds || []).length
-      const correct = (preds || []).filter(p => p.is_correct === true).length
-      console.log('[syncJornadaResults] update participation:', pid, 'correct:', correct, 'total:', total)
+    const { data: allParts } = await supabase
+      .from('participations')
+      .select('id')
+      .eq('jornada_id', jornada_id)
+    const pids = (allParts || []).map(p => p.id)
+    console.log('[syncJornadaResults] participations to update:', pids.length)
+
+    if (pids.length === 0) return
+
+    const { data: allPreds } = await supabase
+      .from('predictions')
+      .select('participation_id, match_id, is_correct')
+      .in('participation_id', pids)
+    const byPart = new Map()
+    for (const p of (allPreds || [])) {
+      if (!byPart.has(p.participation_id)) byPart.set(p.participation_id, new Map())
+      const matchesMap = byPart.get(p.participation_id)
+      const current = matchesMap.get(p.match_id) || false
+      matchesMap.set(p.match_id, current || p.is_correct === true)
+    }
+
+    for (const pid of pids) {
+      const matchesMap = byPart.get(pid) || new Map()
+      const correct = [...matchesMap.values()].filter(Boolean).length
+      console.log('[syncJornadaResults] update participation:', pid, 'correct:', correct, 'total:', totalMatches)
       await supabase
         .from('participations')
-        .update({ correct_predictions: correct, predictions_count: total })
+        .update({ correct_predictions: correct, predictions_count: totalMatches })
         .eq('id', pid)
     }
   } catch (error) {
