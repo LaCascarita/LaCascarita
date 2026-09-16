@@ -1503,84 +1503,84 @@ const syncJornadaResults = async (jornada_id) => {
     console.log('[syncJornadaResults] matches found:', (matches || []).length)
     const pendingMatches = (matches || []).filter(m => m.home_score == null || m.away_score == null)
     console.log('[syncJornadaResults] pending matches:', pendingMatches.length)
-    if (pendingMatches.length === 0) return
-
-    const API_FOOTBALL_KEY = process.env.API_FOOTBALL_KEY
-    if (!API_FOOTBALL_KEY) {
-      console.warn('API_FOOTBALL_KEY not configured')
-      return
-    }
-
-    console.log('[syncJornadaResults] API_FOOTBALL_KEY present')
 
     const getWinner = (h, a) => h === a ? 'draw' : h > a ? 'home' : 'away'
     const participationIds = new Set()
 
-    for (const match of pendingMatches) {
-      console.log('[syncJornadaResults] checking match:', match.id, 'api match_id:', match.match_id, 'league_id:', match.league_id, 'match_date:', match.match_date)
-      if (!match.league_id || !match.match_date) {
-        console.log('[syncJornadaResults] missing league_id or match_date for match:', match.id)
-        continue
-      }
-      const matchDate = match.match_date.split('T')[0]
-      const response = await fetch(`https://apiv3.apifootball.com/?action=get_events&from=${matchDate}&to=${matchDate}&league_id=${match.league_id}&APIkey=${API_FOOTBALL_KEY}`)
-      console.log('[syncJornadaResults] response status:', response.status, 'ok:', response.ok)
-      if (!response.ok) continue
-      const data = await response.json()
-      console.log('[syncJornadaResults] response data is array:', Array.isArray(data), 'length:', (data || []).length)
-      if (!Array.isArray(data) || data.length === 0) {
-        console.log('[syncJornadaResults] no data for match:', match.match_id, 'on', matchDate)
-        continue
-      }
-      const event = data.find(e => String(e.match_id) === String(match.match_id))
-      console.log('[syncJornadaResults] found event:', event ? {
-        match_id: event.match_id,
-        match_status: event.match_status,
-        home: event.match_hometeam_score,
-        away: event.match_awayteam_score
-      } : null)
-      if (!event) {
-        console.log('[syncJornadaResults] match not found in events list:', match.match_id)
-        continue
-      }
-      const finishedStatuses = ['FT', 'AET', 'PEN', 'Finished', 'FINISHED']
-      if (!finishedStatuses.includes(event.match_status)) {
-        console.log('[syncJornadaResults] match not finished, status:', event.match_status)
-        continue
-      }
+    if (pendingMatches.length > 0) {
+      const API_FOOTBALL_KEY = process.env.API_FOOTBALL_KEY
+      if (!API_FOOTBALL_KEY) {
+        console.warn('API_FOOTBALL_KEY not configured')
+      } else {
+        console.log('[syncJornadaResults] API_FOOTBALL_KEY present')
 
-      const homeScore = parseInt(event.match_hometeam_score, 10)
-      const awayScore = parseInt(event.match_awayteam_score, 10)
-      console.log('[syncJornadaResults] parsed scores:', homeScore, awayScore)
-      if (isNaN(homeScore) || isNaN(awayScore)) {
-        console.log('[syncJornadaResults] invalid scores, skip')
-        continue
-      }
+        for (const match of pendingMatches) {
+          console.log('[syncJornadaResults] checking match:', match.id, 'api match_id:', match.match_id, 'league_id:', match.league_id, 'match_date:', match.match_date)
+          if (!match.league_id || !match.match_date) {
+            console.log('[syncJornadaResults] missing league_id or match_date for match:', match.id)
+            continue
+          }
+          const matchDate = match.match_date.split('T')[0]
+          const response = await fetch(`https://apiv3.apifootball.com/?action=get_events&from=${matchDate}&to=${matchDate}&league_id=${match.league_id}&APIkey=${API_FOOTBALL_KEY}`)
+          console.log('[syncJornadaResults] response status:', response.status, 'ok:', response.ok)
+          if (!response.ok) continue
+          const data = await response.json()
+          console.log('[syncJornadaResults] response data is array:', Array.isArray(data), 'length:', (data || []).length)
+          if (!Array.isArray(data) || data.length === 0) {
+            console.log('[syncJornadaResults] no data for match:', match.match_id, 'on', matchDate)
+            continue
+          }
+          const event = data.find(e => String(e.match_id) === String(match.match_id))
+          console.log('[syncJornadaResults] found event:', event ? {
+            match_id: event.match_id,
+            match_status: event.match_status,
+            home: event.match_hometeam_score,
+            away: event.match_awayteam_score
+          } : null)
+          if (!event) {
+            console.log('[syncJornadaResults] match not found in events list:', match.match_id)
+            continue
+          }
+          const finishedStatuses = ['FT', 'AET', 'PEN', 'Finished', 'FINISHED']
+          if (!finishedStatuses.includes(event.match_status)) {
+            console.log('[syncJornadaResults] match not finished, status:', event.match_status)
+            continue
+          }
 
-      const { error } = await supabase
-        .from('admin_jornada_partidos')
-        .update({ home_score: homeScore, away_score: awayScore, match_status: event.match_status })
-        .eq('id', match.id)
-      console.log('[syncJornadaResults] update match error:', error ? error.message : 'none')
-      if (error) continue
+          const homeScore = parseInt(event.match_hometeam_score, 10)
+          const awayScore = parseInt(event.match_awayteam_score, 10)
+          console.log('[syncJornadaResults] parsed scores:', homeScore, awayScore)
+          if (isNaN(homeScore) || isNaN(awayScore)) {
+            console.log('[syncJornadaResults] invalid scores, skip')
+            continue
+          }
 
-      const result = getWinner(homeScore, awayScore)
-      console.log('[syncJornadaResults] calculated result:', result)
+          const { error } = await supabase
+            .from('admin_jornada_partidos')
+            .update({ home_score: homeScore, away_score: awayScore, match_status: event.match_status })
+            .eq('id', match.id)
+          console.log('[syncJornadaResults] update match error:', error ? error.message : 'none')
+          if (error) continue
 
-      const { data: predictions } = await supabase
-        .from('predictions')
-        .select('id, participation_id, prediction')
-        .eq('match_id', match.id)
-      console.log('[syncJornadaResults] predictions for match:', match.id, 'count:', (predictions || []).length)
+          const result = getWinner(homeScore, awayScore)
+          console.log('[syncJornadaResults] calculated result:', result)
 
-      for (const pred of (predictions || [])) {
-        const isCorrect = pred.prediction === result
-        console.log('[syncJornadaResults] pred:', pred.id, 'prediction:', pred.prediction, 'is_correct:', isCorrect)
-        await supabase
-          .from('predictions')
-          .update({ is_correct: isCorrect, points: isCorrect ? 1 : 0 })
-          .eq('id', pred.id)
-        participationIds.add(pred.participation_id)
+          const { data: predictions } = await supabase
+            .from('predictions')
+            .select('id, participation_id, prediction')
+            .eq('match_id', match.id)
+          console.log('[syncJornadaResults] predictions for match:', match.id, 'count:', (predictions || []).length)
+
+          for (const pred of (predictions || [])) {
+            const isCorrect = pred.prediction === result
+            console.log('[syncJornadaResults] pred:', pred.id, 'prediction:', pred.prediction, 'is_correct:', isCorrect)
+            await supabase
+              .from('predictions')
+              .update({ is_correct: isCorrect, points: isCorrect ? 1 : 0 })
+              .eq('id', pred.id)
+            participationIds.add(pred.participation_id)
+          }
+        }
       }
     }
 
