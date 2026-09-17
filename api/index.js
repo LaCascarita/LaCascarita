@@ -1755,6 +1755,61 @@ app.get('/api/admin/users', async (req, res) => {
   }
 })
 
+// ============================================================
+// RANKING DE USUARIOS POR ACIERTOS
+// ============================================================
+app.get('/api/ranking', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+  res.setHeader('Pragma', 'no-cache')
+  res.setHeader('Expires', '0')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const user = getUserFromToken(req)
+    if (!user) return res.status(401).json({ error: 'No autorizado' })
+
+    const { data: users, error: usersError } = await supabase
+      .from('users')
+      .select('id, username')
+      .eq('role', 'user')
+    if (usersError) throw usersError
+
+    const { data: parts, error: partsError } = await supabase
+      .from('participations')
+      .select('user_id, correct_predictions')
+    if (partsError) throw partsError
+
+    const byUser = new Map()
+    for (const u of (users || [])) {
+      byUser.set(u.id, { user_id: u.id, username: u.username, points: 0 })
+    }
+    for (const p of (parts || [])) {
+      const entry = byUser.get(p.user_id)
+      if (entry) {
+        entry.points += (p.correct_predictions || 0)
+      } else {
+        byUser.set(p.user_id, { user_id: p.user_id, username: 'Usuario', points: (p.correct_predictions || 0) })
+      }
+    }
+
+    const ranking = [...byUser.values()]
+    ranking.sort((a, b) => b.points - a.points)
+
+    const ranked = ranking.map((u, idx) => ({ pos: idx + 1, ...u }))
+    const my = ranked.find(r => r.user_id === user.id)
+
+    res.json({ ranking: ranked, currentUser: my || null })
+  } catch (error) {
+    console.error('Error fetching ranking:', error)
+    res.status(500).json({ error: 'Error al obtener ranking' })
+  }
+})
+
 export default async function handler(req, res) {
   try {
     await new Promise((resolve, reject) => {

@@ -16,6 +16,9 @@ const Dashboard = () => {
   const [upcomingMatches, setUpcomingMatches] = useState([])
   const [walletLoading, setWalletLoading] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [ranking, setRanking] = useState([])
+  const [myRanking, setMyRanking] = useState(null)
+  const [rankingLoading, setRankingLoading] = useState(false)
 
   const userStats = {
     ranking: 5,
@@ -52,6 +55,7 @@ const Dashboard = () => {
           setUser(data.user)
           setBalance(data.user.balance || 0)
           fetchBalanceData()
+          fetchRanking()
         } else {
           // Si no está autenticado, redirigir al login
           navigate('/login')
@@ -101,6 +105,22 @@ const Dashboard = () => {
         }
       } catch (error) {
         console.error('Error al cargar bolsas:', error)
+      }
+    }
+
+    const fetchRanking = async () => {
+      try {
+        setRankingLoading(true)
+        const response = await apiFetch('/api/ranking')
+        if (response.ok) {
+          const data = await response.json()
+          setRanking(data.ranking || [])
+          setMyRanking(data.currentUser || null)
+        }
+      } catch (error) {
+        console.error('Error al cargar ranking:', error)
+      } finally {
+        setRankingLoading(false)
       }
     }
 
@@ -326,8 +346,8 @@ const Dashboard = () => {
               />
               <DashboardCard
                 title="Mi Ranking"
-                value={`#${userStats.ranking}`}
-                subtitle="Posición actual"
+                value={`#${myRanking?.pos || '-'}`}
+                subtitle={`${myRanking?.points || 0} puntos`}
                 icon="📊"
                 color="blue"
                 onClick={() => setActiveSection('ranking')}
@@ -405,44 +425,50 @@ const Dashboard = () => {
           <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 sm:p-6 border border-white/20">
             <h3 className="text-lg sm:text-xl font-semibold text-white mb-4">📊 Mi Ranking</h3>
             <p className="text-slate-400 mb-6">Tu posición en el ranking general de La Cascarita.</p>
-            
-            <div className="bg-emerald-500/20 rounded-lg p-4 sm:p-6 border border-emerald-500/30 mb-6">
-              <p className="text-slate-400 mb-2">Tu posición actual</p>
-              <p className="text-3xl sm:text-4xl font-bold text-emerald-400 mb-2">#5</p>
-              <p className="text-slate-300">TigreRegio</p>
-            </div>
 
-            <h4 className="text-base sm:text-lg font-semibold text-white mb-4">Ranking General</h4>
-            <div className="space-y-3">
-              {[
-                { pos: 1, user: 'FutboleroMX', points: 156 },
-                { pos: 2, user: 'ChivaLoka', points: 148 },
-                { pos: 3, user: 'RayadoMX', points: 142 },
-                { pos: 4, user: 'AmericaFan', points: 138 },
-                { pos: 5, user: 'TigreRegio', points: 135, isYou: true },
-              ].map((item) => (
-                <div 
-                  key={item.pos} 
-                  className={`flex items-center justify-between bg-white/5 rounded-lg p-3 sm:p-4 border ${
-                    item.isYou ? 'border-emerald-500/50' : 'border-white/10'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 sm:gap-4">
-                    <span className={`text-lg sm:text-xl font-bold ${
-                      item.pos === 1 ? 'text-yellow-400' :
-                      item.pos === 2 ? 'text-slate-300' :
-                      item.pos === 3 ? 'text-orange-400' :
-                      'text-slate-400'
-                    }`}>
-                      {item.pos}
-                    </span>
-                    <span className="text-white font-semibold text-sm sm:text-base">{item.user}</span>
-                    {item.isYou && <span className="bg-emerald-500 text-white px-2 py-1 rounded text-xs">Tú</span>}
-                  </div>
-                  <span className="text-slate-400 text-xs sm:text-sm">{item.points} pts</span>
+            {rankingLoading ? (
+              <div className="text-center text-slate-400 py-8">Cargando ranking...</div>
+            ) : (
+              <>
+                <div className="bg-emerald-500/20 rounded-lg p-4 sm:p-6 border border-emerald-500/30 mb-6">
+                  <p className="text-slate-400 mb-2">Tu posición actual</p>
+                  <p className="text-3xl sm:text-4xl font-bold text-emerald-400 mb-2">#{myRanking?.pos || '-'}</p>
+                  <p className="text-slate-300">{user?.username}</p>
+                  <p className="text-emerald-300 text-sm mt-1">{myRanking?.points || 0} puntos</p>
                 </div>
-              ))}
-            </div>
+
+                <h4 className="text-base sm:text-lg font-semibold text-white mb-4">Ranking General</h4>
+                <div className="space-y-3">
+                  {ranking.map((item) => {
+                    const isYou = item.user_id === user?.id
+                    return (
+                      <div
+                        key={item.user_id}
+                        className={`flex items-center justify-between rounded-lg p-3 sm:p-4 border ${
+                          isYou
+                            ? 'bg-emerald-500/10 border-l-4 border-emerald-500'
+                            : 'bg-white/5 border-white/10'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 sm:gap-4">
+                          <span className={`text-lg sm:text-xl font-bold ${
+                            item.pos === 1 ? 'text-yellow-400' :
+                            item.pos === 2 ? 'text-slate-300' :
+                            item.pos === 3 ? 'text-orange-400' :
+                            'text-slate-400'
+                          }`}>
+                            {item.pos}
+                          </span>
+                          <span className="text-white font-semibold text-sm sm:text-base">{item.username}</span>
+                          {isYou && <span className="bg-emerald-500 text-white px-2 py-1 rounded text-xs">Tú</span>}
+                        </div>
+                        <span className="text-slate-400 text-xs sm:text-sm">{item.points} pts</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
+            )}
           </div>
         )}
 
