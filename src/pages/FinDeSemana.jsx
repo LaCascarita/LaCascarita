@@ -9,6 +9,7 @@ const FinDeSemana = () => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [matches, setMatches] = useState([])
+  const [jornada, setJornada] = useState(null)
   const [loadingMatches, setLoadingMatches] = useState(true)
   const [selections, setSelections] = useState({}) // { matchId: ['local', 'empate', etc] }
   const [totalQuinielas, setTotalQuinielas] = useState(0)
@@ -43,6 +44,7 @@ const FinDeSemana = () => {
         if (response.ok) {
           const data = await response.json()
           setMatches(Array.isArray(data.matches) ? data.matches : [])
+          setJornada(data.jornada || null)
         } else {
           console.error('Error fetching matches:', response.statusText)
         }
@@ -145,7 +147,10 @@ const FinDeSemana = () => {
     return { winner: null, status: 'upcoming' }
   }
 
+  const isClosed = jornada != null && jornada.status !== 'active'
+
   const handleSelection = (matchId, option) => {
+    if (isClosed) return
     setSelections(prev => {
       const currentSelections = prev[matchId] || []
       let newSelections
@@ -178,6 +183,7 @@ const FinDeSemana = () => {
   const allMatchesSelected = matches.length > 0 && matches.every(match => selections[match.match_id]?.length > 0)
 
   const handleSubmit = async () => {
+    if (isClosed) return
     if (!allMatchesSelected) {
       alert(`Debes seleccionar al menos un resultado en cada uno de los ${matches.length} partidos.`)
       return
@@ -257,6 +263,14 @@ const FinDeSemana = () => {
           </div>
         </div>
 
+        {/* Closed banner */}
+        {isClosed && (
+          <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8">
+            <h2 className="text-lg sm:text-xl font-semibold text-red-400 mb-1">🔒 Quiniela cerrada</h2>
+            <p className="text-slate-300 text-sm">Ya no se aceptan pronósticos para esta jornada. Los resultados se muestran conforme terminan los partidos.</p>
+          </div>
+        )}
+
         {/* Matches */}
         <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 sm:p-6 border border-white/20">
           <h3 className="text-lg sm:text-xl font-semibold text-white mb-4">📅 Partidos</h3>
@@ -311,33 +325,36 @@ const FinDeSemana = () => {
                         </div>
                       ) : (
                         <>
-                          <button 
+                          <button
                             onClick={() => handleSelection(match.match_id, 'local')}
+                            disabled={isClosed}
                             className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors ${
-                              isSelected(match.match_id, 'local') 
-                                ? 'bg-emerald-600 text-white ring-2 ring-emerald-400' 
+                              isSelected(match.match_id, 'local')
+                                ? 'bg-emerald-600 text-white ring-2 ring-emerald-400'
                                 : 'bg-emerald-500 hover:bg-emerald-600 text-white'
-                            }`}
+                            } ${isClosed ? 'opacity-50 cursor-not-allowed' : ''}`}
                           >
                             Local
                           </button>
-                          <button 
+                          <button
                             onClick={() => handleSelection(match.match_id, 'empate')}
+                            disabled={isClosed}
                             className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors ${
-                              isSelected(match.match_id, 'empate') 
-                                ? 'bg-blue-600 text-white ring-2 ring-blue-400' 
+                              isSelected(match.match_id, 'empate')
+                                ? 'bg-blue-600 text-white ring-2 ring-blue-400'
                                 : 'bg-blue-500 hover:bg-blue-600 text-white'
-                            }`}
+                            } ${isClosed ? 'opacity-50 cursor-not-allowed' : ''}`}
                           >
                             Empate
                           </button>
-                          <button 
+                          <button
                             onClick={() => handleSelection(match.match_id, 'visitante')}
+                            disabled={isClosed}
                             className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs sm:text-sm transition-colors ${
-                              isSelected(match.match_id, 'visitante') 
-                                ? 'bg-purple-600 text-white ring-2 ring-purple-400' 
+                              isSelected(match.match_id, 'visitante')
+                                ? 'bg-purple-600 text-white ring-2 ring-purple-400'
                                 : 'bg-purple-500 hover:bg-purple-600 text-white'
-                            }`}
+                            } ${isClosed ? 'opacity-50 cursor-not-allowed' : ''}`}
                           >
                             Visitante
                           </button>
@@ -351,16 +368,16 @@ const FinDeSemana = () => {
           )}
 
           {/* Submit Button */}
-          <button 
+          <button
             onClick={handleSubmit}
-            disabled={!allMatchesSelected || totalQuinielas < 2}
+            disabled={isClosed || !allMatchesSelected || totalQuinielas < 2}
             className={`w-full font-semibold py-4 px-6 rounded-xl mt-6 transition-all duration-300 transform hover:scale-105 shadow-lg ${
-              !allMatchesSelected || totalQuinielas < 2
-                ? 'bg-slate-500 text-slate-300 cursor-not-allowed' 
+              isClosed || !allMatchesSelected || totalQuinielas < 2
+                ? 'bg-slate-500 text-slate-300 cursor-not-allowed'
                 : 'bg-emerald-500 hover:bg-emerald-600 text-white'
             }`}
           >
-            Enviar Quiniela (${totalAmount} MXN)
+            {isClosed ? 'Quiniela cerrada' : `Enviar Quiniela ($${totalAmount} MXN)`}
           </button>
         </div>
 

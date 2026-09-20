@@ -212,6 +212,29 @@ const AdminDashboard = () => {
     }
   }
 
+  const handleToggleJornada = async (action) => {
+    const confirmMsg = action === 'close'
+      ? '¿Cerrar la quiniela? Los usuarios ya no podrán enviar pronósticos.'
+      : '¿Reabrir la quiniela? Los usuarios podrán volver a participar.'
+    if (!window.confirm(confirmMsg)) return
+
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || window.location.origin
+      const response = await fetch(`${API_URL}/api/admin/jornada-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ type: participationsType, action })
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Error al actualizar jornada')
+      setMessage(data.message)
+      fetchParticipations()
+    } catch (error) {
+      setMessage(error.message)
+    }
+  }
+
   const fetchUsers = async () => {
     setUsersLoading(true)
     try {
@@ -450,18 +473,36 @@ const AdminDashboard = () => {
                   <p><strong>Acumulado de jornada anterior:</strong> {formatMoney(participationsData.carryover)}</p>
                 )}
                 <p><strong>Casa (30%):</strong> {formatMoney(participationsData.participations?.reduce((sum, p) => sum + (parseFloat(p.payment_amount) || 0), 0) * 0.3)}</p>
-                <p><strong>Estado:</strong> {participationsData.jornada.status === 'completed' ? 'Finalizada' : 'Activa'}</p>
+                <p><strong>Estado:</strong> {participationsData.jornada.status === 'completed' ? 'Finalizada' : participationsData.jornada.status === 'inactive' ? 'Cerrada' : 'Activa'}</p>
               </div>
             )}
 
-            {participationsData?.jornada?.status === 'active' && (
-              <button
-                onClick={handleDistributePrizes}
-                className="save-button"
-                disabled={distributing}
-              >
-                {distributing ? 'Repartiendo...' : 'Cerrar Jornada y Repartir Premios'}
-              </button>
+            {participationsData?.jornada && participationsData.jornada.status !== 'completed' && (
+              <div className="admin-actions" style={{ marginTop: '10px' }}>
+                {participationsData.jornada.status === 'active' ? (
+                  <button
+                    onClick={() => handleToggleJornada('close')}
+                    className="save-button"
+                    style={{ backgroundColor: '#f59e0b' }}
+                  >
+                    🔒 Cerrar Quiniela
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleToggleJornada('open')}
+                    className="action-button"
+                  >
+                    🔓 Reabrir Quiniela
+                  </button>
+                )}
+                <button
+                  onClick={handleDistributePrizes}
+                  className="save-button"
+                  disabled={distributing}
+                >
+                  {distributing ? 'Repartiendo...' : 'Cerrar Jornada y Repartir Premios'}
+                </button>
+              </div>
             )}
 
             {distributionResult?.error && (

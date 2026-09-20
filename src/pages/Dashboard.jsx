@@ -321,7 +321,12 @@ const Dashboard = () => {
                     to={style.route}
                     className={`${style.classes} rounded-lg p-4 border transition-all cursor-pointer`}
                   >
-                    <p className="text-slate-400 text-sm mb-1">{bag.label}</p>
+                    <p className="text-slate-400 text-sm mb-1">
+                      {bag.label}
+                      {bag.jornada_status === 'inactive' && (
+                        <span className="ml-2 text-red-400 text-xs font-semibold">🔒 Cerrada</span>
+                      )}
+                    </p>
                     <p className="text-slate-300 text-xs mb-1">Bolsa actual</p>
                     <p className="text-xl sm:text-2xl font-bold">
                       {formatCurrency(bag.prize_pool)}
@@ -598,7 +603,12 @@ const Dashboard = () => {
                       to={style.route}
                       className={`${style.card} rounded-xl p-4 sm:p-6 border hover:scale-105 transition-all block`}
                     >
-                      <h4 className="text-base sm:text-lg font-semibold text-white mb-2">{bag.label}</h4>
+                      <h4 className="text-base sm:text-lg font-semibold text-white mb-2">
+                        {bag.label}
+                        {bag.jornada_status === 'inactive' && (
+                          <span className="ml-2 text-red-400 text-xs font-semibold">🔒 Cerrada</span>
+                        )}
+                      </h4>
                       <p className="text-slate-400 text-xs sm:text-sm mb-4">{bag.matches_count} partido{bag.matches_count !== 1 ? 's' : ''}</p>
                       <div className="space-y-2 mb-4">
                         <div className="flex justify-between text-xs sm:text-sm">

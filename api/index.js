@@ -568,7 +568,7 @@ app.get('/api/admin/get-jornada', async (req, res) => {
       .from('admin_jornadas')
       .select('*')
       .eq('type', type)
-      .eq('status', 'active')
+      .in('status', ['active', 'inactive'])
       .order('created_at', { ascending: false })
       .limit(1)
       .single()
@@ -650,11 +650,12 @@ app.get('/api/football/jornada-matches', async (req, res) => {
     const { type } = req.query
     if (!type) return res.status(400).json({ error: 'Missing type parameter' })
 
+    // Devuelve la jornada mas reciente del tipo, sea cual sea su status.
+    // El frontend usa jornada.status para mostrarla como cerrada.
     const { data: jornada, error: jornadaError } = await supabase
       .from('admin_jornadas')
       .select('*')
       .eq('type', type)
-      .eq('status', 'active')
       .order('created_at', { ascending: false })
       .limit(1)
       .single()
@@ -696,16 +697,15 @@ app.get('/api/football/upcoming-matches', async (req, res) => {
     for (const type of types) {
       const { data: jornada, error: jornadaError } = await supabase
         .from('admin_jornadas')
-        .select('id, name, type')
+        .select('id, name, type, status')
         .eq('type', type)
-        .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(1)
         .single()
 
       if (jornadaError && jornadaError.code === 'PGRST116') continue
       if (jornadaError) throw jornadaError
-      if (!jornada) continue
+      if (!jornada || jornada.status === 'completed') continue
 
       const { data: matches, error: matchesError } = await supabase
         .from('admin_jornada_partidos')
@@ -1218,7 +1218,20 @@ app.post('/api/quinielas', async (req, res) => {
       .limit(1)
       .single()
 
-    if (jornadaError || !jornada) return res.status(404).json({ error: 'No hay jornada activa para este tipo' })
+    if (jornadaError || !jornada) {
+      const { data: latest } = await supabase
+        .from('admin_jornadas')
+        .select('status')
+        .eq('type', type)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (latest && latest.status === 'inactive') {
+        return res.status(400).json({ error: 'La quiniela está cerrada, ya no se aceptan pronósticos' })
+      }
+      return res.status(404).json({ error: 'No hay jornada activa para este tipo' })
+    }
 
     const { data: partidos, error: partidosError } = await supabase
       .from('admin_jornada_partidos')
@@ -1485,16 +1498,15 @@ app.get('/api/football/bag-prizes', async (req, res) => {
     for (const type of types) {
       const { data: jornada, error: jornadaError } = await supabase
         .from('admin_jornadas')
-        .select('id, name, type')
+        .select('id, name, type, status')
         .eq('type', type)
-        .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(1)
         .single()
 
       if (jornadaError && jornadaError.code === 'PGRST116') continue
       if (jornadaError) throw jornadaError
-      if (!jornada) continue
+      if (!jornada || jornada.status === 'completed') continue
 
       const { data: partidos, error: partidosError } = await supabase
         .from('admin_jornada_partidos')
@@ -1534,6 +1546,7 @@ app.get('/api/football/bag-prizes', async (req, res) => {
         label: bagLabels[type],
         jornada_id: jornada.id,
         jornada_name: jornada.name,
+        jornada_status: jornada.status,
         total_collected: totalCollected,
         prize_pool: prizePool,
         carryover,
@@ -1908,7 +1921,7 @@ app.get('/api/admin/jornada-participations', async (req, res) => {
       .from('admin_jornadas')
       .select('id, name, type, start_date, end_date, status')
       .eq('type', type)
-      .in('status', ['active', 'completed'])
+      .in('status', ['active', 'inactive', 'completed'])
       .order('created_at', { ascending: false })
       .limit(1)
       .single()
@@ -1988,6 +2001,90 @@ app.get('/api/admin/jornada-participations', async (req, res) => {
     })
   } catch (error) {
     console.error('Error fetching jornada participations:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// ============================================================
+// CERRAR / REABRIR QUINIELA DE UNA JORNADA
+// ============================================================
+app.post('/api/admin/jornada-status', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const admin = getAdminFromToken(req)
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' })
+
+    const { type, action } = req.body
+    if (!type || !['media_semana', 'fin_de_semana', 'dominical'].includes(type)) {
+      return res.status(400).json({ error: 'Tipo de jornada inválido' })
+    }
+    if (!['close', 'open'].includes(action)) {
+      return res.status(400).json({ error: 'Acción inválida (close | open)' })
+    }
+
+    if (action === 'close') {
+      const { data: jornada, error: findError } = await supabase
+        .from('admin_jornadas')
+        .select('*')
+        .eq('type', type)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (findError) throw findError
+      if (!jornada) return res.status(404).json({ error: 'No hay jornada activa para cerrar' })
+
+      const { error } = await supabase
+        .from('admin_jornadas')
+        .update({ status: 'inactive' })
+        .eq('id', jornada.id)
+
+      if (error) throw error
+      return res.json({ message: 'Quiniela cerrada', jornada: { ...jornada, status: 'inactive' } })
+    }
+
+    // action === 'open': solo si no hay otra jornada activa del mismo tipo
+    const { data: activeJornada, error: activeError } = await supabase
+      .from('admin_jornadas')
+      .select('id')
+      .eq('type', type)
+      .eq('status', 'active')
+      .limit(1)
+      .maybeSingle()
+
+    if (activeError) throw activeError
+    if (activeJornada) {
+      return res.status(400).json({ error: 'Ya hay una jornada activa de este tipo' })
+    }
+
+    const { data: jornada, error: findError } = await supabase
+      .from('admin_jornadas')
+      .select('*')
+      .eq('type', type)
+      .eq('status', 'inactive')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (findError) throw findError
+    if (!jornada) return res.status(404).json({ error: 'No hay jornada cerrada para reabrir' })
+
+    const { error } = await supabase
+      .from('admin_jornadas')
+      .update({ status: 'active' })
+      .eq('id', jornada.id)
+
+    if (error) throw error
+    res.json({ message: 'Quiniela reabierta', jornada: { ...jornada, status: 'active' } })
+  } catch (error) {
+    console.error('Error updating jornada status:', error)
     res.status(500).json({ error: error.message })
   }
 })
