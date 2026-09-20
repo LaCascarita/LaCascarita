@@ -22,6 +22,8 @@ const AdminDashboard = () => {
   const [selectedParticipation, setSelectedParticipation] = useState(null)
   const [users, setUsers] = useState([])
   const [usersLoading, setUsersLoading] = useState(false)
+  const [distributing, setDistributing] = useState(false)
+  const [distributionResult, setDistributionResult] = useState(null)
 
   useEffect(() => {
     fetchLeagues()
@@ -167,6 +169,7 @@ const AdminDashboard = () => {
 
   const fetchParticipations = async () => {
     setParticipationsLoading(true)
+    setDistributionResult(null)
     try {
       const API_URL = import.meta.env.VITE_API_URL || window.location.origin
       const response = await fetch(
@@ -178,6 +181,34 @@ const AdminDashboard = () => {
       console.error('Error fetching participations:', error)
     } finally {
       setParticipationsLoading(false)
+    }
+  }
+
+  const handleDistributePrizes = async () => {
+    if (!window.confirm('¿Cerrar la jornada y repartir los premios? Esta acción acredita saldo a los ganadores.')) return
+
+    setDistributing(true)
+    setDistributionResult(null)
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || window.location.origin
+      const response = await fetch(`${API_URL}/api/admin/distribute-prizes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ type: participationsType })
+      })
+      const data = await response.json()
+
+      if (!response.ok && !data.alreadyDistributed) {
+        throw new Error(data.error || 'Error al repartir premios')
+      }
+
+      setDistributionResult(data)
+      fetchParticipations()
+    } catch (error) {
+      setDistributionResult({ error: error.message })
+    } finally {
+      setDistributing(false)
     }
   }
 
@@ -410,14 +441,50 @@ const AdminDashboard = () => {
               {participationsLoading ? 'Cargando...' : 'Cargar Participaciones'}
             </button>
 
-            {participationsData && (
+            {participationsData?.jornada && (
               <div className="participations-summary">
                 <p><strong>Participantes:</strong> {participationsData.participations?.length || 0}</p>
                 <p><strong>Total recaudado:</strong> {formatMoney(participationsData.participations?.reduce((sum, p) => sum + (parseFloat(p.payment_amount) || 0), 0))}</p>
-                <p><strong>Bolsa de premios (70%):</strong> {formatMoney(participationsData.participations?.reduce((sum, p) => sum + (parseFloat(p.payment_amount) || 0), 0) * 0.7)}</p>
+                <p><strong>Bolsa de premios (70%):</strong> {formatMoney(participationsData.participations?.reduce((sum, p) => sum + (parseFloat(p.payment_amount) || 0), 0) * 0.7 + (participationsData.carryover || 0))}</p>
+                {participationsData.carryover > 0 && (
+                  <p><strong>Acumulado de jornada anterior:</strong> {formatMoney(participationsData.carryover)}</p>
+                )}
                 <p><strong>Casa (30%):</strong> {formatMoney(participationsData.participations?.reduce((sum, p) => sum + (parseFloat(p.payment_amount) || 0), 0) * 0.3)}</p>
+                <p><strong>Estado:</strong> {participationsData.jornada.status === 'completed' ? 'Finalizada' : 'Activa'}</p>
               </div>
             )}
+
+            {participationsData?.jornada?.status === 'active' && (
+              <button
+                onClick={handleDistributePrizes}
+                className="save-button"
+                disabled={distributing}
+              >
+                {distributing ? 'Repartiendo...' : 'Cerrar Jornada y Repartir Premios'}
+              </button>
+            )}
+
+            {distributionResult?.error && (
+              <div className="message error">{distributionResult.error}</div>
+            )}
+
+            {(distributionResult?.distribution || participationsData?.distribution) && (() => {
+              const d = distributionResult?.distribution || participationsData?.distribution
+              return (
+                <div className="participations-summary">
+                  <p><strong>Premios repartidos</strong></p>
+                  <p><strong>Bolsa total:</strong> {formatMoney(d.prize_pool)}{d.carryover_in > 0 ? ` (incluye ${formatMoney(d.carryover_in)} acumulado)` : ''}</p>
+                  <p><strong>1er lugar:</strong> {d.first_place_winners} ganador{d.first_place_winners !== 1 ? 'es' : ''} × {formatMoney(d.first_place_share)}</p>
+                  {d.jornada_type !== 'dominical' && (
+                    d.second_place_winners > 0 ? (
+                      <p><strong>2do lugar:</strong> {d.second_place_winners} ganador{d.second_place_winners !== 1 ? 'es' : ''} × {formatMoney(d.second_place_share)}</p>
+                    ) : (
+                      <p><strong>2do lugar:</strong> sin premio{d.carryover_out > 0 ? ` — ${formatMoney(d.carryover_out)} acumulado para la próxima jornada` : ''}</p>
+                    )
+                  )}
+                </div>
+              )
+            })()}
 
             {participationsData?.participations?.length > 0 && (
               <div className="participations-table-wrapper">
@@ -437,6 +504,8 @@ const AdminDashboard = () => {
                           </div>
                         </th>
                       ))}
+                      <th>Aciertos</th>
+                      <th>Premio</th>
                       <th>Acciones</th>
                     </tr>
                   </thead>
@@ -475,6 +544,16 @@ const AdminDashboard = () => {
                             </td>
                           )
                         })}
+                        <td>
+                          <strong>{participation.correct_predictions ?? 0}</strong>
+                          {participation.position === 1 && ' 🥇'}
+                          {participation.position === 2 && ' 🥈'}
+                        </td>
+                        <td>
+                          {parseFloat(participation.prize_amount) > 0
+                            ? formatMoney(participation.prize_amount)
+                            : '-'}
+                        </td>
                         <td>
                           <button
                             onClick={() => setSelectedParticipation(participation)}

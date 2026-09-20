@@ -800,6 +800,38 @@ const creditUserBalance = async (userId, amount, referenceId, description) => {
   return balanceAfter
 }
 
+const creditPrizeBalance = async (userId, amount, participationId, description) => {
+  const { data: user, error: userError } = await supabase
+    .from('users')
+    .select('balance')
+    .eq('id', userId)
+    .single()
+
+  if (userError || !user) throw new Error('User not found')
+
+  const balanceBefore = parseFloat(user.balance) || 0
+  const balanceAfter = balanceBefore + amount
+
+  const { error: updateError } = await supabase
+    .from('users')
+    .update({ balance: balanceAfter })
+    .eq('id', userId)
+
+  if (updateError) throw new Error('Error updating balance: ' + updateError.message)
+
+  await createBalanceTransaction({
+    user_id: userId,
+    type: 'prize',
+    amount: amount,
+    balance_before: balanceBefore,
+    balance_after: balanceAfter,
+    participation_id: participationId,
+    description
+  })
+
+  return balanceAfter
+}
+
 // ============================================================
 // MERCADO PAGO - CREAR DEPOSITO
 // ============================================================
@@ -1474,7 +1506,18 @@ app.get('/api/football/bag-prizes', async (req, res) => {
         (sum, p) => sum + (parseFloat(p.payment_amount) || 0),
         0
       )
-      const prizePool = totalCollected * 0.7
+
+      let carryover = 0
+      if (type !== 'dominical') {
+        const { data: carry } = await supabase
+          .from('prize_carryover')
+          .select('amount')
+          .eq('type', type)
+          .maybeSingle()
+        carryover = parseFloat(carry?.amount) || 0
+      }
+
+      const prizePool = totalCollected * 0.7 + carryover
       const participantsCount = new Set((participations || []).map(p => p.user_id)).size
 
       result.push({
@@ -1484,6 +1527,7 @@ app.get('/api/football/bag-prizes', async (req, res) => {
         jornada_name: jornada.name,
         total_collected: totalCollected,
         prize_pool: prizePool,
+        carryover,
         house_amount: totalCollected * 0.3,
         participations_count: (participations || []).length,
         participants_count: participantsCount,
@@ -1621,7 +1665,10 @@ const syncJornadaResults = async (jornada_id) => {
     const pids = (allParts || []).map(p => p.id)
     console.log('[syncJornadaResults] participations to update:', pids.length)
 
-    if (pids.length === 0) return
+    if (pids.length === 0) {
+      await maybeAutoDistributePrizes(jornada_id)
+      return
+    }
 
     const { data: allPreds } = await supabase
       .from('predictions')
@@ -1644,8 +1691,196 @@ const syncJornadaResults = async (jornada_id) => {
         .update({ correct_predictions: correct, predictions_count: totalMatches })
         .eq('id', pid)
     }
+
+    await maybeAutoDistributePrizes(jornada_id)
   } catch (error) {
     console.error('Error syncing jornada results:', error)
+  }
+}
+
+// ============================================================
+// DISTRIBUCION DE PREMIOS
+// ============================================================
+// Reglas:
+// - Bolsa = 70% de lo recaudado + acumulado del mismo tipo de jornada.
+// - Media semana / fin de semana: 80% al 1er lugar, 20% al 2do lugar.
+// - Dominical: todo el 70% al 1er lugar (sin 2do lugar ni acumulado).
+// - 1er lugar: usuarios con mas aciertos; se reparte en partes iguales.
+// - 2do lugar: usuarios con la segunda mayor cantidad de aciertos;
+//   se reparte entre ellos solo si son 20 o menos. Si son mas de 20
+//   (o no hay 2do lugar), el 20% se acumula para la siguiente
+//   jornada del mismo tipo.
+const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100
+
+const distributeJornadaPrizes = async (jornada) => {
+  const isDominical = jornada.type === 'dominical'
+
+  const { data: matches, error: matchesError } = await supabase
+    .from('admin_jornada_partidos')
+    .select('id, home_score, away_score')
+    .eq('jornada_id', jornada.id)
+
+  if (matchesError) throw matchesError
+  if (!matches || matches.length === 0) throw new Error('La jornada no tiene partidos')
+
+  const pendingMatches = matches.filter(m => m.home_score == null || m.away_score == null)
+  if (pendingMatches.length > 0) {
+    throw new Error(`Aún hay ${pendingMatches.length} partido(s) sin resultado`)
+  }
+
+  const { data: participations, error: partError } = await supabase
+    .from('participations')
+    .select('id, user_id, payment_amount, correct_predictions, created_at')
+    .eq('jornada_id', jornada.id)
+    .eq('participation_status', 'confirmed')
+
+  if (partError) throw partError
+
+  if (!participations || participations.length === 0) {
+    await supabase
+      .from('admin_jornadas')
+      .update({ status: 'completed' })
+      .eq('id', jornada.id)
+    return { distributed: false, reason: 'Sin participaciones confirmadas' }
+  }
+
+  const totalCollected = participations.reduce((sum, p) => sum + (parseFloat(p.payment_amount) || 0), 0)
+
+  let carryoverIn = 0
+  if (!isDominical) {
+    const { data: carry } = await supabase
+      .from('prize_carryover')
+      .select('amount')
+      .eq('type', jornada.type)
+      .maybeSingle()
+    carryoverIn = parseFloat(carry?.amount) || 0
+  }
+
+  const prizePool = round2(totalCollected * 0.7 + carryoverIn)
+  const firstPlacePool = isDominical ? prizePool : round2(prizePool * 0.8)
+  const secondPlacePool = isDominical ? 0 : round2(prizePool * 0.2)
+
+  // Mejor participacion de cada usuario (mas aciertos; desempate por fecha)
+  const bestByUser = new Map()
+  for (const p of participations) {
+    const correct = p.correct_predictions || 0
+    const current = bestByUser.get(p.user_id)
+    if (!current || correct > current.correct || (correct === current.correct && p.created_at < current.created_at)) {
+      bestByUser.set(p.user_id, { user_id: p.user_id, participation_id: p.id, correct, created_at: p.created_at })
+    }
+  }
+
+  const distinctScores = [...new Set([...bestByUser.values()].map(u => u.correct))].sort((a, b) => b - a)
+  const firstScore = distinctScores[0]
+  const secondScore = distinctScores.length > 1 ? distinctScores[1] : null
+
+  const firstWinners = [...bestByUser.values()].filter(u => u.correct === firstScore)
+  const secondWinners = secondScore != null
+    ? [...bestByUser.values()].filter(u => u.correct === secondScore)
+    : []
+
+  const paySecondPlace = !isDominical && secondWinners.length > 0 && secondWinners.length <= 20
+  const carryoverOut = isDominical ? 0 : (paySecondPlace ? 0 : secondPlacePool)
+
+  const firstPlaceShare = firstWinners.length > 0 ? round2(firstPlacePool / firstWinners.length) : 0
+  const secondPlaceShare = paySecondPlace ? round2(secondPlacePool / secondWinners.length) : 0
+
+  // El insert funciona como bloqueo de idempotencia: si la jornada ya
+  // fue repartida (unique jornada_id), se aborta antes de pagar.
+  const { data: distribution, error: distError } = await supabase
+    .from('prize_distributions')
+    .insert([{
+      jornada_id: jornada.id,
+      jornada_type: jornada.type,
+      total_collected: round2(totalCollected),
+      carryover_in: carryoverIn,
+      prize_pool: prizePool,
+      first_place_pool: firstPlacePool,
+      second_place_pool: secondPlacePool,
+      first_place_winners: firstWinners.length,
+      second_place_winners: paySecondPlace ? secondWinners.length : 0,
+      first_place_share: firstPlaceShare,
+      second_place_share: secondPlaceShare,
+      carryover_out: carryoverOut
+    }])
+    .select()
+    .single()
+
+  if (distError) {
+    if (distError.code === '23505') return { distributed: false, alreadyDistributed: true }
+    throw distError
+  }
+
+  try {
+    for (const winner of firstWinners) {
+      await creditPrizeBalance(winner.user_id, firstPlaceShare, winner.participation_id, `Premio 1er lugar - ${jornada.name}`)
+      await supabase
+        .from('participations')
+        .update({ position: 1, prize_amount: firstPlaceShare, prize_status: 'paid' })
+        .eq('id', winner.participation_id)
+    }
+
+    if (paySecondPlace) {
+      for (const winner of secondWinners) {
+        await creditPrizeBalance(winner.user_id, secondPlaceShare, winner.participation_id, `Premio 2do lugar - ${jornada.name}`)
+        await supabase
+          .from('participations')
+          .update({ position: 2, prize_amount: secondPlaceShare, prize_status: 'paid' })
+          .eq('id', winner.participation_id)
+      }
+    }
+
+    if (!isDominical) {
+      await supabase
+        .from('prize_carryover')
+        .upsert({ type: jornada.type, amount: carryoverOut, updated_at: new Date().toISOString() }, { onConflict: 'type' })
+    }
+
+    await supabase
+      .from('admin_jornadas')
+      .update({ status: 'completed' })
+      .eq('id', jornada.id)
+  } catch (payError) {
+    // Permitir reintento: sin el registro de distribucion el bloqueo se libera
+    await supabase.from('prize_distributions').delete().eq('id', distribution.id)
+    throw payError
+  }
+
+  return {
+    distributed: true,
+    distribution,
+    firstPlaceWinners: firstWinners.length,
+    secondPlaceWinners: paySecondPlace ? secondWinners.length : 0,
+    firstPlaceShare,
+    secondPlaceShare,
+    carryoverOut
+  }
+}
+
+const maybeAutoDistributePrizes = async (jornada_id) => {
+  try {
+    const { data: allMatches } = await supabase
+      .from('admin_jornada_partidos')
+      .select('id, home_score, away_score')
+      .eq('jornada_id', jornada_id)
+
+    if (!allMatches || allMatches.length === 0) return
+
+    const unfinished = allMatches.filter(m => m.home_score == null || m.away_score == null)
+    if (unfinished.length > 0) return
+
+    const { data: jornada } = await supabase
+      .from('admin_jornadas')
+      .select('*')
+      .eq('id', jornada_id)
+      .single()
+
+    if (!jornada || jornada.status !== 'active') return
+
+    const result = await distributeJornadaPrizes(jornada)
+    console.log('[maybeAutoDistributePrizes] jornada:', jornada_id, 'result:', result)
+  } catch (error) {
+    console.error('Error auto-distributing prizes:', error)
   }
 }
 
@@ -1669,9 +1904,9 @@ app.get('/api/admin/jornada-participations', async (req, res) => {
 
     const { data: jornada, error: jornadaError } = await supabase
       .from('admin_jornadas')
-      .select('id, name, type, start_date, end_date')
+      .select('id, name, type, start_date, end_date, status')
       .eq('type', type)
-      .eq('status', 'active')
+      .in('status', ['active', 'completed'])
       .order('created_at', { ascending: false })
       .limit(1)
       .single()
@@ -1692,7 +1927,7 @@ app.get('/api/admin/jornada-participations', async (req, res) => {
 
     const { data: participations, error: partError } = await supabase
       .from('participations')
-      .select('id, folio, user_id, payment_amount, predictions_count, created_at, users(username)')
+      .select('id, folio, user_id, payment_amount, predictions_count, correct_predictions, position, prize_amount, prize_status, created_at, users(username)')
       .eq('jornada_id', jornada.id)
       .eq('participation_status', 'confirmed')
       .order('created_at', { ascending: false })
@@ -1717,13 +1952,87 @@ app.get('/api/admin/jornada-participations', async (req, res) => {
       predictions: predictions.filter(pred => pred.participation_id === p.id)
     }))
 
+    const { data: distribution } = await supabase
+      .from('prize_distributions')
+      .select('*')
+      .eq('jornada_id', jornada.id)
+      .maybeSingle()
+
+    let carryover = 0
+    if (jornada.type !== 'dominical') {
+      const { data: carry } = await supabase
+        .from('prize_carryover')
+        .select('amount')
+        .eq('type', jornada.type)
+        .maybeSingle()
+      carryover = parseFloat(carry?.amount) || 0
+    }
+
     res.json({
       jornada,
       matches: matches || [],
-      participations: participationsWithPredictions
+      participations: participationsWithPredictions,
+      distribution: distribution || null,
+      carryover
     })
   } catch (error) {
     console.error('Error fetching jornada participations:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// ============================================================
+// REPARTIR PREMIOS DE UNA JORNADA (MANUAL)
+// ============================================================
+app.post('/api/admin/distribute-prizes', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const admin = getAdminFromToken(req)
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' })
+
+    const { type } = req.body
+    if (!type || !['media_semana', 'fin_de_semana', 'dominical'].includes(type)) {
+      return res.status(400).json({ error: 'Tipo de jornada inválido' })
+    }
+
+    const { data: jornada, error: jornadaError } = await supabase
+      .from('admin_jornadas')
+      .select('*')
+      .eq('type', type)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (jornadaError || !jornada) {
+      return res.status(404).json({ error: 'No hay jornada activa para este tipo' })
+    }
+
+    await syncJornadaResults(jornada.id)
+
+    const result = await distributeJornadaPrizes(jornada)
+
+    if (result.alreadyDistributed) {
+      const { data: existing } = await supabase
+        .from('prize_distributions')
+        .select('*')
+        .eq('jornada_id', jornada.id)
+        .single()
+      return res.json({ message: 'Los premios de esta jornada ya fueron repartidos', alreadyDistributed: true, distribution: existing })
+    }
+    if (!result.distributed) {
+      return res.status(400).json({ error: result.reason || 'No se pudo repartir' })
+    }
+
+    res.json({ message: 'Premios repartidos correctamente', ...result })
+  } catch (error) {
+    console.error('Error distributing prizes:', error)
     res.status(500).json({ error: error.message })
   }
 })

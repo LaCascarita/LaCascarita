@@ -326,6 +326,9 @@ const Dashboard = () => {
                     <p className="text-xl sm:text-2xl font-bold">
                       {formatCurrency(bag.prize_pool)}
                     </p>
+                    {bag.carryover > 0 && (
+                      <p className="text-yellow-400 text-xs mt-1">+{formatCurrency(bag.carryover)} acumulado</p>
+                    )}
                     <p className="text-slate-400 text-xs mt-2">
                       {bag.participants_count} participante{bag.participants_count !== 1 ? 's' : ''} · {bag.matches_count} partido{bag.matches_count !== 1 ? 's' : ''}
                     </p>
@@ -602,6 +605,12 @@ const Dashboard = () => {
                           <span className="text-slate-400">Bolsa:</span>
                           <span className={`${style.text} font-semibold`}>{formatCurrency(bag.prize_pool)}</span>
                         </div>
+                        {bag.carryover > 0 && (
+                          <div className="flex justify-between text-xs sm:text-sm">
+                            <span className="text-slate-400">Acumulado:</span>
+                            <span className="text-yellow-400 font-semibold">+{formatCurrency(bag.carryover)}</span>
+                          </div>
+                        )}
                         <div className="flex justify-between text-xs sm:text-sm">
                           <span className="text-slate-400">Participantes:</span>
                           <span className="text-white">{bag.participants_count}</span>
