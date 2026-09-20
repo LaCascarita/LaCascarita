@@ -1810,6 +1810,140 @@ app.get('/api/ranking', async (req, res) => {
   }
 })
 
+// ============================================================
+// ESTADÍSTICAS DEL USUARIO
+// ============================================================
+app.get('/api/me/stats', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+  res.setHeader('Pragma', 'no-cache')
+  res.setHeader('Expires', '0')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const user = getUserFromToken(req)
+    if (!user) return res.status(401).json({ error: 'No autorizado' })
+
+    const { data: parts, error: partsError } = await supabase
+      .from('participations')
+      .select('id, jornada_id, correct_predictions, predictions_count')
+      .eq('user_id', user.id)
+    if (partsError) throw partsError
+
+    const participationIds = (parts || []).map(p => p.id)
+    const jornadaIds = [...new Set((parts || []).map(p => p.jornada_id))]
+
+    const { data: jornadas, error: jornadasError } = await supabase
+      .from('admin_jornadas')
+      .select('id, type')
+      .in('id', jornadaIds)
+    if (jornadasError) throw jornadasError
+    const jornadaType = new Map((jornadas || []).map(j => [j.id, j.type]))
+
+    const { data: matches, error: matchesError } = await supabase
+      .from('admin_jornada_partidos')
+      .select('id, jornada_id, match_date, home_score, away_score')
+      .in('jornada_id', jornadaIds)
+    if (matchesError) throw matchesError
+    const matchMap = new Map((matches || []).map(m => [m.id, m]))
+
+    const { data: preds, error: predsError } = await supabase
+      .from('predictions')
+      .select('id, participation_id, match_id, prediction, is_correct')
+      .in('participation_id', participationIds)
+    if (predsError) throw predsError
+
+    const totalParticipations = (parts || []).length
+
+    const totalCorrect = (parts || []).reduce((s, p) => s + (p.correct_predictions || 0), 0)
+    const totalMatches = (parts || []).reduce((s, p) => s + (p.predictions_count || 0), 0)
+    const globalAccuracy = totalMatches > 0 ? Math.round((totalCorrect / totalMatches) * 100) : 0
+
+    const byMatch = new Map()
+    for (const p of (preds || [])) {
+      const m = matchMap.get(p.match_id)
+      if (!m || m.home_score == null || m.away_score == null) continue
+      if (!byMatch.has(p.match_id)) byMatch.set(p.match_id, { match: m, hasCorrect: false })
+      const entry = byMatch.get(p.match_id)
+      entry.hasCorrect = entry.hasCorrect || p.is_correct === true
+    }
+    const matchList = [...byMatch.values()].sort((a, b) => {
+      const dateA = new Date(a.match.match_date || 0)
+      const dateB = new Date(b.match.match_date || 0)
+      return dateA - dateB
+    })
+    let bestStreak = 0
+    let currentStreak = 0
+    for (const item of matchList) {
+      if (item.hasCorrect) {
+        currentStreak++
+        bestStreak = Math.max(bestStreak, currentStreak)
+      } else {
+        currentStreak = 0
+      }
+    }
+
+    let quinielasWon = 0
+    if (jornadaIds.length > 0) {
+      const { data: allParts, error: allPartsError } = await supabase
+        .from('participations')
+        .select('user_id, jornada_id, correct_predictions')
+        .in('jornada_id', jornadaIds)
+      if (allPartsError) throw allPartsError
+      const jornadaGroups = new Map()
+      for (const p of (allParts || [])) {
+        if (!jornadaGroups.has(p.jornada_id)) jornadaGroups.set(p.jornada_id, { max: -1, userCorrect: null })
+        const g = jornadaGroups.get(p.jornada_id)
+        if (p.correct_predictions > g.max) g.max = p.correct_predictions
+        if (p.user_id === user.id) g.userCorrect = p.correct_predictions
+      }
+      for (const [_, g] of jornadaGroups) {
+        if (g.userCorrect != null && g.max > 0 && g.userCorrect === g.max) quinielasWon++
+      }
+    }
+
+    const dist = { home: 0, draw: 0, away: 0 }
+    const totalPreds = (preds || []).length
+    for (const p of (preds || [])) dist[p.prediction] = (dist[p.prediction] || 0) + 1
+    const distribution = {
+      home: totalPreds > 0 ? Math.round((dist.home / totalPreds) * 100) : 0,
+      draw: totalPreds > 0 ? Math.round((dist.draw / totalPreds) * 100) : 0,
+      away: totalPreds > 0 ? Math.round((dist.away / totalPreds) * 100) : 0,
+    }
+
+    const byType = {}
+    for (const p of (parts || [])) {
+      const type = jornadaType.get(p.jornada_id)
+      if (!type) continue
+      if (!byType[type]) byType[type] = { correct: 0, total: 0 }
+      byType[type].correct += (p.correct_predictions || 0)
+      byType[type].total += (p.predictions_count || 0)
+    }
+    const typeLabels = { media_semana: 'Media Semana', fin_de_semana: 'Fin de Semana', dominical: 'Dominical' }
+    const performanceByType = {}
+    for (const [type, typeName] of Object.entries(typeLabels)) {
+      const d = byType[type] || { correct: 0, total: 0 }
+      performanceByType[type] = d.total > 0 ? Math.round((d.correct / d.total) * 100) : 0
+    }
+
+    res.json({
+      totalParticipations,
+      globalAccuracy,
+      bestStreak,
+      quinielasWon,
+      distribution,
+      performanceByType
+    })
+  } catch (error) {
+    console.error('Error fetching user stats:', error)
+    res.status(500).json({ error: 'Error al obtener estadísticas' })
+  }
+})
+
 export default async function handler(req, res) {
   try {
     await new Promise((resolve, reject) => {

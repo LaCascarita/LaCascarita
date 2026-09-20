@@ -19,6 +19,8 @@ const Dashboard = () => {
   const [ranking, setRanking] = useState([])
   const [myRanking, setMyRanking] = useState(null)
   const [rankingLoading, setRankingLoading] = useState(false)
+  const [stats, setStats] = useState(null)
+  const [statsLoading, setStatsLoading] = useState(false)
 
   const userStats = {
     ranking: 5,
@@ -56,6 +58,7 @@ const Dashboard = () => {
           setBalance(data.user.balance || 0)
           fetchBalanceData()
           fetchRanking()
+          fetchStats()
         } else {
           // Si no está autenticado, redirigir al login
           navigate('/login')
@@ -121,6 +124,21 @@ const Dashboard = () => {
         console.error('Error al cargar ranking:', error)
       } finally {
         setRankingLoading(false)
+      }
+    }
+
+    const fetchStats = async () => {
+      try {
+        setStatsLoading(true)
+        const response = await apiFetch('/api/me/stats')
+        if (response.ok) {
+          const data = await response.json()
+          setStats(data)
+        }
+      } catch (error) {
+        console.error('Error al cargar estadísticas:', error)
+      } finally {
+        setStatsLoading(false)
       }
     }
 
@@ -354,7 +372,7 @@ const Dashboard = () => {
               />
               <DashboardCard
                 title="Mi Precisión"
-                value={userStats.accuracy}
+                value={`${stats?.globalAccuracy ?? 0}%`}
                 subtitle="Aciertos promedio"
                 icon="🎯"
                 color="purple"
@@ -476,88 +494,80 @@ const Dashboard = () => {
           <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 sm:p-6 border border-white/20">
             <h3 className="text-lg sm:text-xl font-semibold text-white mb-4">📈 Mis Estadísticas</h3>
             <p className="text-slate-400 mb-6">Análisis detallado de tu rendimiento en las quinielas.</p>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <StatCard
-                title="Participaciones Totales"
-                value="12"
-                subtitle="Quinielas jugadas"
-                icon="🎯"
-              />
-              <StatCard
-                title="Precisión Global"
-                value="68%"
-                subtitle="Aciertos promedio"
-                icon="🎯"
-                trend={5}
-              />
-              <StatCard
-                title="Mejor Racha"
-                value="8"
-                subtitle="Aciertos consecutivos"
-                icon="🔥"
-              />
-              <StatCard
-                title="Quinielas Ganadas"
-                value="3"
-                subtitle="Premios obtenidos"
-                icon="🏆"
-                trend={12}
-              />
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-              <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-                <h4 className="text-white font-semibold mb-3 text-sm sm:text-base">Distribución de Pronósticos</h4>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400 text-xs sm:text-sm">Local</span>
-                    <div className="flex items-center gap-2">
-                      <div className="w-24 sm:w-32 bg-white/10 rounded-full h-2">
-                        <div className="bg-emerald-500 h-2 rounded-full" style={{ width: '45%' }}></div>
-                      </div>
-                      <span className="text-white text-xs sm:text-sm">45%</span>
+            {statsLoading ? (
+              <div className="text-center text-slate-400 py-8">Cargando estadísticas...</div>
+            ) : !stats ? (
+              <div className="text-center text-slate-400 py-8">No hay estadísticas disponibles.</div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  <StatCard
+                    title="Mis Participaciones"
+                    value={stats.totalParticipations}
+                    subtitle="Quinielas jugadas"
+                    icon="🎯"
+                  />
+                  <StatCard
+                    title="Precisión Global"
+                    value={`${stats.globalAccuracy}%`}
+                    subtitle="Aciertos promedio"
+                    icon="🎯"
+                  />
+                  <StatCard
+                    title="Mejor Racha"
+                    value={stats.bestStreak}
+                    subtitle="Aciertos consecutivos"
+                    icon="🔥"
+                  />
+                  <StatCard
+                    title="Quinielas Ganadas"
+                    value={stats.quinielasWon}
+                    subtitle="Primeros lugares"
+                    icon="🏆"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                  <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                    <h4 className="text-white font-semibold mb-3 text-sm sm:text-base">Distribución de Pronósticos</h4>
+                    <div className="space-y-3">
+                      {[
+                        { label: 'Local', key: 'home', barClass: 'bg-emerald-500' },
+                        { label: 'Empate', key: 'draw', barClass: 'bg-blue-500' },
+                        { label: 'Visitante', key: 'away', barClass: 'bg-purple-500' }
+                      ].map((d) => (
+                        <div key={d.key} className="flex items-center justify-between">
+                          <span className="text-slate-400 text-xs sm:text-sm">{d.label}</span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-24 sm:w-32 bg-white/10 rounded-full h-2">
+                              <div className={`${d.barClass} h-2 rounded-full`} style={{ width: `${stats.distribution[d.key]}%` }}></div>
+                            </div>
+                            <span className="text-white text-xs sm:text-sm">{stats.distribution[d.key]}%</span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400 text-xs sm:text-sm">Empate</span>
-                    <div className="flex items-center gap-2">
-                      <div className="w-24 sm:w-32 bg-white/10 rounded-full h-2">
-                        <div className="bg-blue-500 h-2 rounded-full" style={{ width: '25%' }}></div>
-                      </div>
-                      <span className="text-white text-xs sm:text-sm">25%</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400 text-xs sm:text-sm">Visitante</span>
-                    <div className="flex items-center gap-2">
-                      <div className="w-24 sm:w-32 bg-white/10 rounded-full h-2">
-                        <div className="bg-purple-500 h-2 rounded-full" style={{ width: '30%' }}></div>
-                      </div>
-                      <span className="text-white text-xs sm:text-sm">30%</span>
+
+                  <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                    <h4 className="text-white font-semibold mb-3 text-sm sm:text-base">Rendimiento por Tipo</h4>
+                    <div className="space-y-3">
+                      {[
+                        { label: 'Media Semana', key: 'media_semana', textClass: 'text-emerald-400' },
+                        { label: 'Fin de Semana', key: 'fin_de_semana', textClass: 'text-blue-400' },
+                        { label: 'Dominical', key: 'dominical', textClass: 'text-purple-400' }
+                      ].map((t) => (
+                        <div key={t.key} className="flex items-center justify-between">
+                          <span className="text-slate-400 text-xs sm:text-sm">{t.label}</span>
+                          <span className={`${t.textClass} font-semibold text-xs sm:text-sm`}>{stats.performanceByType[t.key]}%</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
-              </div>
-
-              <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-                <h4 className="text-white font-semibold mb-3 text-sm sm:text-base">Rendimiento por Tipo</h4>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400 text-xs sm:text-sm">Media Semana</span>
-                    <span className="text-emerald-400 font-semibold text-xs sm:text-sm">72%</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400 text-xs sm:text-sm">Fin de Semana</span>
-                    <span className="text-blue-400 font-semibold text-xs sm:text-sm">65%</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400 text-xs sm:text-sm">Dominical</span>
-                    <span className="text-purple-400 font-semibold text-xs sm:text-sm">70%</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+              </>
+            )}
           </div>
         )}
 
