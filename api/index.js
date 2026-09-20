@@ -509,6 +509,13 @@ app.post('/api/admin/save-jornada', async (req, res) => {
     if (matches.length > 9) return res.status(400).json({ error: 'Maximum 9 matches allowed' })
     if (!['media_semana', 'fin_de_semana', 'dominical'].includes(type)) return res.status(400).json({ error: 'Invalid jornada type' })
 
+    // Solo puede haber una jornada activa por tipo
+    await supabase
+      .from('admin_jornadas')
+      .update({ status: 'inactive' })
+      .eq('type', type)
+      .eq('status', 'active')
+
     const { data: jornada, error: jornadaError } = await supabase
       .from('admin_jornadas')
       .insert({ type, name, start_date, end_date, status: 'active' })
@@ -1875,7 +1882,7 @@ const maybeAutoDistributePrizes = async (jornada_id) => {
       .eq('id', jornada_id)
       .single()
 
-    if (!jornada || jornada.status !== 'active') return
+    if (!jornada || jornada.status === 'completed') return
 
     const result = await distributeJornadaPrizes(jornada)
     console.log('[maybeAutoDistributePrizes] jornada:', jornada_id, 'result:', result)
@@ -1916,6 +1923,15 @@ app.get('/api/admin/jornada-participations', async (req, res) => {
     if (!jornada) return res.json({ jornada: null, matches: [], participations: [] })
 
     await syncJornadaResults(jornada.id)
+
+    // syncJornadaResults puede haber repartido premios y marcado la jornada
+    // como completed; releer el status para reflejar el estado real
+    const { data: freshJornada } = await supabase
+      .from('admin_jornadas')
+      .select('status')
+      .eq('id', jornada.id)
+      .single()
+    if (freshJornada) jornada.status = freshJornada.status
 
     const { data: matches, error: matchesError } = await supabase
       .from('admin_jornada_partidos')
@@ -2005,13 +2021,13 @@ app.post('/api/admin/distribute-prizes', async (req, res) => {
       .from('admin_jornadas')
       .select('*')
       .eq('type', type)
-      .eq('status', 'active')
+      .in('status', ['active', 'inactive'])
       .order('created_at', { ascending: false })
       .limit(1)
       .single()
 
     if (jornadaError || !jornada) {
-      return res.status(404).json({ error: 'No hay jornada activa para este tipo' })
+      return res.status(404).json({ error: 'No hay jornada pendiente para este tipo' })
     }
 
     await syncJornadaResults(jornada.id)
