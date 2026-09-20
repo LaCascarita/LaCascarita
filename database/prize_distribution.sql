@@ -5,7 +5,9 @@
 -- - La bolsa de premios es el 70% de lo recaudado en la jornada.
 -- - Media semana y fin de semana: 80% para 1er lugar, 20% para 2do lugar.
 -- - Dominical: todo el 70% es para 1er lugar (no hay 2do lugar).
--- - Si hay mas de 20 usuarios en 2do lugar, nadie recibe ese premio
+-- - Se cuenta por quiniela/folio: cada participacion ganadora recibe
+--   una parte independiente, aunque sea del mismo usuario.
+-- - Si hay mas de 20 quinielas en 2do lugar, ninguna recibe ese premio
 --   y el 20% se acumula para la siguiente jornada del mismo tipo.
 -- - El acumulado se suma al fondo total de la siguiente jornada
 --   del mismo tipo y se vuelve a dividir 80/20.

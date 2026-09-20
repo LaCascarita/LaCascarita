@@ -1712,9 +1712,11 @@ const syncJornadaResults = async (jornada_id) => {
 // - Bolsa = 70% de lo recaudado + acumulado del mismo tipo de jornada.
 // - Media semana / fin de semana: 80% al 1er lugar, 20% al 2do lugar.
 // - Dominical: todo el 70% al 1er lugar (sin 2do lugar ni acumulado).
-// - 1er lugar: usuarios con mas aciertos; se reparte en partes iguales.
-// - 2do lugar: usuarios con la segunda mayor cantidad de aciertos;
-//   se reparte entre ellos solo si son 20 o menos. Si son mas de 20
+// - Se cuenta por quiniela/folio (participacion), no por usuario:
+//   cada ticket ganador recibe una parte independiente.
+// - 1er lugar: quinielas con mas aciertos; se reparte en partes iguales.
+// - 2do lugar: quinielas con la segunda mayor cantidad de aciertos;
+//   se reparte entre ellas solo si son 20 o menos. Si son mas de 20
 //   (o no hay 2do lugar), el 20% se acumula para la siguiente
 //   jornada del mismo tipo.
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100
@@ -1737,7 +1739,7 @@ const distributeJornadaPrizes = async (jornada) => {
 
   const { data: participations, error: partError } = await supabase
     .from('participations')
-    .select('id, user_id, payment_amount, correct_predictions, created_at')
+    .select('id, folio, user_id, payment_amount, correct_predictions, created_at')
     .eq('jornada_id', jornada.id)
     .eq('participation_status', 'confirmed')
 
@@ -1767,23 +1769,14 @@ const distributeJornadaPrizes = async (jornada) => {
   const firstPlacePool = isDominical ? prizePool : round2(prizePool * 0.8)
   const secondPlacePool = isDominical ? 0 : round2(prizePool * 0.2)
 
-  // Mejor participacion de cada usuario (mas aciertos; desempate por fecha)
-  const bestByUser = new Map()
-  for (const p of participations) {
-    const correct = p.correct_predictions || 0
-    const current = bestByUser.get(p.user_id)
-    if (!current || correct > current.correct || (correct === current.correct && p.created_at < current.created_at)) {
-      bestByUser.set(p.user_id, { user_id: p.user_id, participation_id: p.id, correct, created_at: p.created_at })
-    }
-  }
-
-  const distinctScores = [...new Set([...bestByUser.values()].map(u => u.correct))].sort((a, b) => b - a)
+  // Cada quiniela/folio cuenta de forma independiente
+  const distinctScores = [...new Set(participations.map(p => p.correct_predictions || 0))].sort((a, b) => b - a)
   const firstScore = distinctScores[0]
   const secondScore = distinctScores.length > 1 ? distinctScores[1] : null
 
-  const firstWinners = [...bestByUser.values()].filter(u => u.correct === firstScore)
+  const firstWinners = participations.filter(p => (p.correct_predictions || 0) === firstScore)
   const secondWinners = secondScore != null
-    ? [...bestByUser.values()].filter(u => u.correct === secondScore)
+    ? participations.filter(p => (p.correct_predictions || 0) === secondScore)
     : []
 
   const paySecondPlace = !isDominical && secondWinners.length > 0 && secondWinners.length <= 20
@@ -1820,20 +1813,20 @@ const distributeJornadaPrizes = async (jornada) => {
 
   try {
     for (const winner of firstWinners) {
-      await creditPrizeBalance(winner.user_id, firstPlaceShare, winner.participation_id, `Premio 1er lugar - ${jornada.name}`)
+      await creditPrizeBalance(winner.user_id, firstPlaceShare, winner.id, `Premio 1er lugar - ${jornada.name} - ${winner.folio}`)
       await supabase
         .from('participations')
         .update({ position: 1, prize_amount: firstPlaceShare, prize_status: 'paid' })
-        .eq('id', winner.participation_id)
+        .eq('id', winner.id)
     }
 
     if (paySecondPlace) {
       for (const winner of secondWinners) {
-        await creditPrizeBalance(winner.user_id, secondPlaceShare, winner.participation_id, `Premio 2do lugar - ${jornada.name}`)
+        await creditPrizeBalance(winner.user_id, secondPlaceShare, winner.id, `Premio 2do lugar - ${jornada.name} - ${winner.folio}`)
         await supabase
           .from('participations')
           .update({ position: 2, prize_amount: secondPlaceShare, prize_status: 'paid' })
-          .eq('id', winner.participation_id)
+          .eq('id', winner.id)
       }
     }
 
