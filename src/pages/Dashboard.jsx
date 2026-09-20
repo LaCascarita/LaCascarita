@@ -22,11 +22,6 @@ const Dashboard = () => {
   const [stats, setStats] = useState(null)
   const [statsLoading, setStatsLoading] = useState(false)
 
-  const userStats = {
-    ranking: 5,
-    accuracy: '68%',
-    activeQuinielas: 3
-  }
 
   const totalPrizes = participations
     .filter(p => parseFloat(p.prize_amount) > 0 && p.prize_status !== 'none')
@@ -377,14 +372,6 @@ const Dashboard = () => {
                 icon="🎯"
                 color="purple"
                 onClick={() => setActiveSection('stats')}
-              />
-              <DashboardCard
-                title="Quinielas Activas"
-                value={userStats.activeQuinielas}
-                subtitle="Jornadas disponibles"
-                icon="⚽"
-                color="emerald"
-                onClick={() => setActiveSection('quinielas')}
               />
             </div>
 
