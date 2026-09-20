@@ -37,6 +37,12 @@ const AdminDashboard = () => {
     }
   }, [jornadaType])
 
+  useEffect(() => {
+    if (activeView === 'participaciones') {
+      fetchParticipations()
+    }
+  }, [activeView, participationsType])
+
   const setDefaultDateRange = () => {
     const today = new Date()
     const from = today.toISOString().split('T')[0]
@@ -212,7 +218,7 @@ const AdminDashboard = () => {
     }
   }
 
-  const handleToggleJornada = async (action) => {
+  const handleToggleJornada = async (type, action) => {
     const confirmMsg = action === 'close'
       ? '¿Cerrar la quiniela? Los usuarios ya no podrán enviar pronósticos.'
       : '¿Reabrir la quiniela? Los usuarios podrán volver a participar.'
@@ -224,12 +230,13 @@ const AdminDashboard = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ type: participationsType, action })
+        body: JSON.stringify({ type, action })
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Error al actualizar jornada')
       setMessage(data.message)
-      fetchParticipations()
+      fetchCurrentJornada()
+      if (participationsData) fetchParticipations()
     } catch (error) {
       setMessage(error.message)
     }
@@ -423,6 +430,23 @@ const AdminDashboard = () => {
               <p><strong>Nombre:</strong> {currentJornada.name}</p>
               <p><strong>Fecha:</strong> {currentJornada.start_date} - {currentJornada.end_date}</p>
               <p><strong>Partidos:</strong> {selectedMatches.length}</p>
+              <p><strong>Estado:</strong> {currentJornada.status === 'active' ? 'Activa' : 'Cerrada'}</p>
+              {currentJornada.status === 'active' ? (
+                <button
+                  onClick={() => handleToggleJornada(jornadaType, 'close')}
+                  className="save-button"
+                  style={{ backgroundColor: '#f59e0b' }}
+                >
+                  🔒 Cerrar Quiniela
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleToggleJornada(jornadaType, 'open')}
+                  className="action-button"
+                >
+                  🔓 Reabrir Quiniela
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -464,6 +488,8 @@ const AdminDashboard = () => {
               {participationsLoading ? 'Cargando...' : 'Cargar Participaciones'}
             </button>
 
+            {message && <div className={`message ${message.includes('rror') ? 'error' : 'success'}`}>{message}</div>}
+
             {participationsData?.jornada && (
               <div className="participations-summary">
                 <p><strong>Participantes:</strong> {participationsData.participations?.length || 0}</p>
@@ -481,7 +507,7 @@ const AdminDashboard = () => {
               <div className="admin-actions" style={{ marginTop: '10px' }}>
                 {participationsData.jornada.status === 'active' ? (
                   <button
-                    onClick={() => handleToggleJornada('close')}
+                    onClick={() => handleToggleJornada(participationsType, 'close')}
                     className="save-button"
                     style={{ backgroundColor: '#f59e0b' }}
                   >
@@ -489,7 +515,7 @@ const AdminDashboard = () => {
                   </button>
                 ) : (
                   <button
-                    onClick={() => handleToggleJornada('open')}
+                    onClick={() => handleToggleJornada(participationsType, 'open')}
                     className="action-button"
                   >
                     🔓 Reabrir Quiniela
