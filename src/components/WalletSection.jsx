@@ -4,7 +4,6 @@ import { apiFetch } from '../utils/api'
 const WalletSection = ({ balance, transactions, participations, walletLoading, onDeposit, onWithdraw, onRefresh, defaultTab = 'deposit' }) => {
   const [activeTab, setActiveTab] = useState(defaultTab)
   const [depositAmount, setDepositAmount] = useState('')
-  const [depositMethod, setDepositMethod] = useState('mercadopago')
   const [withdrawAmount, setWithdrawAmount] = useState('')
   const [withdrawForm, setWithdrawForm] = useState({
     bank_name: '',
@@ -18,13 +17,13 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
 
   const handleDepositSubmit = (e) => {
     e.preventDefault()
-    if (!depositAmount || parseFloat(depositAmount) <= 0) return
-    onDeposit({ amount: parseFloat(depositAmount), method: depositMethod })
+    if (!depositAmount || parseFloat(depositAmount) < 100) return
+    onDeposit({ amount: parseFloat(depositAmount), method: 'spei' })
   }
 
   const handleWithdrawSubmit = (e) => {
     e.preventDefault()
-    if (!withdrawAmount || parseFloat(withdrawAmount) <= 0) return
+    if (!withdrawAmount || parseFloat(withdrawAmount) < 200) return
     onWithdraw({ amount: parseFloat(withdrawAmount), ...withdrawForm })
   }
 
@@ -144,29 +143,8 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
         <form onSubmit={handleDepositSubmit} className="space-y-4 max-w-md">
           <div>
             <label className="block text-slate-300 text-sm mb-2">Método de recarga</label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setDepositMethod('mercadopago')}
-                className={`px-4 py-2 rounded-lg text-sm transition-all ${
-                  depositMethod === 'mercadopago'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-white/10 text-slate-300 hover:bg-white/20'
-                }`}
-              >
-                Mercado Pago
-              </button>
-              <button
-                type="button"
-                onClick={() => setDepositMethod('spei')}
-                className={`px-4 py-2 rounded-lg text-sm transition-all ${
-                  depositMethod === 'spei'
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-white/10 text-slate-300 hover:bg-white/20'
-                }`}
-              >
-                SPEI
-              </button>
+            <div className="px-4 py-2 rounded-lg text-sm bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 w-fit">
+              SPEI (transferencia bancaria)
             </div>
           </div>
 
@@ -174,7 +152,7 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
             <label className="block text-slate-300 text-sm mb-2">Monto a recargar (MXN)</label>
             <input
               type="number"
-              min="10"
+              min="100"
               step="1"
               value={depositAmount}
               onChange={(e) => setDepositAmount(e.target.value)}
@@ -182,25 +160,24 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
               placeholder="100"
               required
             />
+            <p className="text-slate-500 text-xs mt-1">Mínimo $100.</p>
           </div>
 
-          {depositMethod === 'spei' && (
-            <div className="bg-slate-800/50 rounded-lg p-4 border border-white/10">
-              <p className="text-slate-300 text-sm mb-2">Instrucciones SPEI:</p>
-              <ul className="text-slate-400 text-xs space-y-1 list-disc list-inside">
-                <li>Realiza tu transferencia desde tu banca en línea.</li>
-                <li>Usa la referencia que se generará al solicitar.</li>
-                <li>Tu recarga será acreditada en cuanto sea confirmada.</li>
-              </ul>
-            </div>
-          )}
+          <div className="bg-slate-800/50 rounded-lg p-4 border border-white/10">
+            <p className="text-slate-300 text-sm mb-2">Instrucciones SPEI:</p>
+            <ul className="text-slate-400 text-xs space-y-1 list-disc list-inside">
+              <li>Realiza tu transferencia desde tu banca en línea.</li>
+              <li>Usa la referencia que se generará al solicitar.</li>
+              <li>Tu recarga será acreditada en cuanto sea confirmada.</li>
+            </ul>
+          </div>
 
           <button
             type="submit"
             disabled={walletLoading}
             className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-600 text-white font-semibold py-2 rounded-lg transition-all"
           >
-            {walletLoading ? 'Procesando...' : depositMethod === 'mercadopago' ? 'Pagar con Mercado Pago' : 'Generar referencia SPEI'}
+            {walletLoading ? 'Procesando...' : 'Generar referencia SPEI'}
           </button>
         </form>
       )}
@@ -211,15 +188,15 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
             <label className="block text-slate-300 text-sm mb-2">Monto a retirar (MXN)</label>
             <input
               type="number"
-              min="50"
+              min="200"
               step="1"
               value={withdrawAmount}
               onChange={(e) => setWithdrawAmount(e.target.value)}
               className="w-full bg-white/5 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
-              placeholder="500"
+              placeholder="200"
               required
             />
-            <p className="text-slate-500 text-xs mt-1">Mínimo $50. Disponible: ${balance.toFixed(2)}</p>
+            <p className="text-slate-500 text-xs mt-1">Mínimo $200. Disponible: ${balance.toFixed(2)}</p>
           </div>
 
           <div>

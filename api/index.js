@@ -937,6 +937,7 @@ app.post('/api/payments/spei-request', async (req, res) => {
 
     const { amount } = req.body
     if (!amount || amount <= 0) return res.status(400).json({ error: 'Monto inválido' })
+    if (amount < 100) return res.status(400).json({ error: 'La recarga mínima es de $100 MXN' })
 
     const externalReference = `LC-SPEI-${user.id}-${Date.now()}`
 
@@ -1135,6 +1136,7 @@ app.post('/api/withdrawals', async (req, res) => {
 
     const { amount, bank_name, account_number, clabe, card_holder } = req.body
     if (!amount || amount <= 0) return res.status(400).json({ error: 'Monto inválido' })
+    if (amount < 200) return res.status(400).json({ error: 'El retiro mínimo es de $200 MXN' })
 
     const { data: userData, error: userError } = await supabase
       .from('users')
