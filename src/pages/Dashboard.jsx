@@ -315,12 +315,9 @@ const Dashboard = () => {
                   }
                 }
                 const style = styles[bag.type] || styles.media_semana
-                return (
-                  <Link
-                    key={bag.type}
-                    to={style.route}
-                    className={`${style.classes} rounded-lg p-4 border transition-all cursor-pointer`}
-                  >
+                const pending = !bag.jornada_id
+                const content = (
+                  <>
                     <p className="text-slate-400 text-sm mb-1">
                       {bag.label}
                       {bag.jornada_status === 'inactive' && (
@@ -335,8 +332,23 @@ const Dashboard = () => {
                       <p className="text-yellow-400 text-xs mt-1">+{formatCurrency(bag.carryover)} acumulado</p>
                     )}
                     <p className="text-slate-400 text-xs mt-2">
-                      {bag.participants_count} participante{bag.participants_count !== 1 ? 's' : ''} · {bag.matches_count} partido{bag.matches_count !== 1 ? 's' : ''}
+                      {pending
+                        ? 'Partidos por definir'
+                        : `${bag.participants_count} participante${bag.participants_count !== 1 ? 's' : ''} · ${bag.matches_count} partido${bag.matches_count !== 1 ? 's' : ''}`}
                     </p>
+                  </>
+                )
+                return pending ? (
+                  <div key={bag.type} className={`${style.classes} rounded-lg p-4 border opacity-60`}>
+                    {content}
+                  </div>
+                ) : (
+                  <Link
+                    key={bag.type}
+                    to={style.route}
+                    className={`${style.classes} rounded-lg p-4 border transition-all cursor-pointer`}
+                  >
+                    {content}
                   </Link>
                 )
               })
@@ -602,19 +614,18 @@ const Dashboard = () => {
                     }
                   }
                   const style = styles[bag.type] || styles.media_semana
-                  return (
-                    <Link
-                      key={bag.type}
-                      to={style.route}
-                      className={`${style.card} rounded-xl p-4 sm:p-6 border hover:scale-105 transition-all block`}
-                    >
+                  const pending = !bag.jornada_id
+                  const content = (
+                    <>
                       <h4 className="text-base sm:text-lg font-semibold text-white mb-2">
                         {bag.label}
                         {bag.jornada_status === 'inactive' && (
                           <span className="ml-2 text-red-400 text-xs font-semibold">🔒 Cerrada</span>
                         )}
                       </h4>
-                      <p className="text-slate-400 text-xs sm:text-sm mb-4">{bag.matches_count} partido{bag.matches_count !== 1 ? 's' : ''}</p>
+                      <p className="text-slate-400 text-xs sm:text-sm mb-4">
+                        {pending ? 'Partidos por definir' : `${bag.matches_count} partido${bag.matches_count !== 1 ? 's' : ''}`}
+                      </p>
                       <div className="space-y-2 mb-4">
                         <div className="flex justify-between text-xs sm:text-sm">
                           <span className="text-slate-400">Bolsa:</span>
@@ -631,9 +642,22 @@ const Dashboard = () => {
                           <span className="text-white">{bag.participants_count}</span>
                         </div>
                       </div>
-                      <div className={`${style.button} text-white font-semibold py-2 rounded-lg text-center text-sm sm:text-base`}>
-                        Participar
+                      <div className={`${pending ? 'bg-slate-600' : style.button} text-white font-semibold py-2 rounded-lg text-center text-sm sm:text-base`}>
+                        {pending ? 'Próximamente' : 'Participar'}
                       </div>
+                    </>
+                  )
+                  return pending ? (
+                    <div key={bag.type} className={`${style.card} rounded-xl p-4 sm:p-6 border opacity-60`}>
+                      {content}
+                    </div>
+                  ) : (
+                    <Link
+                      key={bag.type}
+                      to={style.route}
+                      className={`${style.card} rounded-xl p-4 sm:p-6 border hover:scale-105 transition-all block`}
+                    >
+                      {content}
                     </Link>
                   )
                 })}

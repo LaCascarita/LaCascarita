@@ -502,8 +502,12 @@ app.post('/api/admin/save-jornada', async (req, res) => {
   try {
     const { type, name, start_date, end_date, matches } = req.body
 
-    if (!type || !name || !start_date || !end_date || !matches || matches.length === 0) {
+    if (!type || !name || !start_date || !end_date) {
       return res.status(400).json({ error: 'Missing required fields' })
+    }
+
+    if (!matches || matches.length === 0) {
+      return res.status(400).json({ error: 'Debes seleccionar al menos un partido para la jornada' })
     }
 
     if (matches.length > 9) return res.status(400).json({ error: 'Maximum 9 matches allowed' })
@@ -1511,17 +1515,44 @@ app.get('/api/football/bag-prizes', async (req, res) => {
     const result = []
 
     for (const type of types) {
+      let carryover = 0
+      if (type !== 'dominical') {
+        const { data: carry } = await supabase
+          .from('prize_carryover')
+          .select('amount')
+          .eq('type', type)
+          .maybeSingle()
+        carryover = parseFloat(carry?.amount) || 0
+      }
+
       const { data: jornada, error: jornadaError } = await supabase
         .from('admin_jornadas')
         .select('id, name, type, status')
         .eq('type', type)
+        .in('status', ['active', 'inactive'])
         .order('created_at', { ascending: false })
         .limit(1)
-        .single()
+        .maybeSingle()
 
-      if (jornadaError && jornadaError.code === 'PGRST116') continue
       if (jornadaError) throw jornadaError
-      if (!jornada || jornada.status === 'completed') continue
+
+      if (!jornada) {
+        result.push({
+          type,
+          label: bagLabels[type],
+          jornada_id: null,
+          jornada_name: null,
+          jornada_status: 'pending',
+          total_collected: 0,
+          prize_pool: carryover,
+          carryover,
+          house_amount: 0,
+          participations_count: 0,
+          participants_count: 0,
+          matches_count: 0
+        })
+        continue
+      }
 
       const { data: partidos, error: partidosError } = await supabase
         .from('admin_jornada_partidos')
@@ -1542,16 +1573,6 @@ app.get('/api/football/bag-prizes', async (req, res) => {
         (sum, p) => sum + (parseFloat(p.payment_amount) || 0),
         0
       )
-
-      let carryover = 0
-      if (type !== 'dominical') {
-        const { data: carry } = await supabase
-          .from('prize_carryover')
-          .select('amount')
-          .eq('type', type)
-          .maybeSingle()
-        carryover = parseFloat(carry?.amount) || 0
-      }
 
       const prizePool = totalCollected * 0.7 + carryover
       const participantsCount = new Set((participations || []).map(p => p.user_id)).size
