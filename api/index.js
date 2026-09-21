@@ -2324,12 +2324,24 @@ app.get('/api/me/stats', async (req, res) => {
     }
 
     const dist = { home: 0, draw: 0, away: 0 }
-    const totalPreds = (preds || []).length
-    for (const p of (preds || [])) dist[p.prediction] = (dist[p.prediction] || 0) + 1
-    const distribution = {
-      home: totalPreds > 0 ? Math.round((dist.home / totalPreds) * 100) : 0,
-      draw: totalPreds > 0 ? Math.round((dist.draw / totalPreds) * 100) : 0,
-      away: totalPreds > 0 ? Math.round((dist.away / totalPreds) * 100) : 0,
+    for (const p of (preds || [])) {
+      if (dist[p.prediction] !== undefined) dist[p.prediction]++
+    }
+    const totalPreds = dist.home + dist.draw + dist.away
+
+    // Metodo de mayor resto: garantiza que la suma sea exactamente 100
+    const distribution = { home: 0, draw: 0, away: 0 }
+    if (totalPreds > 0) {
+      const items = ['home', 'draw', 'away'].map(k => {
+        const raw = (dist[k] / totalPreds) * 100
+        return { k, floor: Math.floor(raw), frac: raw - Math.floor(raw) }
+      })
+      items.sort((a, b) => b.frac - a.frac)
+      let rest = 100 - items.reduce((s, i) => s + i.floor, 0)
+      for (const item of items) {
+        distribution[item.k] = item.floor + (rest > 0 ? 1 : 0)
+        rest--
+      }
     }
 
     const byType = {}
