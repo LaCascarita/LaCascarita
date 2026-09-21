@@ -405,31 +405,36 @@ const Dashboard = () => {
             <p className="text-slate-400 mb-6">Historial de tus ganancias y estado de pagos.</p>
             
             <div className="space-y-4">
-              <div className="bg-emerald-500/20 rounded-lg p-4 border border-emerald-500/30">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
-                  <div>
-                    <p className="text-white font-semibold text-sm sm:text-base">1° Lugar - Jornada 12</p>
-                    <p className="text-slate-400 text-xs sm:text-sm">Folio: LC-FS-001254</p>
-                  </div>
-                  <span className="bg-emerald-500 text-white px-3 py-1 rounded-full text-xs sm:text-sm self-start sm:self-auto">
-                    Pagado
-                  </span>
-                </div>
-                <p className="text-xl sm:text-2xl font-bold text-emerald-400">$4,250</p>
-              </div>
-              
-              <div className="bg-orange-500/20 rounded-lg p-4 border border-orange-500/30">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
-                  <div>
-                    <p className="text-white font-semibold text-sm sm:text-base">2° Lugar - Jornada 10</p>
-                    <p className="text-slate-400 text-xs sm:text-sm">Folio: LC-FS-001180</p>
-                  </div>
-                  <span className="bg-orange-500 text-white px-3 py-1 rounded-full text-xs sm:text-sm self-start sm:self-auto">
-                    Pendiente
-                  </span>
-                </div>
-                <p className="text-xl sm:text-2xl font-bold text-orange-400">$1,060</p>
-              </div>
+              {participations.filter(p => parseFloat(p.prize_amount) > 0).length === 0 ? (
+                <p className="text-slate-400 text-center py-8">Aún no tienes premios ganados.</p>
+              ) : (
+                participations
+                  .filter(p => parseFloat(p.prize_amount) > 0)
+                  .map(p => {
+                    const isPaid = p.prize_status === 'paid'
+                    return (
+                      <div
+                        key={p.id}
+                        className={`${isPaid ? 'bg-emerald-500/20 border-emerald-500/30' : 'bg-orange-500/20 border-orange-500/30'} rounded-lg p-4 border`}
+                      >
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
+                          <div>
+                            <p className="text-white font-semibold text-sm sm:text-base">
+                              {p.position === 1 ? '1° Lugar' : '2° Lugar'} - {p.admin_jornadas?.name || 'Jornada'}
+                            </p>
+                            <p className="text-slate-400 text-xs sm:text-sm">Folio: {p.folio}</p>
+                          </div>
+                          <span className={`${isPaid ? 'bg-emerald-500' : 'bg-orange-500'} text-white px-3 py-1 rounded-full text-xs sm:text-sm self-start sm:self-auto`}>
+                            {isPaid ? 'Pagado' : 'Pendiente'}
+                          </span>
+                        </div>
+                        <p className={`text-xl sm:text-2xl font-bold ${isPaid ? 'text-emerald-400' : 'text-orange-400'}`}>
+                          {formatPrize(parseFloat(p.prize_amount))}
+                        </p>
+                      </div>
+                    )
+                  })
+              )}
             </div>
           </div>
         )}
