@@ -2000,7 +2000,7 @@ app.get('/api/admin/jornada-participations', async (req, res) => {
     if (participationIds.length > 0) {
       const { data: preds, error: predError } = await supabase
         .from('predictions')
-        .select('id, participation_id, match_id, prediction')
+        .select('id, participation_id, match_id, prediction, is_correct')
         .in('participation_id', participationIds)
 
       if (predError) throw predError
