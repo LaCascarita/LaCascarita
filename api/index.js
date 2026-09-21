@@ -758,14 +758,29 @@ const getUserFromToken = (req) => {
 }
 
 const getAdminFromToken = (req) => {
+  const cookies = req.headers.cookie || ''
+  const getCookie = (name) =>
+    cookies.split('; ').find(cookie => cookie.startsWith(`${name}=`))?.split('=')[1]
+
   try {
-    const cookies = req.headers.cookie || ''
-    const admin_token = cookies.split('; ').find(cookie => cookie.startsWith('admin_token='))?.split('=')[1]
-    if (!admin_token) return null
-    return jwt.verify(admin_token, JWT_SECRET)
+    const admin_token = getCookie('admin_token')
+    if (admin_token) return jwt.verify(admin_token, JWT_SECRET)
   } catch (error) {
-    return null
+    // admin_token invalido o expirado, intentar con la sesion normal
   }
+
+  // Fallback: sesion de usuario normal con rol admin (access_token o refresh_token)
+  for (const name of ['access_token', 'refresh_token']) {
+    try {
+      const token = getCookie(name)
+      if (!token) continue
+      const user = jwt.verify(token, JWT_SECRET)
+      if (user?.role === 'admin') return user
+    } catch (error) {
+      // token expirado o invalido, probar el siguiente
+    }
+  }
+  return null
 }
 
 const createBalanceTransaction = async ({ user_id, type, amount, balance_before, balance_after, reference_id = null, participation_id = null, description = '' }) => {
