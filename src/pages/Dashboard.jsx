@@ -301,21 +301,13 @@ const Dashboard = () => {
             ) : (
               bagPrizes.map((bag) => {
                 const styles = {
-                  media_semana: {
-                    route: '/media-semana',
-                    classes: 'bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/30 text-emerald-400'
-                  },
-                  fin_de_semana: {
-                    route: '/fin-de-semana',
-                    classes: 'bg-blue-500/20 hover:bg-blue-500/30 border-blue-500/30 text-blue-400'
-                  },
-                  dominical: {
-                    route: '/dominical',
-                    classes: 'bg-purple-500/20 hover:bg-purple-500/30 border-purple-500/30 text-purple-400'
-                  }
+                  media_semana: { route: '/media-semana' },
+                  fin_de_semana: { route: '/fin-de-semana' },
+                  dominical: { route: '/dominical' }
                 }
                 const style = styles[bag.type] || styles.media_semana
                 const pending = !bag.jornada_id
+                const cardClasses = 'bg-slate-800/60 hover:bg-slate-700/60 border-slate-700'
                 const content = (
                   <>
                     <p className="text-slate-400 text-sm mb-1">
@@ -325,7 +317,7 @@ const Dashboard = () => {
                       )}
                     </p>
                     <p className="text-slate-300 text-xs mb-1">Bolsa actual</p>
-                    <p className="text-xl sm:text-2xl font-bold">
+                    <p className="text-xl sm:text-2xl font-bold text-emerald-400">
                       {formatCurrency(bag.prize_pool)}
                     </p>
                     {bag.carryover > 0 && (
@@ -339,14 +331,14 @@ const Dashboard = () => {
                   </>
                 )
                 return pending ? (
-                  <div key={bag.type} className={`${style.classes} rounded-lg p-4 border opacity-60`}>
+                  <div key={bag.type} className={`${cardClasses} rounded-lg p-4 border opacity-60`}>
                     {content}
                   </div>
                 ) : (
                   <Link
                     key={bag.type}
                     to={style.route}
-                    className={`${style.classes} rounded-lg p-4 border transition-all cursor-pointer`}
+                    className={`${cardClasses} rounded-lg p-4 border transition-all cursor-pointer`}
                   >
                     {content}
                   </Link>
@@ -596,20 +588,20 @@ const Dashboard = () => {
                   const styles = {
                     media_semana: {
                       route: '/media-semana',
-                      card: 'bg-gradient-to-br from-emerald-500/20 to-emerald-600/20 border-emerald-500/30',
+                      card: 'bg-slate-800/60 border-slate-700',
                       text: 'text-emerald-400',
                       button: 'bg-emerald-500 hover:bg-emerald-600'
                     },
                     fin_de_semana: {
                       route: '/fin-de-semana',
-                      card: 'bg-gradient-to-br from-blue-500/20 to-blue-600/20 border-blue-500/30',
-                      text: 'text-blue-400',
+                      card: 'bg-slate-800/60 border-slate-700',
+                      text: 'text-emerald-400',
                       button: 'bg-blue-500 hover:bg-blue-600'
                     },
                     dominical: {
                       route: '/dominical',
-                      card: 'bg-gradient-to-br from-purple-500/20 to-purple-600/20 border-purple-500/30',
-                      text: 'text-purple-400',
+                      card: 'bg-slate-800/60 border-slate-700',
+                      text: 'text-emerald-400',
                       button: 'bg-purple-500 hover:bg-purple-600'
                     }
                   }
