@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 
 function NotFound() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col items-center justify-center p-4 sm:p-6">
+    <div className="min-h-screen bg-[#0B0B0B] flex flex-col items-center justify-center p-4 sm:p-6">
       <div className="text-9xl mb-6 animate-bounce drop-shadow-2xl" aria-hidden="true">
         ⚽
       </div>

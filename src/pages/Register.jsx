@@ -113,7 +113,7 @@ const Register = () => {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4 sm:p-6">
+      <div className="min-h-screen bg-[#0B0B0B] flex items-center justify-center p-4 sm:p-6">
         <div className="max-w-md w-full">
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 sm:p-8 border border_white/20 text-center">
             <div className="text-5xl sm:text-6xl mb-4">✅</div>
@@ -140,7 +140,7 @@ const Register = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4 sm:p-6">
+    <div className="min-h-screen bg-[#0B0B0B] flex items-center justify-center p-4 sm:p-6">
       <div className="max-w-md w-full">
         {/* Header */}
         <div className="text-center mb-8">

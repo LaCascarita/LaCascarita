@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 
 const Welcome = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4 sm:p-6 md:p-8">
+    <div className="min-h-screen bg-[#0B0B0B] flex items-center justify-center p-4 sm:p-6 md:p-8">
       <div className="max-w-4xl w-full text-center">
         {/* Logo/Brand */}
         <div className="mb-8 md:mb-12">
