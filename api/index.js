@@ -1105,31 +1105,58 @@ app.post('/api/webhooks/openpay', async (req, res) => {
 
     const type = body.type
     const transaction = body.transaction
-    if (!transaction?.id) return res.status(200).json({ received: true })
+    if (!transaction?.id && !transaction?.order_id) return res.status(200).json({ received: true })
 
-    if (type === 'charge.succeeded' || type === 'transaction.succeeded') {
+    if (['charge.succeeded', 'transaction.succeeded', 'spei.received'].includes(type)) {
       const merchantId = process.env.OPENPAY_MERCHANT_ID
       const privateKey = process.env.OPENPAY_PRIVATE_KEY
       const baseUrl = (process.env.OPENPAY_BASE_URL || 'https://sandbox-api.openpay.mx/v1').replace(/\/$/, '')
 
-      // Confirmar el cargo directamente contra la API antes de acreditar
-      const verifyRes = await fetch(`${baseUrl}/${merchantId}/charges/${transaction.id}`, {
-        headers: { 'Authorization': `Basic ${Buffer.from(`${privateKey}:`).toString('base64')}` }
-      })
-      const charge = await verifyRes.json()
+      const authHeaders = { 'Authorization': `Basic ${Buffer.from(`${privateKey}:`).toString('base64')}` }
+      let charge = null
 
-      if (!verifyRes.ok || charge.status !== 'completed') {
+      // Verificar el cargo contra la API; nunca confiar solo en el body del webhook
+      if (transaction.id) {
+        const verifyRes = await fetch(`${baseUrl}/${merchantId}/charges/${transaction.id}`, { headers: authHeaders })
+        if (verifyRes.ok) charge = await verifyRes.json()
+      }
+
+      // Fallback: buscar el pago por order_id y verificar su cargo real
+      if (!charge && transaction.order_id) {
+        const { data: pending } = await supabase
+          .from('payments')
+          .select('provider_metadata')
+          .eq('external_reference', transaction.order_id)
+          .maybeSingle()
+        const txId = pending?.provider_metadata?.openpay_transaction_id
+        if (txId) {
+          const verifyRes = await fetch(`${baseUrl}/${merchantId}/charges/${txId}`, { headers: authHeaders })
+          if (verifyRes.ok) charge = await verifyRes.json()
+        }
+      }
+
+      if (!charge || charge.status !== 'completed') {
         return res.status(200).json({ message: 'Cargo no completado' })
       }
 
       const externalReference = charge.order_id || transaction.order_id
-      const { data: payment, error: findError } = await supabase
+      let { data: payment } = await supabase
         .from('payments')
         .select('*')
         .eq('external_reference', externalReference)
         .single()
 
-      if (findError || !payment) {
+      // Fallback: buscar por el id de transaccion de Openpay guardado en metadata
+      if (!payment && transaction.id) {
+        const { data: byTx } = await supabase
+          .from('payments')
+          .select('*')
+          .eq('provider_metadata->>openpay_transaction_id', transaction.id)
+          .maybeSingle()
+        payment = byTx
+      }
+
+      if (!payment) {
         return res.status(200).json({ message: 'Pago no encontrado en sistema' })
       }
 
