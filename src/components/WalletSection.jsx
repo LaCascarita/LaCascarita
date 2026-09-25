@@ -163,6 +163,12 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
             <p className="text-slate-500 text-xs mt-1">Mínimo $100.</p>
           </div>
 
+          <div className="bg-yellow-500/10 border border-yellow-500/40 rounded-lg px-4 py-3">
+            <p className="text-yellow-400 text-xs font-semibold">
+              ⚠️ Asegúrate de transferir la misma cantidad que escribas en "Monto a recargar"
+            </p>
+          </div>
+
           <div className="bg-slate-800/50 rounded-lg p-4 border border-white/10">
             <p className="text-slate-300 text-sm mb-2">Instrucciones SPEI:</p>
             <ul className="text-slate-400 text-xs space-y-1 list-disc list-inside">
