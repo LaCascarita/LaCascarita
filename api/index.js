@@ -1061,12 +1061,12 @@ app.post('/api/payments/spei-request', async (req, res) => {
     res.json({
       payment_id: payment.id,
       external_reference: externalReference,
+      reference: charge.payment_method?.name || '',
       amount: amount,
       bank_name: charge.payment_method?.bank || 'STP',
-      account_number: charge.payment_method?.clabe || '',
       clabe: charge.payment_method?.clabe || '',
       beneficiary: 'La Cascarita',
-      message: 'Realiza la transferencia a la CLABE indicada. Tu saldo se acreditará automáticamente cuando llegue el pago.'
+      message: 'Realiza la transferencia a la CLABE indicada con la referencia mostrada. Tu saldo se acreditará automáticamente cuando llegue el pago.'
     })
   } catch (error) {
     res.status(500).json({ error: error.message })

@@ -173,7 +173,7 @@ const Dashboard = () => {
       if (method === 'mercadopago' && data.init_point) {
         window.location.href = data.init_point
       } else {
-        alert(`Referencia SPEI: ${data.external_reference}\nBanco: ${data.bank_name}\nCLABE: ${data.clabe}\nBeneficiario: ${data.beneficiary}\n\n${data.message || ''}`)
+        alert(`CLABE: ${data.clabe}\nReferencia: ${data.reference}\nBanco: ${data.bank_name}\nMonto exacto: $${data.amount} MXN\nBeneficiario: ${data.beneficiary}\n\n${data.message || ''}`)
 
         // Polling: esperar la acreditacion sin refrescar la pagina (max 3 min)
         const balanceBefore = balance
