@@ -826,6 +826,48 @@ const creditUserBalance = async (userId, amount, referenceId, description) => {
   return balanceAfter
 }
 
+const reconcileSpeiPayments = async (userId) => {
+  try {
+    const merchantId = process.env.OPENPAY_MERCHANT_ID
+    const privateKey = process.env.OPENPAY_PRIVATE_KEY
+    const baseUrl = (process.env.OPENPAY_BASE_URL || 'https://sandbox-api.openpay.mx/v1').replace(/\/$/, '')
+    if (!merchantId || !privateKey) return
+
+    const { data: pending } = await supabase
+      .from('payments')
+      .select('id, user_id, amount, provider_metadata')
+      .eq('user_id', userId)
+      .eq('provider', 'spei')
+      .eq('status', 'pending')
+
+    const authHeaders = { 'Authorization': `Basic ${Buffer.from(`${privateKey}:`).toString('base64')}` }
+    for (const payment of (pending || [])) {
+      const txId = payment.provider_metadata?.openpay_transaction_id
+      if (!txId) continue
+      try {
+        const r = await fetch(`${baseUrl}/${merchantId}/charges/${txId}`, { headers: authHeaders })
+        if (!r.ok) continue
+        const charge = await r.json()
+        if (charge.status !== 'completed') continue
+
+        const { data: updated } = await supabase
+          .from('payments')
+          .update({ status: 'paid', paid_at: new Date().toISOString(), provider_metadata: charge })
+          .eq('id', payment.id)
+          .eq('status', 'pending')
+          .select('id')
+
+        if (!updated || updated.length === 0) continue
+        await creditUserBalance(payment.user_id, parseFloat(payment.amount), payment.id, 'Recarga SPEI confirmada')
+      } catch (e) {
+        // Si un cargo falla, continuar con el siguiente
+      }
+    }
+  } catch (e) {
+    console.error('reconcileSpeiPayments error:', e.message)
+  }
+}
+
 const creditPrizeBalance = async (userId, amount, participationId, description) => {
   const { data: user, error: userError } = await supabase
     .from('users')
@@ -1242,6 +1284,9 @@ app.get('/api/balance', async (req, res) => {
   try {
     const user = getUserFromToken(req)
     if (!user) return res.status(401).json({ error: 'No autorizado' })
+
+    // Respaldo del webhook: acredita recargas SPEI ya pagadas en Openpay
+    await reconcileSpeiPayments(user.id)
 
     const { data: userData, error: userError } = await supabase
       .from('users')
