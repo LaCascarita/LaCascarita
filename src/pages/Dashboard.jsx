@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import DashboardCard from '../components/DashboardCard'
 import StatCard from '../components/StatCard'
@@ -21,6 +21,9 @@ const Dashboard = () => {
   const [rankingLoading, setRankingLoading] = useState(false)
   const [stats, setStats] = useState(null)
   const [statsLoading, setStatsLoading] = useState(false)
+  const speiPollRef = useRef(null)
+
+  useEffect(() => () => clearInterval(speiPollRef.current), [])
 
 
   const totalPrizes = participations
@@ -171,6 +174,28 @@ const Dashboard = () => {
         window.location.href = data.init_point
       } else {
         alert(`Referencia SPEI: ${data.external_reference}\nBanco: ${data.bank_name}\nCLABE: ${data.clabe}\nBeneficiario: ${data.beneficiary}\n\n${data.message || ''}`)
+
+        // Polling: esperar la acreditacion sin refrescar la pagina (max 3 min)
+        const balanceBefore = balance
+        const startedAt = Date.now()
+        clearInterval(speiPollRef.current)
+        speiPollRef.current = setInterval(async () => {
+          try {
+            const r = await apiFetch('/api/balance')
+            if (!r.ok) return
+            const d = await r.json()
+            const credited = d.balance !== balanceBefore
+            if (credited || Date.now() - startedAt > 3 * 60 * 1000) {
+              clearInterval(speiPollRef.current)
+              setBalance(d.balance)
+              setTransactions(d.transactions || [])
+              setParticipations(d.participations || [])
+              if (credited) alert('Tu recarga SPEI fue acreditada a tu saldo')
+            }
+          } catch (e) {
+            // Reintentar en el siguiente intervalo
+          }
+        }, 8000)
       }
     } catch (error) {
       alert('Error: ' + error.message)
