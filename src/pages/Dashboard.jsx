@@ -264,7 +264,7 @@ const Dashboard = () => {
                 <span className="text-slate-400 text-xs">▾</span>
               </button>
               {showUserMenu && (
-                <div className="absolute right-0 mt-2 w-48 bg-slate-800 border border-white/20 rounded-lg shadow-lg overflow-hidden z-50">
+                <div className="absolute left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-0 mt-2 w-48 bg-slate-800 border border-white/20 rounded-lg shadow-lg overflow-hidden z-50">
                   <button
                     onClick={() => { setActiveSection('wallet'); setShowUserMenu(false) }}
                     className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-white/10 transition-colors"
