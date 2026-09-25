@@ -251,7 +251,10 @@ const Dashboard = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-center justify-between mb-6 sm:mb-8 gap-4">
           <div className="text-center sm:text-left">
-            <h1 className="text-2xl sm:text-3xl font-bold text-white">⚽ La Cascarita</h1>
+            <h1 className="flex items-center justify-center sm:justify-start gap-3 text-2xl sm:text-3xl font-bold text-white">
+              <img src="/logo_cascarita.svg" alt="La Cascarita" className="h-9 w-9 sm:h-11 sm:w-11" />
+              La Cascarita
+            </h1>
             <p className="text-slate-400 mt-1">Panel Principal</p>
           </div>
           <div className="flex items-center gap-4">

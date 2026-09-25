@@ -217,8 +217,9 @@ const Dominical = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-center justify-between mb-6 sm:mb-8 gap-4">
           <div className="text-center sm:text-left">
-            <Link to="/dashboard" className="text-2xl sm:text-3xl font-bold text-white hover:text-emerald-400 transition-colors">
-              ⚽ La Cascarita
+            <Link to="/dashboard" className="inline-flex items-center gap-3 text-2xl sm:text-3xl font-bold text-white hover:text-emerald-400 transition-colors">
+              <img src="/logo_cascarita.svg" alt="La Cascarita" className="h-9 w-9 sm:h-11 sm:w-11" />
+              La Cascarita
             </Link>
             <h1 className="text-xl sm:text-2xl font-semibold text-white mt-4">
               Bolsa Dominical

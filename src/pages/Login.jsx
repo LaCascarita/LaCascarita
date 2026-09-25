@@ -66,8 +66,9 @@ const Login = () => {
       <div className="max-w-md w-full">
         {/* Header */}
         <div className="text-center mb-8">
-          <Link to="/" className="text-3xl sm:text-4xl font-bold text-white hover:text-emerald-400 transition-colors">
-            ⚽ La Cascarita
+          <Link to="/" className="inline-flex items-center gap-3 text-3xl sm:text-4xl font-bold text-white hover:text-emerald-400 transition-colors">
+            <img src="/logo_cascarita.svg" alt="La Cascarita" className="h-11 w-11 sm:h-14 sm:w-14" />
+            La Cascarita
           </Link>
           <h2 className="text-xl sm:text-2xl font-semibold text-white mt-4">
             Iniciar Sesión
