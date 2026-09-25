@@ -167,8 +167,8 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
             <p className="text-slate-300 text-sm mb-2">Instrucciones SPEI:</p>
             <ul className="text-slate-400 text-xs space-y-1 list-disc list-inside">
               <li>Realiza tu transferencia desde tu banca en línea.</li>
-              <li>Usa la referencia que se generará al solicitar.</li>
-              <li>Tu recarga será acreditada en cuanto sea confirmada.</li>
+              <li>Usa la CLABE única que se generará al solicitar.</li>
+              <li>Tu recarga se acreditará automáticamente al recibir el pago.</li>
             </ul>
           </div>
 

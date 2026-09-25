@@ -958,7 +958,44 @@ app.post('/api/payments/spei-request', async (req, res) => {
     if (!amount || amount <= 0) return res.status(400).json({ error: 'Monto inválido' })
     if (amount < 100) return res.status(400).json({ error: 'La recarga mínima es de $100 MXN' })
 
+    const merchantId = process.env.OPENPAY_MERCHANT_ID
+    const privateKey = process.env.OPENPAY_PRIVATE_KEY
+    const baseUrl = (process.env.OPENPAY_BASE_URL || 'https://sandbox-api.openpay.mx/v1').replace(/\/$/, '')
+
+    if (!merchantId || !privateKey) {
+      return res.status(500).json({ error: 'Openpay no está configurado' })
+    }
+
     const externalReference = `LC-SPEI-${user.id}-${Date.now()}`
+
+    const chargeRes = await fetch(`${baseUrl}/${merchantId}/charges`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${Buffer.from(`${privateKey}:`).toString('base64')}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        method: 'bank_account',
+        amount: parseFloat(amount),
+        currency: 'MXN',
+        description: 'Recarga de saldo - La Cascarita',
+        order_id: externalReference,
+        send_email: false,
+        confirm: false,
+        customer: {
+          name: user.username || 'Usuario',
+          last_name: 'Cascarita',
+          email: `${user.username || user.id}@lacascarita.mx`,
+          phone_number: user.phone || '0000000000'
+        }
+      })
+    })
+
+    const charge = await chargeRes.json()
+    if (!chargeRes.ok) {
+      console.error('Openpay charge error:', charge)
+      return res.status(502).json({ error: charge.description || 'Error al crear el cargo en Openpay' })
+    }
 
     const { data: payment, error: paymentError } = await supabase
       .from('payments')
@@ -968,7 +1005,11 @@ app.post('/api/payments/spei-request', async (req, res) => {
         direction: 'deposit',
         amount: amount,
         status: 'pending',
-        external_reference: externalReference
+        external_reference: externalReference,
+        provider_metadata: {
+          openpay_transaction_id: charge.id,
+          clabe: charge.payment_method?.clabe
+        }
       }])
       .select()
       .single()
@@ -979,11 +1020,11 @@ app.post('/api/payments/spei-request', async (req, res) => {
       payment_id: payment.id,
       external_reference: externalReference,
       amount: amount,
-      bank_name: process.env.SPEI_BANK_NAME || 'Banco ejemplo',
-      account_number: process.env.SPEI_ACCOUNT_NUMBER || '000000000000000000',
-      clabe: process.env.SPEI_CLABE || '000000000000000000',
-      beneficiary: process.env.SPEI_BENEFICIARY || 'La Cascarita',
-      message: 'Realiza la transferencia con la referencia indicada y un admin la confirmará.'
+      bank_name: charge.payment_method?.bank || 'STP',
+      account_number: charge.payment_method?.clabe || '',
+      clabe: charge.payment_method?.clabe || '',
+      beneficiary: 'La Cascarita',
+      message: 'Realiza la transferencia a la CLABE indicada. Tu saldo se acreditará automáticamente cuando llegue el pago.'
     })
   } catch (error) {
     res.status(500).json({ error: error.message })
@@ -1034,6 +1075,82 @@ app.post('/api/webhooks/mercadopago', async (req, res) => {
 
           await creditUserBalance(payment.user_id, parseFloat(payment.amount), payment.id, 'Recarga Mercado Pago')
         }
+      }
+    }
+
+    res.status(200).json({ received: true })
+  } catch (error) {
+    res.status(200).json({ received: true, error: error.message })
+  }
+})
+
+// ============================================================
+// WEBHOOK OPENPAY (SPEI)
+// ============================================================
+app.post('/api/webhooks/openpay', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const body = req.body || {}
+
+    // Verificación inicial: Openpay envía un código que debemos devolver
+    if (body.verification_code) {
+      return res.status(200).json({ verification_code: body.verification_code })
+    }
+
+    const type = body.type
+    const transaction = body.transaction
+    if (!transaction?.id) return res.status(200).json({ received: true })
+
+    if (type === 'charge.succeeded' || type === 'transaction.succeeded') {
+      const merchantId = process.env.OPENPAY_MERCHANT_ID
+      const privateKey = process.env.OPENPAY_PRIVATE_KEY
+      const baseUrl = (process.env.OPENPAY_BASE_URL || 'https://sandbox-api.openpay.mx/v1').replace(/\/$/, '')
+
+      // Confirmar el cargo directamente contra la API antes de acreditar
+      const verifyRes = await fetch(`${baseUrl}/${merchantId}/charges/${transaction.id}`, {
+        headers: { 'Authorization': `Basic ${Buffer.from(`${privateKey}:`).toString('base64')}` }
+      })
+      const charge = await verifyRes.json()
+
+      if (!verifyRes.ok || charge.status !== 'completed') {
+        return res.status(200).json({ message: 'Cargo no completado' })
+      }
+
+      const externalReference = charge.order_id || transaction.order_id
+      const { data: payment, error: findError } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('external_reference', externalReference)
+        .single()
+
+      if (findError || !payment) {
+        return res.status(200).json({ message: 'Pago no encontrado en sistema' })
+      }
+
+      if (payment.status !== 'paid') {
+        await supabase
+          .from('payments')
+          .update({ status: 'paid', paid_at: new Date().toISOString(), provider_metadata: charge })
+          .eq('id', payment.id)
+
+        await creditUserBalance(payment.user_id, parseFloat(payment.amount), payment.id, 'Recarga SPEI confirmada')
+      }
+    }
+
+    if (type === 'charge.failed' || type === 'charge.cancelled') {
+      const externalReference = transaction.order_id
+      if (externalReference) {
+        await supabase
+          .from('payments')
+          .update({ status: 'failed' })
+          .eq('external_reference', externalReference)
+          .eq('status', 'pending')
       }
     }
 

@@ -170,7 +170,7 @@ const Dashboard = () => {
       if (method === 'mercadopago' && data.init_point) {
         window.location.href = data.init_point
       } else {
-        alert(`Referencia SPEI: ${data.external_reference}\nBanco: ${data.bank_name}\nCuenta: ${data.account_number}\nCLABE: ${data.clabe}\nBeneficiario: ${data.beneficiary}`)
+        alert(`Referencia SPEI: ${data.external_reference}\nBanco: ${data.bank_name}\nCLABE: ${data.clabe}\nBeneficiario: ${data.beneficiary}\n\n${data.message || ''}`)
       }
     } catch (error) {
       alert('Error: ' + error.message)
