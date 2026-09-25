@@ -316,6 +316,7 @@ const Dashboard = () => {
         </div>
 
         {/* Bolsas Actuales - Movido al inicio */}
+        {activeSection === 'overview' && (
         <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 sm:p-6 border border-white/20 mb-6 sm:mb-8">
           <h3 className="text-lg sm:text-xl font-semibold text-white mb-4">💰 Quinielas Actuales</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -372,6 +373,7 @@ const Dashboard = () => {
             )}
           </div>
         </div>
+        )}
 
         {/* Content based on active section */}
         {activeSection === 'overview' && (
