@@ -248,11 +248,11 @@ const Register = () => {
               />
               <span className="ml-3 text-slate-300 text-sm">
                 Acepto el{' '}
-                <a href="/reglamento" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 underline">
+                <a href="/reglamento.pdf" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 underline">
                   reglamento de La Cascarita
                 </a>{' '}
                 y los{' '}
-                <a href="/terminos" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 underline">
+                <a href="/terminos.pdf" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 underline">
                   términos y condiciones del servicio
                 </a>
               </span>
