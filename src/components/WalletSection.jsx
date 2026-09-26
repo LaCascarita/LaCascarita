@@ -1,16 +1,28 @@
 import { useState, useEffect } from 'react'
 import { apiFetch } from '../utils/api'
 
+const CLABE_BANKS = {
+  '002': 'Banamex', '012': 'BBVA', '014': 'Santander', '021': 'HSBC',
+  '030': 'Banco del Bajío', '032': 'IXE', '036': 'Inbursa', '042': 'Mifel',
+  '044': 'Scotiabank', '058': 'Banregio', '059': 'Invex', '060': 'Bansi',
+  '062': 'Afirme', '072': 'Banorte', '127': 'Azteca', '128': 'Autofin',
+  '130': 'Compartamos', '132': 'Multiva', '133': 'Actinver', '136': 'Inter Banco',
+  '137': 'BanCoppel', '140': 'Consubanco', '143': 'CIBanco', '147': 'Bankaool',
+  '150': 'BIM', '152': 'Bancrea', '166': 'Bansefi', '646': 'STP',
+  '677': 'Nu Mexico', '722': 'Mercado Pago', '728': 'Hey Banco', '638': 'Akala',
+  '652': 'Klar', '659': 'Nu Bank', '710': 'Ualá', '138': 'ABC Capital',
+  '151': 'Dondé', '106': 'Bank of America', '129': 'Barclays', '638': 'Akala'
+}
+
 const WalletSection = ({ balance, transactions, participations, walletLoading, onDeposit, onWithdraw, onRefresh, defaultTab = 'deposit' }) => {
   const [activeTab, setActiveTab] = useState(defaultTab)
   const [depositAmount, setDepositAmount] = useState('')
   const [withdrawAmount, setWithdrawAmount] = useState('')
   const [withdrawForm, setWithdrawForm] = useState({
-    bank_name: '',
-    account_number: '',
     clabe: '',
     card_holder: ''
   })
+  const detectedBank = CLABE_BANKS[withdrawForm.clabe.slice(0, 3)] || null
   const [selectedParticipation, setSelectedParticipation] = useState(null)
   const [detailData, setDetailData] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
@@ -24,7 +36,7 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
   const handleWithdrawSubmit = (e) => {
     e.preventDefault()
     if (!withdrawAmount || parseFloat(withdrawAmount) < 200) return
-    onWithdraw({ amount: parseFloat(withdrawAmount), ...withdrawForm })
+    onWithdraw({ amount: parseFloat(withdrawAmount), ...withdrawForm, bank_name: detectedBank || '' })
   }
 
   const formatDate = (date) => {
@@ -218,39 +230,23 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
           </div>
 
           <div>
-            <label className="block text-slate-300 text-sm mb-2">Banco</label>
-            <input
-              type="text"
-              value={withdrawForm.bank_name}
-              onChange={(e) => setWithdrawForm({ ...withdrawForm, bank_name: e.target.value })}
-              className="w-full bg-white/5 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
-              placeholder="BBVA, Santander, etc."
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-slate-300 text-sm mb-2">Número de cuenta</label>
-            <input
-              type="text"
-              value={withdrawForm.account_number}
-              onChange={(e) => setWithdrawForm({ ...withdrawForm, account_number: e.target.value })}
-              className="w-full bg-white/5 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
-              placeholder="Número de cuenta"
-            />
-          </div>
-
-          <div>
             <label className="block text-slate-300 text-sm mb-2">CLABE (18 dígitos)</label>
             <input
               type="text"
+              inputMode="numeric"
               minLength="18"
               maxLength="18"
               value={withdrawForm.clabe}
-              onChange={(e) => setWithdrawForm({ ...withdrawForm, clabe: e.target.value })}
+              onChange={(e) => setWithdrawForm({ ...withdrawForm, clabe: e.target.value.replace(/\D/g, '') })}
               className="w-full bg-white/5 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
               placeholder="000000000000000000"
+              required
             />
+            {withdrawForm.clabe.length >= 3 && (
+              <p className={`text-xs mt-1 ${detectedBank ? 'text-emerald-400' : 'text-slate-500'}`}>
+                {detectedBank ? `Banco: ${detectedBank}` : 'Banco no identificado'}
+              </p>
+            )}
           </div>
 
           <button
