@@ -25,6 +25,14 @@ const CLABE_BANKS = {
   '732': 'Peibo', '734': 'Finco Pay'
 }
 
+const isValidClabe = (clabe) => {
+  if (!/^\d{18}$/.test(clabe || '')) return false
+  const weights = [3, 7, 1]
+  let sum = 0
+  for (let i = 0; i < 17; i++) sum += (Number(clabe[i]) * weights[i % 3]) % 10
+  return (10 - (sum % 10)) % 10 === Number(clabe[17])
+}
+
 const WalletSection = ({ balance, transactions, participations, walletLoading, onDeposit, onWithdraw, onRefresh, defaultTab = 'deposit' }) => {
   const [activeTab, setActiveTab] = useState(defaultTab)
   const [depositAmount, setDepositAmount] = useState('')
@@ -35,6 +43,7 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
     card_holder: ''
   })
   const detectedBank = CLABE_BANKS[withdrawForm.clabe.slice(0, 3)] || null
+  const clabeInvalid = withdrawForm.clabe.length === 18 && !isValidClabe(withdrawForm.clabe)
   const clabeMismatch = withdrawForm.clabe_confirm.length > 0 && withdrawForm.clabe !== withdrawForm.clabe_confirm
   const [selectedParticipation, setSelectedParticipation] = useState(null)
   const [detailData, setDetailData] = useState(null)
@@ -49,7 +58,7 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
   const handleWithdrawSubmit = (e) => {
     e.preventDefault()
     if (!withdrawAmount || parseFloat(withdrawAmount) < 200) return
-    if (withdrawForm.clabe !== withdrawForm.clabe_confirm) return
+    if (withdrawForm.clabe !== withdrawForm.clabe_confirm || !isValidClabe(withdrawForm.clabe)) return
     const { clabe_confirm, ...form } = withdrawForm
     onWithdraw({ amount: parseFloat(withdrawAmount), ...form, bank_name: detectedBank || '' })
   }
@@ -254,7 +263,9 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
               maxLength="18"
               value={withdrawForm.clabe}
               onChange={(e) => setWithdrawForm({ ...withdrawForm, clabe: e.target.value.replace(/\D/g, '') })}
-              className="w-full bg-white/5 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+              className={`w-full bg-white/5 border rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:outline-none ${
+                clabeInvalid ? 'border-red-500 focus:border-red-500' : 'border-white/20 focus:border-emerald-500'
+              }`}
               placeholder="000000000000000000"
               required
             />
@@ -262,6 +273,12 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
               <p className={`text-xs mt-1 ${detectedBank ? 'text-emerald-400' : 'text-slate-500'}`}>
                 {detectedBank ? `Banco: ${detectedBank}` : 'Banco no identificado'}
               </p>
+            )}
+            {clabeInvalid && (
+              <p className="text-red-400 text-xs mt-1">CLABE inválida — verifica que los 18 dígitos estén correctos.</p>
+            )}
+            {withdrawForm.clabe.length === 18 && !clabeInvalid && (
+              <p className="text-emerald-400 text-xs mt-1">✓ CLABE válida</p>
             )}
           </div>
 
@@ -287,7 +304,7 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
 
           <button
             type="submit"
-            disabled={walletLoading || parseFloat(withdrawAmount) > balance || clabeMismatch}
+            disabled={walletLoading || parseFloat(withdrawAmount) > balance || clabeMismatch || clabeInvalid}
             className="w-full bg-red-500 hover:bg-red-600 disabled:bg-slate-600 text-white font-semibold py-2 rounded-lg transition-all"
           >
             {walletLoading ? 'Procesando...' : 'Solicitar retiro'}
