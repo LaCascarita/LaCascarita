@@ -2,17 +2,27 @@ import { useState, useEffect } from 'react'
 import { apiFetch } from '../utils/api'
 
 const CLABE_BANKS = {
-  '002': 'Banamex', '012': 'BBVA', '014': 'Santander', '019': 'Banjercito',
+  '002': 'Banamex', '012': 'BBVA México', '014': 'Santander', '019': 'Banjército',
   '021': 'HSBC', '030': 'Banco del Bajío', '032': 'IXE', '036': 'Inbursa',
   '042': 'Mifel', '044': 'Scotiabank', '058': 'Banregio', '059': 'Invex',
-  '060': 'Bansi', '062': 'Afirme', '072': 'Banorte', '103': 'American Express',
-  '106': 'Bank of America', '112': 'Monex', '113': 'Ve por Más', '127': 'Azteca',
-  '128': 'Autofin', '129': 'Barclays', '130': 'Compartamos', '131': 'Famsa',
-  '132': 'Multiva', '133': 'Actinver', '136': 'Intercam Banco', '137': 'BanCoppel',
-  '138': 'ABC Capital', '140': 'Consubanco', '143': 'CIBanco', '147': 'Bankaool',
-  '148': 'PagaTodo', '150': 'Banco Inmobiliario Mexicano', '151': 'Dondé',
-  '152': 'Bancrea', '166': 'Banco del Bienestar', '638': 'Nu', '646': 'STP',
-  '722': 'Mercado Pago'
+  '060': 'Bansí', '062': 'Afirme', '072': 'Banorte', '106': 'Bank of America',
+  '108': 'MUFG', '110': 'J.P. Morgan', '112': 'Monex', '113': 'Ve por Más',
+  '124': 'Citi México', '127': 'Banco Azteca', '128': 'Autofin', '129': 'Barclays',
+  '130': 'Compartamos Banco', '132': 'Multiva Banco', '133': 'Actinver',
+  '136': 'Intercam Banco', '137': 'BanCoppel', '138': 'ABC Capital',
+  '140': 'Consubanco', '141': 'Volkswagen Bank', '143': 'CIBanco', '145': 'BBase',
+  '147': 'Bankaool', '148': 'PagaTodo', '150': 'Banco Inmobiliario',
+  '151': 'Dondé', '152': 'Bancrea', '154': 'Banco Covalto', '155': 'ICBC',
+  '156': 'Banco Sabadell', '157': 'Shinhan', '158': 'Mizuho Bank',
+  '159': 'Bank of China', '160': 'Banco S3', '165': 'Bineo',
+  '166': 'Banco del Bienestar', '167': 'Hey Banco', '169': 'Openbank',
+  '170': 'Revolut Bank', '171': 'Banco Plata', '638': 'Nu México',
+  '646': 'STP', '661': 'Klar', '670': 'Libertad', '677': 'Caja Popular Mexicana',
+  '680': 'Caja Cristóbal Colón', '683': 'Caja de Telefonistas', '684': 'Transfer',
+  '688': 'Crediclub', '699': 'Fondeadora', '706': 'Arcus', '710': 'NVIO',
+  '721': 'albo', '722': 'Mercado Pago', '723': 'Cuenca',
+  '725': 'Coopdesarrollo', '728': 'Spin by OXXO', '730': 'Clip',
+  '732': 'Peibo', '734': 'Finco Pay'
 }
 
 const WalletSection = ({ balance, transactions, participations, walletLoading, onDeposit, onWithdraw, onRefresh, defaultTab = 'deposit' }) => {
