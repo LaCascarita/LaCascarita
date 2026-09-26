@@ -253,7 +253,10 @@ const Dashboard = () => {
           <div className="text-center sm:text-left">
             <h1 className="flex items-center justify-center sm:justify-start gap-3 text-2xl sm:text-3xl font-bold text-white">
               <img src="/logo_cascarita.svg" alt="La Cascarita" className="h-9 w-9 sm:h-11 sm:w-11" />
-              La Cascarita
+              <span className="flex flex-col leading-tight text-left">
+                <span className="tracking-widest">LA CASCARITA</span>
+                <span className="text-emerald-400 tracking-widest text-[0.5em] font-semibold">TU QUINIELA DE FUTBOL</span>
+              </span>
             </h1>
             <p className="text-slate-400 mt-1">Panel Principal</p>
           </div>

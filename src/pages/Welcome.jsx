@@ -6,13 +6,17 @@ const Welcome = () => {
       <div className="max-w-4xl w-full text-center">
         {/* Logo/Brand */}
         <div className="mb-8 md:mb-12">
-          <img src="/logo_cascarita.svg" alt="La Cascarita" className="h-24 w-24 sm:h-32 sm:w-32 md:h-40 md:w-40 mx-auto mb-4" />
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-2">
-            La Cascarita
-          </h1>
-          <p className="text-lg sm:text-xl md:text-2xl text-slate-300">
-            Tu plataforma de quinielas profesional
-          </p>
+          <div className="flex items-center justify-center gap-4 sm:gap-6">
+            <img src="/logo_cascarita.svg" alt="La Cascarita" className="h-24 w-24 sm:h-32 sm:w-32 md:h-40 md:w-40" />
+            <div className="text-left">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white tracking-widest">
+                LA CASCARITA
+              </h1>
+              <p className="text-sm sm:text-base md:text-lg text-emerald-400 tracking-widest font-semibold mt-2">
+                TU QUINIELA DE FUTBOL
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Welcome Card */}

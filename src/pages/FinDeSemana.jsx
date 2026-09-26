@@ -219,7 +219,10 @@ const FinDeSemana = () => {
           <div className="text-center sm:text-left">
             <Link to="/dashboard" className="inline-flex items-center gap-3 text-2xl sm:text-3xl font-bold text-white hover:text-emerald-400 transition-colors">
               <img src="/logo_cascarita.svg" alt="La Cascarita" className="h-9 w-9 sm:h-11 sm:w-11" />
-              La Cascarita
+              <span className="flex flex-col leading-tight text-left">
+                <span className="tracking-widest">LA CASCARITA</span>
+                <span className="text-emerald-400 tracking-widest text-[0.5em] font-semibold">TU QUINIELA DE FUTBOL</span>
+              </span>
             </Link>
             <h1 className="text-xl sm:text-2xl font-semibold text-white mt-4">
               Bolsa Fin de Semana
