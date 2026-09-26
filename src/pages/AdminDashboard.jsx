@@ -24,6 +24,10 @@ const AdminDashboard = () => {
   const [usersLoading, setUsersLoading] = useState(false)
   const [distributing, setDistributing] = useState(false)
   const [distributionResult, setDistributionResult] = useState(null)
+  const [withdrawals, setWithdrawals] = useState([])
+  const [withdrawalsLoading, setWithdrawalsLoading] = useState(false)
+  const [simulatingId, setSimulatingId] = useState(null)
+  const [simulateEnabled, setSimulateEnabled] = useState(false)
 
   useEffect(() => {
     fetchLeagues()
@@ -40,6 +44,9 @@ const AdminDashboard = () => {
   useEffect(() => {
     if (activeView === 'participaciones') {
       fetchParticipations()
+    }
+    if (activeView === 'retiros') {
+      fetchWithdrawals()
     }
   }, [activeView, participationsType])
 
@@ -242,6 +249,44 @@ const AdminDashboard = () => {
     }
   }
 
+  const fetchWithdrawals = async () => {
+    setWithdrawalsLoading(true)
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || window.location.origin
+      const response = await fetch(`${API_URL}/api/admin/withdrawals`, {
+        credentials: 'include'
+      })
+      const data = await response.json()
+      setWithdrawals(data.withdrawals || [])
+      setSimulateEnabled(!!data.simulate_enabled)
+    } catch (error) {
+      console.error('Error fetching withdrawals:', error)
+    } finally {
+      setWithdrawalsLoading(false)
+    }
+  }
+
+  const handleSimulatePayout = async (withdrawal, result) => {
+    setSimulatingId(withdrawal.id)
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || window.location.origin
+      const response = await fetch(`${API_URL}/api/admin/simulate-payout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ payment_id: withdrawal.payment_id, result })
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Error al simular')
+      setMessage(data.message)
+      fetchWithdrawals()
+    } catch (error) {
+      setMessage(error.message)
+    } finally {
+      setSimulatingId(null)
+    }
+  }
+
   const fetchUsers = async () => {
     setUsersLoading(true)
     try {
@@ -291,6 +336,12 @@ const AdminDashboard = () => {
             className={`admin-tab ${activeView === 'saldos' ? 'active' : ''}`}
           >
             Saldos de Usuarios
+          </button>
+          <button
+            onClick={() => setActiveView('retiros')}
+            className={`admin-tab ${activeView === 'retiros' ? 'active' : ''}`}
+          >
+            Retiros (prueba)
           </button>
         </div>
 
@@ -719,6 +770,72 @@ const AdminDashboard = () => {
 
             {!usersLoading && users.length === 0 && (
               <p className="no-results">No hay usuarios con saldo registrado.</p>
+            )}
+          </div>
+        )}
+
+        {activeView === 'retiros' && (
+          <div className="admin-section">
+            <h2>Retiros SPEI</h2>
+            <p className="section-hint">
+              Sección temporal para pruebas de dispersión. Los botones solo aparecen en retiros simulados (SIMULATE_PAYOUTS activo).
+            </p>
+
+            {withdrawalsLoading && <p className="no-results">Cargando retiros...</p>}
+
+            {!withdrawalsLoading && withdrawals.length === 0 && (
+              <p className="no-results">No hay retiros registrados.</p>
+            )}
+
+            {withdrawals.length > 0 && (
+              <div className="participations-table-wrapper">
+                <table className="participations-table">
+                  <thead>
+                    <tr>
+                      <th>Titular</th>
+                      <th>CLABE</th>
+                      <th>Monto</th>
+                      <th>Estado</th>
+                      <th>Fecha</th>
+                      <th>Simular</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {withdrawals.map((w) => (
+                      <tr key={w.id}>
+                        <td>{w.card_holder}</td>
+                        <td>{w.clabe ? `****${w.clabe.slice(-6)}` : '-'}</td>
+                        <td>{formatMoney(w.amount)}</td>
+                        <td>
+                          <span className={`status-badge status-${w.status}`}>{w.status}</span>
+                        </td>
+                        <td>{new Date(w.created_at).toLocaleDateString('es-MX')}</td>
+                        <td>
+                          {w.status === 'processing' && w.simulated && simulateEnabled && (
+                            <>
+                              <button
+                                className="action-button simulate-btn"
+                                disabled={simulatingId === w.id}
+                                onClick={() => handleSimulatePayout(w, 'paid')}
+                              >
+                                {simulatingId === w.id ? '...' : '✓ Pagado'}
+                              </button>
+                              {' '}
+                              <button
+                                className="action-button simulate-btn reject"
+                                disabled={simulatingId === w.id}
+                                onClick={() => handleSimulatePayout(w, 'failed')}
+                              >
+                                {simulatingId === w.id ? '...' : '✗ Rechazado'}
+                              </button>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         )}

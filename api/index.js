@@ -1514,6 +1514,47 @@ app.post('/api/withdrawals', async (req, res) => {
 })
 
 // ============================================================
+// ADMIN LISTAR RETIROS SIMULADOS (solo con SIMULATE_PAYOUTS=true)
+// ============================================================
+app.get('/api/admin/withdrawals', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const admin = getAdminFromToken(req)
+    if (!admin) return res.status(403).json({ error: 'Acceso denegado' })
+
+    const { data, error } = await supabase
+      .from('withdrawals')
+      .select('id, payment_id, amount, clabe, card_holder, status, created_at')
+      .in('status', ['processing', 'paid', 'rejected'])
+      .order('created_at', { ascending: false })
+      .limit(50)
+
+    if (error) throw error
+
+    const paymentIds = (data || []).map(w => w.payment_id).filter(Boolean)
+    const { data: payments } = paymentIds.length
+      ? await supabase.from('payments').select('id, provider_metadata').in('id', paymentIds)
+      : { data: [] }
+
+    const metaByPayment = Object.fromEntries((payments || []).map(p => [p.id, p.provider_metadata]))
+    const withdrawals = (data || []).map(w => ({
+      ...w,
+      simulated: !!metaByPayment[w.payment_id]?.simulated
+    }))
+
+    res.json({ withdrawals, simulate_enabled: process.env.SIMULATE_PAYOUTS === 'true' })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// ============================================================
 // ADMIN SIMULAR RESULTADO DE RETIRO (solo con SIMULATE_PAYOUTS=true)
 // ============================================================
 app.post('/api/admin/simulate-payout', async (req, res) => {
@@ -1529,8 +1570,8 @@ app.post('/api/admin/simulate-payout', async (req, res) => {
       return res.status(403).json({ error: 'Simulación deshabilitada' })
     }
 
-    const admin = getUserFromToken(req)
-    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' })
+    const admin = getAdminFromToken(req)
+    if (!admin) return res.status(403).json({ error: 'Acceso denegado' })
 
     const { payment_id, result } = req.body
     if (!payment_id || !['paid', 'failed'].includes(result)) {
