@@ -22,6 +22,19 @@ const Dashboard = () => {
   const [stats, setStats] = useState(null)
   const [statsLoading, setStatsLoading] = useState(false)
   const speiPollRef = useRef(null)
+  const [speiInfo, setSpeiInfo] = useState(null)
+  const [speiCredited, setSpeiCredited] = useState(false)
+  const [copiedField, setCopiedField] = useState(null)
+
+  const copyToClipboard = async (text, field) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedField(field)
+      setTimeout(() => setCopiedField(null), 2000)
+    } catch (e) {
+      // sin portapapeles disponible
+    }
+  }
 
   useEffect(() => () => clearInterval(speiPollRef.current), [])
 
@@ -173,7 +186,8 @@ const Dashboard = () => {
       if (method === 'mercadopago' && data.init_point) {
         window.location.href = data.init_point
       } else {
-        alert(`CLABE: ${data.clabe}\nReferencia: ${data.reference}\nBanco: ${data.bank_name}\nMonto exacto: $${data.amount} MXN\nBeneficiario: ${data.beneficiary}\n\n${data.message || ''}`)
+        setSpeiCredited(false)
+        setSpeiInfo(data)
 
         // Polling: esperar la acreditacion sin refrescar la pagina (max 3 min)
         const balanceBefore = balance
@@ -190,7 +204,7 @@ const Dashboard = () => {
               setBalance(d.balance)
               setTransactions(d.transactions || [])
               setParticipations(d.participations || [])
-              if (credited) alert('Tu recarga SPEI fue acreditada a tu saldo')
+              if (credited) setSpeiCredited(true)
             }
           } catch (e) {
             // Reintentar en el siguiente intervalo
@@ -716,6 +730,85 @@ const Dashboard = () => {
           />
         )}
       </div>
+
+      {/* Modal datos SPEI */}
+      {speiInfo && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50" onClick={() => setSpeiInfo(null)}>
+          <div
+            className="bg-slate-800 border border-slate-700 rounded-xl p-5 sm:p-6 max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {speiCredited ? (
+              <div className="text-center py-4">
+                <div className="text-5xl mb-3">✅</div>
+                <h3 className="text-xl font-bold text-emerald-400 mb-2">Pago recibido</h3>
+                <p className="text-slate-300 text-sm mb-6">
+                  Tu recarga de {formatCurrency(speiInfo.amount)} ya fue acreditada a tu saldo.
+                </p>
+                <button
+                  onClick={() => setSpeiInfo(null)}
+                  className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-2 rounded-lg transition-all"
+                >
+                  Cerrar
+                </button>
+              </div>
+            ) : (
+              <>
+                <h3 className="text-lg font-bold text-white mb-1">Datos para tu transferencia</h3>
+                <p className="text-slate-400 text-xs mb-4">Copia estos datos en tu app bancaria para hacer la transferencia SPEI.</p>
+
+                <div className="space-y-3 mb-4">
+                  {[
+                    { label: 'CLABE', value: speiInfo.clabe, field: 'clabe', mono: true },
+                    { label: 'Referencia', value: speiInfo.reference, field: 'reference', mono: true },
+                    { label: 'Monto exacto', value: `$${parseFloat(speiInfo.amount).toFixed(2)} MXN`, field: 'amount', mono: false, green: true },
+                  ].map((row) => (
+                    <div key={row.field} className="bg-slate-900/60 border border-slate-700 rounded-lg p-3 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-slate-500 text-xs mb-0.5">{row.label}</p>
+                        <p className={`${row.mono ? 'font-mono' : 'font-semibold'} ${row.green ? 'text-emerald-400' : 'text-white'} text-sm sm:text-base break-all`}>
+                          {row.value}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => copyToClipboard(row.value, row.field)}
+                        className={`flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all ${
+                          copiedField === row.field
+                            ? 'bg-emerald-500 text-white'
+                            : 'bg-white/10 hover:bg-white/20 text-slate-300'
+                        }`}
+                      >
+                        {copiedField === row.field ? 'Copiado' : 'Copiar'}
+                      </button>
+                    </div>
+                  ))}
+
+                  <div className="bg-slate-900/60 border border-slate-700 rounded-lg p-3">
+                    <p className="text-slate-500 text-xs mb-0.5">Banco / Beneficiario</p>
+                    <p className="text-white text-sm">{speiInfo.bank_name} · {speiInfo.beneficiary}</p>
+                  </div>
+                </div>
+
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mb-4">
+                  <p className="text-yellow-400 text-xs">
+                    ⚠️ Transfiere exactamente <span className="font-semibold">${parseFloat(speiInfo.amount).toFixed(2)} MXN</span> con la referencia mostrada, o el pago no se acreditará automáticamente.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <p className="text-slate-500 text-xs flex-1">Te avisaremos aquí cuando el pago se acredite.</p>
+                  <button
+                    onClick={() => setSpeiInfo(null)}
+                    className="bg-white/10 hover:bg-white/20 text-slate-300 font-semibold px-4 py-2 rounded-lg transition-all text-sm"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
