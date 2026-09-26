@@ -246,15 +246,22 @@ const Register = () => {
                 className="mt-1 w-5 h-5"
                 disabled={loading}
               />
-              <label className="ml-3 text-slate-300 text-sm">
-                Acepto el reglamento de La Cascarita y los términos y condiciones del servicio
-              </label>
+              <span className="ml-3 text-slate-300 text-sm">
+                Acepto el{' '}
+                <a href="/reglamento" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 underline">
+                  reglamento de La Cascarita
+                </a>{' '}
+                y los{' '}
+                <a href="/terminos" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 underline">
+                  términos y condiciones del servicio
+                </a>
+              </span>
             </div>
 
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !formData.acceptTerms}
               className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-700 disabled:cursor-not-allowed text-white font-semibold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
             >
               {loading ? 'Registrando...' : 'Registrarse'}

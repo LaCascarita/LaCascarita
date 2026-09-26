@@ -9,6 +9,8 @@ import FinDeSemana from './pages/FinDeSemana'
 import Dominical from './pages/Dominical'
 import AdminLogin from './pages/AdminLogin'
 import AdminDashboard from './pages/AdminDashboard'
+import Reglamento from './pages/Reglamento'
+import Terminos from './pages/Terminos'
 import NotFound from './pages/NotFound'
 
 function App() {
@@ -25,6 +27,8 @@ function App() {
         <Route path="/dominical" element={<Dominical />} />
         <Route path="/admin-login" element={<AdminLogin />} />
         <Route path="/admin-dashboard" element={<AdminDashboard />} />
+        <Route path="/reglamento" element={<Reglamento />} />
+        <Route path="/terminos" element={<Terminos />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Router>
