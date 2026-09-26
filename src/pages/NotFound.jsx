@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 function NotFound() {
   return (
     <div className="min-h-screen bg-[#0B0B0B] flex flex-col items-center justify-center p-4 sm:p-6">
-      <img src="/logo_cascarita.svg" alt="La Cascarita" className="rounded-xl h-28 w-28 sm:h-36 sm:w-36 mb-6 animate-bounce drop-shadow-2xl" aria-hidden="true" />
+      <img src="/logo_cascarita.svg" alt="La Cascarita" className="h-28 w-28 sm:h-36 sm:w-36 mb-6 animate-bounce drop-shadow-2xl" aria-hidden="true" />
       <h1 className="text-5xl sm:text-7xl font-bold text-white mb-2 text-center">404</h1>
       <h2 className="text-xl sm:text-2xl text-slate-300 mb-4 text-center">
         ¡Gol al poste! Página no encontrada
