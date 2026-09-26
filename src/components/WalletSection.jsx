@@ -2,16 +2,17 @@ import { useState, useEffect } from 'react'
 import { apiFetch } from '../utils/api'
 
 const CLABE_BANKS = {
-  '002': 'Banamex', '012': 'BBVA', '014': 'Santander', '021': 'HSBC',
-  '030': 'Banco del Bajío', '032': 'IXE', '036': 'Inbursa', '042': 'Mifel',
-  '044': 'Scotiabank', '058': 'Banregio', '059': 'Invex', '060': 'Bansi',
-  '062': 'Afirme', '072': 'Banorte', '127': 'Azteca', '128': 'Autofin',
-  '130': 'Compartamos', '132': 'Multiva', '133': 'Actinver', '136': 'Inter Banco',
-  '137': 'BanCoppel', '140': 'Consubanco', '143': 'CIBanco', '147': 'Bankaool',
-  '150': 'BIM', '152': 'Bancrea', '166': 'Bansefi', '646': 'STP',
-  '677': 'Nu Mexico', '722': 'Mercado Pago', '728': 'Hey Banco', '638': 'Akala',
-  '652': 'Klar', '659': 'Nu Bank', '710': 'Ualá', '138': 'ABC Capital',
-  '151': 'Dondé', '106': 'Bank of America', '129': 'Barclays', '638': 'Akala'
+  '002': 'Banamex', '012': 'BBVA', '014': 'Santander', '019': 'Banjercito',
+  '021': 'HSBC', '030': 'Banco del Bajío', '032': 'IXE', '036': 'Inbursa',
+  '042': 'Mifel', '044': 'Scotiabank', '058': 'Banregio', '059': 'Invex',
+  '060': 'Bansi', '062': 'Afirme', '072': 'Banorte', '103': 'American Express',
+  '106': 'Bank of America', '112': 'Monex', '113': 'Ve por Más', '127': 'Azteca',
+  '128': 'Autofin', '129': 'Barclays', '130': 'Compartamos', '131': 'Famsa',
+  '132': 'Multiva', '133': 'Actinver', '136': 'Intercam Banco', '137': 'BanCoppel',
+  '138': 'ABC Capital', '140': 'Consubanco', '143': 'CIBanco', '147': 'Bankaool',
+  '148': 'PagaTodo', '150': 'Banco Inmobiliario Mexicano', '151': 'Dondé',
+  '152': 'Bancrea', '166': 'Banco del Bienestar', '638': 'Nu', '646': 'STP',
+  '722': 'Mercado Pago'
 }
 
 const WalletSection = ({ balance, transactions, participations, walletLoading, onDeposit, onWithdraw, onRefresh, defaultTab = 'deposit' }) => {
