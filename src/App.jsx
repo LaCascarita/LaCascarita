@@ -9,7 +9,6 @@ import FinDeSemana from './pages/FinDeSemana'
 import Dominical from './pages/Dominical'
 import AdminLogin from './pages/AdminLogin'
 import AdminDashboard from './pages/AdminDashboard'
-import StaticDoc from './pages/StaticDoc'
 import NotFound from './pages/NotFound'
 
 function App() {
@@ -26,9 +25,6 @@ function App() {
         <Route path="/dominical" element={<Dominical />} />
         <Route path="/admin-login" element={<AdminLogin />} />
         <Route path="/admin-dashboard" element={<AdminDashboard />} />
-        <Route path="/privacidad" element={<StaticDoc title="Política de Privacidad" />} />
-        <Route path="/juego-responsable" element={<StaticDoc title="Política de Juego Responsable" />} />
-        <Route path="/faq" element={<StaticDoc title="Preguntas Frecuentes" />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Router>

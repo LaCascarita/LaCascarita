@@ -1,15 +1,14 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 
 const Footer = () => {
   const [open, setOpen] = useState(false)
 
   const links = [
-    { label: 'Política de privacidad', to: '/privacidad' },
+    { label: 'Política de privacidad', to: '/privacidad.pdf', external: true },
     { label: 'Términos y Condiciones', to: '/terminos.pdf', external: true },
     { label: 'Reglamento oficial', to: '/reglamento.pdf', external: true },
-    { label: 'Política de Juego Responsable', to: '/juego-responsable' },
-    { label: 'Preguntas Frecuentes (FAQ)', to: '/faq' }
+    { label: 'Política de Juego Responsable', to: '/juego-responsable.pdf', external: true },
+    { label: 'Preguntas Frecuentes (FAQ)', to: '/faq.pdf', external: true }
   ]
 
   return (
@@ -25,27 +24,17 @@ const Footer = () => {
 
         {open && (
           <nav className="mt-3 flex flex-col sm:flex-row sm:flex-wrap sm:justify-center gap-y-2 gap-x-6">
-            {links.map((l) =>
-              l.external ? (
-                <a
-                  key={l.label}
-                  href={l.to}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-slate-400 hover:text-emerald-400 text-sm transition-colors"
-                >
-                  {l.label}
-                </a>
-              ) : (
-                <Link
-                  key={l.label}
-                  to={l.to}
-                  className="text-slate-400 hover:text-emerald-400 text-sm transition-colors"
-                >
-                  {l.label}
-                </Link>
-              )
-            )}
+            {links.map((l) => (
+              <a
+                key={l.label}
+                href={l.to}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-slate-400 hover:text-emerald-400 text-sm transition-colors"
+              >
+                {l.label}
+              </a>
+            ))}
           </nav>
         )}
 
