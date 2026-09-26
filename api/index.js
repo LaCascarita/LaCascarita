@@ -2210,9 +2210,10 @@ const distributeJornadaPrizes = async (jornada) => {
     carryoverIn = parseFloat(carry?.amount) || 0
   }
 
-  const prizePool = round2(totalCollected * 0.7 + carryoverIn)
+  // El acumulado va directo a la bolsa del 2do lugar; el 1er lugar siempre se reparte (no acumula)
+  const prizePool = round2(totalCollected * 0.7)
   const firstPlacePool = isDominical ? prizePool : round2(prizePool * 0.8)
-  const secondPlacePool = isDominical ? 0 : round2(prizePool * 0.2)
+  const secondPlacePool = isDominical ? 0 : round2(prizePool * 0.2 + carryoverIn)
 
   // Cada quiniela/folio cuenta de forma independiente
   const distinctScores = [...new Set(participations.map(p => p.correct_predictions || 0))].sort((a, b) => b - a)
@@ -2224,7 +2225,10 @@ const distributeJornadaPrizes = async (jornada) => {
     ? participations.filter(p => (p.correct_predictions || 0) === secondScore)
     : []
 
-  const paySecondPlace = !isDominical && secondWinners.length > 0 && secondWinners.length <= 20
+  // El 2do lugar exige al menos 1 acierto y maximo 20 folios empatados;
+  // de lo contrario su bolsa (incluido el acumulado previo) pasa a la siguiente jornada
+  const paySecondPlace = !isDominical && secondScore != null && secondScore > 0
+    && secondWinners.length > 0 && secondWinners.length <= 20
   const carryoverOut = isDominical ? 0 : (paySecondPlace ? 0 : secondPlacePool)
 
   const firstPlaceShare = firstWinners.length > 0 ? round2(firstPlacePool / firstWinners.length) : 0
@@ -2258,20 +2262,28 @@ const distributeJornadaPrizes = async (jornada) => {
 
   try {
     for (const winner of firstWinners) {
-      await creditPrizeBalance(winner.user_id, firstPlaceShare, winner.id, `Premio 1er lugar - ${jornada.name} - ${winner.folio}`)
-      await supabase
+      // El update condicional marca el folio como pagado antes de acreditar:
+      // si un reintento lo encuentra ya pagado, se salta y evita doble abono.
+      const { data: claimed } = await supabase
         .from('participations')
         .update({ position: 1, prize_amount: firstPlaceShare, prize_status: 'paid' })
         .eq('id', winner.id)
+        .not('prize_status', 'in', '(paid,claimed)')
+        .select('id')
+      if (!claimed || claimed.length === 0) continue
+      await creditPrizeBalance(winner.user_id, firstPlaceShare, winner.id, `Premio 1er lugar - ${jornada.name} - ${winner.folio}`)
     }
 
     if (paySecondPlace) {
       for (const winner of secondWinners) {
-        await creditPrizeBalance(winner.user_id, secondPlaceShare, winner.id, `Premio 2do lugar - ${jornada.name} - ${winner.folio}`)
-        await supabase
+        const { data: claimed } = await supabase
           .from('participations')
           .update({ position: 2, prize_amount: secondPlaceShare, prize_status: 'paid' })
           .eq('id', winner.id)
+          .not('prize_status', 'in', '(paid,claimed)')
+          .select('id')
+        if (!claimed || claimed.length === 0) continue
+        await creditPrizeBalance(winner.user_id, secondPlaceShare, winner.id, `Premio 2do lugar - ${jornada.name} - ${winner.folio}`)
       }
     }
 
