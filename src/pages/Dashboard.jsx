@@ -214,7 +214,7 @@ const Dashboard = () => {
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Error al solicitar retiro')
-      alert('Solicitud de retiro creada. Se procesará en cuanto sea revisada.')
+      alert(data.message || 'Retiro enviado a tu banco. Puede tardar unos minutos en reflejarse.')
       refreshBalance()
     } catch (error) {
       alert('Error: ' + error.message)

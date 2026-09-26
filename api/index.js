@@ -787,6 +787,15 @@ const getAdminFromToken = (req) => {
   return null
 }
 
+// Dígito verificador CLABE (algoritmo ABM: pesos 3-7-1 sobre los primeros 17 dígitos)
+const isValidClabe = (clabe) => {
+  if (!/^\d{18}$/.test(clabe || '')) return false
+  const weights = [3, 7, 1]
+  let sum = 0
+  for (let i = 0; i < 17; i++) sum += (Number(clabe[i]) * weights[i % 3]) % 10
+  return (10 - (sum % 10)) % 10 === Number(clabe[17])
+}
+
 const createBalanceTransaction = async ({ user_id, type, amount, balance_before, balance_after, reference_id = null, participation_id = null, description = '' }) => {
   const { error } = await supabase
     .from('user_balance_transactions')
@@ -1223,6 +1232,38 @@ app.post('/api/webhooks/openpay', async (req, res) => {
       }
     }
 
+    // Dispersiones (retiros): marcar pagado o reembolsar al usuario si falló
+    if (['payout.succeeded', 'payout.failed', 'payout.cancelled'].includes(type)) {
+      const externalReference = transaction.order_id
+      if (externalReference) {
+        const { data: payoutPayment } = await supabase
+          .from('payments')
+          .select('*')
+          .eq('external_reference', externalReference)
+          .eq('direction', 'withdrawal')
+          .maybeSingle()
+
+        if (payoutPayment && payoutPayment.status !== 'paid' && payoutPayment.status !== 'failed') {
+          const succeeded = type === 'payout.succeeded'
+          const newStatus = succeeded ? 'paid' : 'failed'
+
+          await supabase
+            .from('payments')
+            .update({ status: newStatus, paid_at: succeeded ? new Date().toISOString() : null })
+            .eq('id', payoutPayment.id)
+
+          await supabase
+            .from('withdrawals')
+            .update({ status: succeeded ? 'paid' : 'rejected', processed_at: new Date().toISOString() })
+            .eq('payment_id', payoutPayment.id)
+
+          if (!succeeded) {
+            await creditUserBalance(payoutPayment.user_id, parseFloat(payoutPayment.amount), payoutPayment.id, 'Reembolso por retiro fallido')
+          }
+        }
+      }
+    }
+
     res.status(200).json({ received: true })
   } catch (error) {
     res.status(200).json({ received: true, error: error.message })
@@ -1345,6 +1386,8 @@ app.post('/api/withdrawals', async (req, res) => {
     const { amount, bank_name, account_number, clabe, card_holder } = req.body
     if (!amount || amount <= 0) return res.status(400).json({ error: 'Monto inválido' })
     if (amount < 200) return res.status(400).json({ error: 'El retiro mínimo es de $200 MXN' })
+    if (!card_holder) return res.status(400).json({ error: 'Falta el titular de la cuenta' })
+    if (!isValidClabe(clabe)) return res.status(400).json({ error: 'CLABE inválida, verifica los 18 dígitos' })
 
     const { data: userData, error: userError } = await supabase
       .from('users')
@@ -1357,16 +1400,80 @@ app.post('/api/withdrawals', async (req, res) => {
     const balance = parseFloat(userData.balance) || 0
     if (balance < amount) return res.status(400).json({ error: 'Saldo insuficiente' })
 
+    const merchantId = process.env.OPENPAY_MERCHANT_ID
+    const privateKey = process.env.OPENPAY_PRIVATE_KEY
+    const baseUrl = (process.env.OPENPAY_BASE_URL || 'https://sandbox-api.openpay.mx/v1').replace(/\/$/, '')
+
+    if (!merchantId || !privateKey) {
+      return res.status(500).json({ error: 'Openpay no está configurado' })
+    }
+
+    const externalReference = `LC-WD-${user.id}-${Date.now()}`
+
+    const { data: payment, error: paymentError } = await supabase
+      .from('payments')
+      .insert([{
+        user_id: user.id,
+        provider: 'openpay',
+        direction: 'withdrawal',
+        amount: amount,
+        status: 'pending',
+        external_reference: externalReference,
+        provider_metadata: { clabe, holder_name: card_holder, bank_name }
+      }])
+      .select()
+      .single()
+
+    if (paymentError) throw paymentError
+
+    const payoutRes = await fetch(`${baseUrl}/${merchantId}/payouts`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${Buffer.from(`${privateKey}:`).toString('base64')}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        method: 'bank_account',
+        amount: parseFloat(amount),
+        description: 'Retiro de saldo - La Cascarita',
+        order_id: externalReference,
+        bank_account: {
+          clabe: clabe,
+          holder_name: card_holder
+        }
+      })
+    })
+
+    const payout = await payoutRes.json()
+    if (!payoutRes.ok) {
+      await supabase.from('payments').update({ status: 'failed' }).eq('id', payment.id)
+      console.error('Openpay payout error:', payout)
+      return res.status(502).json({ error: payout.description || 'Error al crear la dispersión en Openpay' })
+    }
+
+    await supabase
+      .from('payments')
+      .update({
+        status: 'processing',
+        provider_metadata: {
+          clabe, holder_name: card_holder, bank_name,
+          openpay_payout_id: payout.id,
+          payout_status: payout.status
+        }
+      })
+      .eq('id', payment.id)
+
     const { data: withdrawal, error: withdrawError } = await supabase
       .from('withdrawals')
       .insert([{
         user_id: user.id,
+        payment_id: payment.id,
         amount: amount,
         bank_name,
         account_number,
         clabe,
         card_holder,
-        status: 'pending'
+        status: 'processing'
       }])
       .select()
       .single()
@@ -1385,10 +1492,11 @@ app.post('/api/withdrawals', async (req, res) => {
       amount: -amount,
       balance_before: balance,
       balance_after: newBalance,
-      description: 'Solicitud de retiro pendiente'
+      reference_id: payment.id,
+      description: 'Retiro SPEI enviado'
     })
 
-    res.json({ message: 'Solicitud de retiro creada', withdrawal })
+    res.json({ message: 'Retiro enviado a tu banco', withdrawal, payout_status: payout.status })
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
