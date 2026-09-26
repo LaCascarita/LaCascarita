@@ -145,7 +145,7 @@ const Register = () => {
         {/* Header */}
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-3 text-2xl sm:text-3xl font-bold text-white hover:text-emerald-400 transition-colors">
-            <img src="/logo_cascarita.svg" alt="La Cascarita" className="h-11 w-11 sm:h-14 sm:w-14" />
+            <img src="/logo_cascarita.svg" alt="La Cascarita" className="h-14 w-14 sm:h-16 sm:w-16" />
             <span className="flex flex-col leading-tight text-left">
               <span className="tracking-widest">LA CASCARITA</span>
               <span className="text-emerald-400 tracking-widest text-[0.55em] font-semibold">TU QUINIELA DE FUTBOL</span>
