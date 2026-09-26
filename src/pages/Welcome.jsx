@@ -6,7 +6,7 @@ const Welcome = () => {
       <div className="max-w-4xl w-full text-center">
         {/* Logo/Brand */}
         <div className="mb-8 md:mb-12">
-          <img src="/logo_cascarita.svg" alt="La Cascarita" className="h-24 w-24 sm:h-32 sm:w-32 md:h-40 md:w-40 mx-auto mb-4" />
+          <img src="/logo_cascarita.svg" alt="La Cascarita" className="rounded-xl h-24 w-24 sm:h-32 sm:w-32 md:h-40 md:w-40 mx-auto mb-4" />
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-2">
             La Cascarita
           </h1>
