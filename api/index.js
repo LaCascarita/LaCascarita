@@ -1296,6 +1296,7 @@ app.post('/api/admin/confirm-spei', async (req, res) => {
       .select('*')
       .eq('id', payment_id)
       .eq('provider', 'spei')
+      .eq('direction', 'deposit')
       .single()
 
     if (findError || !payment) return res.status(404).json({ error: 'Pago no encontrado' })
@@ -1417,7 +1418,7 @@ app.post('/api/withdrawals', async (req, res) => {
       .from('payments')
       .insert([{
         user_id: user.id,
-        provider: 'openpay',
+        provider: 'spei',
         direction: 'withdrawal',
         amount: amount,
         status: 'pending',
