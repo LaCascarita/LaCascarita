@@ -4,6 +4,7 @@ import DashboardCard from '../components/DashboardCard'
 import StatCard from '../components/StatCard'
 import WalletSection from '../components/WalletSection'
 import { apiFetch } from '../utils/api'
+import Footer from '../components/Footer'
 
 const Dashboard = () => {
   const navigate = useNavigate()
@@ -809,6 +810,7 @@ const Dashboard = () => {
           </div>
         </div>
       )}
+      <Footer />
     </div>
   )
 }

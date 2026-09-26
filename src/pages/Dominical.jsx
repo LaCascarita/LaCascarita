@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { getNextBagDate } from '../utils/bagDates'
 import { format } from 'date-fns-tz'
 import { apiFetch } from '../utils/api'
+import Footer from '../components/Footer'
 
 const Dominical = () => {
   const navigate = useNavigate()
@@ -395,6 +396,7 @@ const Dominical = () => {
           </Link>
         </div>
       </div>
+      <Footer />
     </div>
   )
 }
