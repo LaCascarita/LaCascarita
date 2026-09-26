@@ -20,9 +20,11 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
   const [withdrawAmount, setWithdrawAmount] = useState('')
   const [withdrawForm, setWithdrawForm] = useState({
     clabe: '',
+    clabe_confirm: '',
     card_holder: ''
   })
   const detectedBank = CLABE_BANKS[withdrawForm.clabe.slice(0, 3)] || null
+  const clabeMismatch = withdrawForm.clabe_confirm.length > 0 && withdrawForm.clabe !== withdrawForm.clabe_confirm
   const [selectedParticipation, setSelectedParticipation] = useState(null)
   const [detailData, setDetailData] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
@@ -36,7 +38,9 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
   const handleWithdrawSubmit = (e) => {
     e.preventDefault()
     if (!withdrawAmount || parseFloat(withdrawAmount) < 200) return
-    onWithdraw({ amount: parseFloat(withdrawAmount), ...withdrawForm, bank_name: detectedBank || '' })
+    if (withdrawForm.clabe !== withdrawForm.clabe_confirm) return
+    const { clabe_confirm, ...form } = withdrawForm
+    onWithdraw({ amount: parseFloat(withdrawAmount), ...form, bank_name: detectedBank || '' })
   }
 
   const formatDate = (date) => {
@@ -227,6 +231,7 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
               placeholder="Nombre completo"
               required
             />
+            <p className="text-slate-500 text-xs mt-1">Escríbelo como aparece en tu cuenta bancaria.</p>
           </div>
 
           <div>
@@ -249,9 +254,29 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
             )}
           </div>
 
+          <div>
+            <label className="block text-slate-300 text-sm mb-2">Confirma tu CLABE</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              minLength="18"
+              maxLength="18"
+              value={withdrawForm.clabe_confirm}
+              onChange={(e) => setWithdrawForm({ ...withdrawForm, clabe_confirm: e.target.value.replace(/\D/g, '') })}
+              className={`w-full bg-white/5 border rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:outline-none ${
+                clabeMismatch ? 'border-red-500 focus:border-red-500' : 'border-white/20 focus:border-emerald-500'
+              }`}
+              placeholder="Repite los 18 dígitos"
+              required
+            />
+            {clabeMismatch && (
+              <p className="text-red-400 text-xs mt-1">Las CLABE no coinciden, verifícala.</p>
+            )}
+          </div>
+
           <button
             type="submit"
-            disabled={walletLoading || parseFloat(withdrawAmount) > balance}
+            disabled={walletLoading || parseFloat(withdrawAmount) > balance || clabeMismatch}
             className="w-full bg-red-500 hover:bg-red-600 disabled:bg-slate-600 text-white font-semibold py-2 rounded-lg transition-all"
           >
             {walletLoading ? 'Procesando...' : 'Solicitar retiro'}
