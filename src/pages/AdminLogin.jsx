@@ -42,8 +42,15 @@ const AdminLogin = () => {
   return (
     <div className="admin-login-container">
       <div className="admin-login-card">
+        <div className="admin-login-brand">
+          <img src="/logo_cascarita.svg" alt="La Cascarita" className="admin-login-logo" />
+          <div className="admin-login-brand-text">
+            <span className="admin-login-brand-name">LA CASCARITA</span>
+            <span className="admin-login-brand-tag">TU QUINIELA DE FUTBOL</span>
+          </div>
+        </div>
         <h1 className="admin-login-title">Panel de Administrador</h1>
-        <p className="admin-login-subtitle">La Cascarita - Quinielas</p>
+        <p className="admin-login-subtitle">Acceso restringido</p>
         
         {error && <div className="admin-login-error">{error}</div>}
         

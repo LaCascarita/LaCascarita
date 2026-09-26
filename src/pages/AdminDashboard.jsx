@@ -261,6 +261,13 @@ const AdminDashboard = () => {
   return (
     <div className="admin-dashboard">
       <header className="admin-header">
+        <div className="admin-brand">
+          <img src="/logo_cascarita.svg" alt="La Cascarita" className="admin-brand-logo" />
+          <div className="admin-brand-text">
+            <span className="admin-brand-name">LA CASCARITA</span>
+            <span className="admin-brand-tag">TU QUINIELA DE FUTBOL</span>
+          </div>
+        </div>
         <h1>Panel de Administrador</h1>
         <button onClick={handleLogout} className="logout-button">Cerrar Sesión</button>
       </header>
