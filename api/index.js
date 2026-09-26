@@ -835,6 +835,36 @@ const creditUserBalance = async (userId, amount, referenceId, description) => {
   return balanceAfter
 }
 
+// Aplica el resultado de una dispersión SPEI: marca pagado o reembolsa al usuario
+const applyPayoutResult = async (externalReference, succeeded) => {
+  if (!externalReference) return
+
+  const { data: payoutPayment } = await supabase
+    .from('payments')
+    .select('*')
+    .eq('external_reference', externalReference)
+    .eq('direction', 'withdrawal')
+    .maybeSingle()
+
+  if (!payoutPayment || payoutPayment.status === 'paid' || payoutPayment.status === 'failed') return
+
+  const newStatus = succeeded ? 'paid' : 'failed'
+
+  await supabase
+    .from('payments')
+    .update({ status: newStatus, paid_at: succeeded ? new Date().toISOString() : null })
+    .eq('id', payoutPayment.id)
+
+  await supabase
+    .from('withdrawals')
+    .update({ status: succeeded ? 'paid' : 'rejected', processed_at: new Date().toISOString() })
+    .eq('payment_id', payoutPayment.id)
+
+  if (!succeeded) {
+    await creditUserBalance(payoutPayment.user_id, parseFloat(payoutPayment.amount), payoutPayment.id, 'Reembolso por retiro fallido')
+  }
+}
+
 const reconcileSpeiPayments = async (userId) => {
   try {
     const merchantId = process.env.OPENPAY_MERCHANT_ID
@@ -1234,34 +1264,7 @@ app.post('/api/webhooks/openpay', async (req, res) => {
 
     // Dispersiones (retiros): marcar pagado o reembolsar al usuario si falló
     if (['payout.succeeded', 'payout.failed', 'payout.cancelled'].includes(type)) {
-      const externalReference = transaction.order_id
-      if (externalReference) {
-        const { data: payoutPayment } = await supabase
-          .from('payments')
-          .select('*')
-          .eq('external_reference', externalReference)
-          .eq('direction', 'withdrawal')
-          .maybeSingle()
-
-        if (payoutPayment && payoutPayment.status !== 'paid' && payoutPayment.status !== 'failed') {
-          const succeeded = type === 'payout.succeeded'
-          const newStatus = succeeded ? 'paid' : 'failed'
-
-          await supabase
-            .from('payments')
-            .update({ status: newStatus, paid_at: succeeded ? new Date().toISOString() : null })
-            .eq('id', payoutPayment.id)
-
-          await supabase
-            .from('withdrawals')
-            .update({ status: succeeded ? 'paid' : 'rejected', processed_at: new Date().toISOString() })
-            .eq('payment_id', payoutPayment.id)
-
-          if (!succeeded) {
-            await creditUserBalance(payoutPayment.user_id, parseFloat(payoutPayment.amount), payoutPayment.id, 'Reembolso por retiro fallido')
-          }
-        }
-      }
+      await applyPayoutResult(transaction.order_id, type === 'payout.succeeded')
     }
 
     res.status(200).json({ received: true })
@@ -1445,7 +1448,14 @@ app.post('/api/withdrawals', async (req, res) => {
     })
 
     const payout = await payoutRes.json()
-    if (!payoutRes.ok) {
+
+    // Simulación local: solo entra si Openpay responde 3006 (servicio de dispersiones no activado)
+    // y SIMULATE_PAYOUTS=true. Con el servicio activo o la bandera apagada, el flujo real no cambia.
+    const simulated = !payoutRes.ok && payout.error_code === 3006 && process.env.SIMULATE_PAYOUTS === 'true'
+    const payoutId = simulated ? `sim-${Date.now()}` : payout.id
+    const payoutStatus = simulated ? 'in_progress' : payout.status
+
+    if (!payoutRes.ok && !simulated) {
       await supabase.from('payments').update({ status: 'failed' }).eq('id', payment.id)
       console.error('Openpay payout error:', payout)
       return res.status(502).json({ error: payout.description || 'Error al crear la dispersión en Openpay' })
@@ -1457,8 +1467,9 @@ app.post('/api/withdrawals', async (req, res) => {
         status: 'processing',
         provider_metadata: {
           clabe, holder_name: card_holder, bank_name,
-          openpay_payout_id: payout.id,
-          payout_status: payout.status
+          openpay_payout_id: payoutId,
+          payout_status: payoutStatus,
+          ...(simulated && { simulated: true })
         }
       })
       .eq('id', payment.id)
@@ -1496,7 +1507,51 @@ app.post('/api/withdrawals', async (req, res) => {
       description: 'Retiro SPEI enviado'
     })
 
-    res.json({ message: 'Retiro enviado a tu banco', withdrawal, payout_status: payout.status })
+    res.json({ message: 'Retiro enviado a tu banco', withdrawal, payout_status: payoutStatus })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// ============================================================
+// ADMIN SIMULAR RESULTADO DE RETIRO (solo con SIMULATE_PAYOUTS=true)
+// ============================================================
+app.post('/api/admin/simulate-payout', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    if (process.env.SIMULATE_PAYOUTS !== 'true') {
+      return res.status(403).json({ error: 'Simulación deshabilitada' })
+    }
+
+    const admin = getUserFromToken(req)
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' })
+
+    const { payment_id, result } = req.body
+    if (!payment_id || !['paid', 'failed'].includes(result)) {
+      return res.status(400).json({ error: "payment_id y result ('paid'|'failed') requeridos" })
+    }
+
+    const { data: payment } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('id', payment_id)
+      .eq('direction', 'withdrawal')
+      .maybeSingle()
+
+    if (!payment) return res.status(404).json({ error: 'Retiro no encontrado' })
+    if (!payment.provider_metadata?.simulated) {
+      return res.status(400).json({ error: 'Este retiro no es simulado' })
+    }
+
+    await applyPayoutResult(payment.external_reference, result === 'paid')
+
+    res.json({ message: `Resultado simulado: ${result}` })
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
