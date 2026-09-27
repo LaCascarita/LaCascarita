@@ -2617,6 +2617,147 @@ app.get('/api/admin/users', async (req, res) => {
 // ============================================================
 // RANKING DE USUARIOS POR ACIERTOS
 // ============================================================
+// Leaderboard de la jornada actual por tipo (visible para usuarios logueados)
+app.get('/api/jornada-leaderboard', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const user = getUserFromToken(req)
+    if (!user) return res.status(401).json({ error: 'No autorizado' })
+
+    const { type } = req.query
+    if (!type) return res.status(400).json({ error: 'Falta el tipo de jornada' })
+
+    const { data: jornada, error: jornadaError } = await supabase
+      .from('admin_jornadas')
+      .select('id, name, type, status')
+      .eq('type', type)
+      .in('status', ['active', 'inactive', 'completed'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (jornadaError) throw jornadaError
+    if (!jornada) return res.json({ jornada: null, leaderboard: [] })
+
+    await syncJornadaResults(jornada.id)
+
+    const { data: parts, error: partsError } = await supabase
+      .from('participations')
+      .select('id, folio, user_id, correct_predictions, predictions_count, users(username)')
+      .eq('jornada_id', jornada.id)
+      .eq('participation_status', 'confirmed')
+      .order('correct_predictions', { ascending: false })
+
+    if (partsError) throw partsError
+
+    // Misma posicion para folios empatados en aciertos (1, 2, 2, 4...)
+    let lastScore = null
+    let lastPos = 0
+    const leaderboard = (parts || []).map((p, idx) => {
+      const score = p.correct_predictions || 0
+      const pos = score === lastScore ? lastPos : idx + 1
+      lastScore = score
+      lastPos = pos
+      return {
+        participation_id: p.id,
+        username: p.users?.username || 'Usuario',
+        position: pos,
+        correct: score,
+        total: p.predictions_count || 0,
+        is_mine: p.user_id === user.id
+      }
+    })
+
+    res.json({ jornada, leaderboard })
+  } catch (error) {
+    console.error('Error fetching jornada leaderboard:', error)
+    res.status(500).json({ error: 'Error al obtener el ranking' })
+  }
+})
+
+// Detalle publico de una quiniela (para ver las quinielas de otros usuarios)
+app.get('/api/participations/:id/public', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const user = getUserFromToken(req)
+    if (!user) return res.status(401).json({ error: 'No autorizado' })
+
+    const { id } = req.params
+    if (!id) return res.status(400).json({ error: 'Falta el ID de la participación' })
+
+    const { data: base, error: baseError } = await supabase
+      .from('participations')
+      .select('jornada_id')
+      .eq('id', id)
+      .single()
+
+    if (baseError || !base) return res.status(404).json({ error: 'Participación no encontrada' })
+
+    await syncJornadaResults(base.jornada_id)
+
+    const { data: participation, error: partError } = await supabase
+      .from('participations')
+      .select(`
+        id, user_id, jornada_id, payment_amount, correct_predictions, predictions_count,
+        position, prize_amount, prize_status, created_at,
+        admin_jornadas ( type, name ),
+        users ( username )
+      `)
+      .eq('id', id)
+      .single()
+
+    if (partError || !participation) return res.status(404).json({ error: 'Participación no encontrada' })
+
+    const { data: predictions, error: predError } = await supabase
+      .from('predictions')
+      .select('*')
+      .eq('participation_id', participation.id)
+
+    if (predError) throw predError
+
+    const matchIds = (predictions || []).map(p => p.match_id)
+    let matches = []
+
+    if (matchIds.length > 0) {
+      const { data: matchData, error: matchesError } = await supabase
+        .from('admin_jornada_partidos')
+        .select('*')
+        .in('id', matchIds)
+        .order('position', { ascending: true })
+
+      if (matchesError) throw matchesError
+      matches = matchData || []
+    }
+
+    const predictionsWithMatches = (predictions || []).map(pred => ({
+      ...pred,
+      match: matches.find(m => m.id === pred.match_id) || null
+    }))
+
+    res.json({
+      participation,
+      matches,
+      predictions: predictionsWithMatches
+    })
+  } catch (error) {
+    console.error('Error fetching public participation detail:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
 app.get('/api/ranking', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')

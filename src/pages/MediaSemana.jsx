@@ -4,6 +4,7 @@ import { getNextBagDate } from '../utils/bagDates'
 import { format } from 'date-fns-tz'
 import { apiFetch } from '../utils/api'
 import Footer from '../components/Footer'
+import JornadaLeaderboard from '../components/JornadaLeaderboard'
 
 const MediaSemana = () => {
   const navigate = useNavigate()
@@ -240,8 +241,9 @@ const MediaSemana = () => {
           </div>
         </div>
 
-        {/* Info Card */}
-        <div className="bg-slate-800/60 backdrop-blur-lg border border-slate-700 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8">
+        {/* Info Card + Ranking */}
+        <div className="grid sm:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+        <div className="bg-slate-800/60 backdrop-blur-lg border border-slate-700 rounded-xl p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-lg sm:text-xl font-semibold text-white mb-2">💰 Bolsa Actual</h2>
@@ -252,6 +254,9 @@ const MediaSemana = () => {
               <p className="text-white font-semibold text-lg">{bag?.participants_count ?? 0}</p>
             </div>
           </div>
+        </div>
+
+        <JornadaLeaderboard jornadaType="media_semana" />
         </div>
 
         {/* Selection Counter */}
