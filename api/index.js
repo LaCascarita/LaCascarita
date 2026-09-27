@@ -433,6 +433,9 @@ app.get('/api/admin/leagues', async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(200).end()
 
   try {
+    const admin = getAdminFromToken(req)
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' })
+
     const API_FOOTBALL_KEY = process.env.API_FOOTBALL_KEY
     if (!API_FOOTBALL_KEY) {
       return res.status(500).json({ error: 'API_FOOTBALL_KEY not configured' })
@@ -462,6 +465,9 @@ app.get('/api/admin/fixtures', async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(200).end()
 
   try {
+    const admin = getAdminFromToken(req)
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' })
+
     const { league_id, from, to } = req.query
     const API_FOOTBALL_KEY = process.env.API_FOOTBALL_KEY
 
@@ -500,6 +506,9 @@ app.post('/api/admin/save-jornada', async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(200).end()
 
   try {
+    const admin = getAdminFromToken(req)
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' })
+
     const { type, name, start_date, end_date, matches } = req.body
 
     if (!type || !name || !start_date || !end_date) {
@@ -565,6 +574,9 @@ app.get('/api/admin/get-jornada', async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(200).end()
 
   try {
+    const admin = getAdminFromToken(req)
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' })
+
     const { type } = req.query
     if (!type) return res.status(400).json({ error: 'Missing type parameter' })
 
@@ -1285,7 +1297,7 @@ app.post('/api/admin/confirm-spei', async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(200).end()
 
   try {
-    const admin = getUserFromToken(req)
+    const admin = getAdminFromToken(req)
     if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' })
 
     const { payment_id } = req.body
@@ -2356,6 +2368,9 @@ app.get('/api/admin/jornada-participations', async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(200).end()
 
   try {
+    const admin = getAdminFromToken(req)
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' })
+
     const { type } = req.query
     if (!type) return res.status(400).json({ error: 'Missing type parameter' })
 

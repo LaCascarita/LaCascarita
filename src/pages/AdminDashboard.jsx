@@ -57,10 +57,19 @@ const AdminDashboard = () => {
     setDateRange({ from, to })
   }
 
+  const adminFetch = async (path, options = {}) => {
+    const API_URL = import.meta.env.VITE_API_URL || window.location.origin
+    const response = await fetch(`${API_URL}${path}`, { credentials: 'include', ...options })
+    if (response.status === 401 || response.status === 403) {
+      navigate('/admin-login')
+      throw new Error('Sesión de administrador expirada')
+    }
+    return response
+  }
+
   const fetchLeagues = async () => {
     try {
-      const API_URL = import.meta.env.VITE_API_URL || window.location.origin
-      const response = await fetch(`${API_URL}/api/admin/leagues`)
+      const response = await adminFetch('/api/admin/leagues')
       const data = await response.json()
       setLeagues(data.leagues || [])
     } catch (error) {
@@ -70,8 +79,7 @@ const AdminDashboard = () => {
 
   const fetchCurrentJornada = async () => {
     try {
-      const API_URL = import.meta.env.VITE_API_URL || window.location.origin
-      const response = await fetch(`${API_URL}/api/admin/get-jornada?type=${jornadaType}`)
+      const response = await adminFetch(`/api/admin/get-jornada?type=${jornadaType}`)
       const data = await response.json()
       if (data.jornada) {
         setCurrentJornada(data.jornada)
@@ -90,9 +98,8 @@ const AdminDashboard = () => {
 
     setLoading(true)
     try {
-      const API_URL = import.meta.env.VITE_API_URL || window.location.origin
-      const response = await fetch(
-        `${API_URL}/api/admin/fixtures?league_id=${selectedLeague}&from=${dateRange.from}&to=${dateRange.to}`
+      const response = await adminFetch(
+        `/api/admin/fixtures?league_id=${selectedLeague}&from=${dateRange.from}&to=${dateRange.to}`
       )
       const data = await response.json()
       setMatches(data.matches || [])
@@ -125,11 +132,9 @@ const AdminDashboard = () => {
 
     setSaving(true)
     try {
-      const API_URL = import.meta.env.VITE_API_URL || window.location.origin
-      const response = await fetch(`${API_URL}/api/admin/save-jornada`, {
+      const response = await adminFetch('/api/admin/save-jornada', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
           type: jornadaType,
           name: `${jornadaType.replace('_', ' ').toUpperCase()} - ${new Date().toLocaleDateString()}`,
@@ -184,9 +189,8 @@ const AdminDashboard = () => {
     setParticipationsLoading(true)
     setDistributionResult(null)
     try {
-      const API_URL = import.meta.env.VITE_API_URL || window.location.origin
-      const response = await fetch(
-        `${API_URL}/api/admin/jornada-participations?type=${participationsType}`
+      const response = await adminFetch(
+        `/api/admin/jornada-participations?type=${participationsType}`
       )
       const data = await response.json()
       setParticipationsData(data)
@@ -203,11 +207,9 @@ const AdminDashboard = () => {
     setDistributing(true)
     setDistributionResult(null)
     try {
-      const API_URL = import.meta.env.VITE_API_URL || window.location.origin
-      const response = await fetch(`${API_URL}/api/admin/distribute-prizes`, {
+      const response = await adminFetch('/api/admin/distribute-prizes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ type: participationsType })
       })
       const data = await response.json()
@@ -232,11 +234,9 @@ const AdminDashboard = () => {
     if (!window.confirm(confirmMsg)) return
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || window.location.origin
-      const response = await fetch(`${API_URL}/api/admin/jornada-status`, {
+      const response = await adminFetch('/api/admin/jornada-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ type, action })
       })
       const data = await response.json()
@@ -252,10 +252,7 @@ const AdminDashboard = () => {
   const fetchWithdrawals = async () => {
     setWithdrawalsLoading(true)
     try {
-      const API_URL = import.meta.env.VITE_API_URL || window.location.origin
-      const response = await fetch(`${API_URL}/api/admin/withdrawals`, {
-        credentials: 'include'
-      })
+      const response = await adminFetch('/api/admin/withdrawals')
       const data = await response.json()
       setWithdrawals(data.withdrawals || [])
       setSimulateEnabled(!!data.simulate_enabled)
@@ -269,11 +266,9 @@ const AdminDashboard = () => {
   const handleSimulatePayout = async (withdrawal, result) => {
     setSimulatingId(withdrawal.id)
     try {
-      const API_URL = import.meta.env.VITE_API_URL || window.location.origin
-      const response = await fetch(`${API_URL}/api/admin/simulate-payout`, {
+      const response = await adminFetch('/api/admin/simulate-payout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ payment_id: withdrawal.payment_id, result })
       })
       const data = await response.json()
@@ -290,10 +285,7 @@ const AdminDashboard = () => {
   const fetchUsers = async () => {
     setUsersLoading(true)
     try {
-      const API_URL = import.meta.env.VITE_API_URL || window.location.origin
-      const response = await fetch(`${API_URL}/api/admin/users`, {
-        credentials: 'include'
-      })
+      const response = await adminFetch('/api/admin/users')
       const data = await response.json()
       setUsers(data.users || [])
     } catch (error) {
