@@ -2710,6 +2710,21 @@ app.get('/api/me/stats', async (req, res) => {
     if (matchesError) throw matchesError
     const matchMap = new Map((matches || []).map(m => [m.id, m]))
 
+    // Jornadas completamente resueltas: todos sus partidos tienen marcador.
+    // Solo esas cuentan para la precision, para que quinielas en curso no bajen el promedio.
+    const matchesByJornada = new Map()
+    for (const m of (matches || [])) {
+      if (!matchesByJornada.has(m.jornada_id)) matchesByJornada.set(m.jornada_id, [])
+      matchesByJornada.get(m.jornada_id).push(m)
+    }
+    const resolvedJornadas = new Set(
+      jornadaIds.filter(jid => {
+        const list = matchesByJornada.get(jid) || []
+        return list.length > 0 && list.every(m => m.home_score != null && m.away_score != null)
+      })
+    )
+    const resolvedParts = (parts || []).filter(p => resolvedJornadas.has(p.jornada_id))
+
     const { data: preds, error: predsError } = await supabase
       .from('predictions')
       .select('id, participation_id, match_id, prediction, is_correct')
@@ -2718,8 +2733,8 @@ app.get('/api/me/stats', async (req, res) => {
 
     const totalParticipations = (parts || []).length
 
-    const totalCorrect = (parts || []).reduce((s, p) => s + (p.correct_predictions || 0), 0)
-    const totalMatches = (parts || []).reduce((s, p) => s + (p.predictions_count || 0), 0)
+    const totalCorrect = resolvedParts.reduce((s, p) => s + (p.correct_predictions || 0), 0)
+    const totalMatches = resolvedParts.reduce((s, p) => s + (p.predictions_count || 0), 0)
     const globalAccuracy = totalMatches > 0 ? Math.round((totalCorrect / totalMatches) * 100) : 0
 
     const byMatch = new Map()
@@ -2747,11 +2762,11 @@ app.get('/api/me/stats', async (req, res) => {
     }
 
     let quinielasWon = 0
-    if (jornadaIds.length > 0) {
+    if (resolvedJornadas.size > 0) {
       const { data: allParts, error: allPartsError } = await supabase
         .from('participations')
         .select('user_id, jornada_id, correct_predictions')
-        .in('jornada_id', jornadaIds)
+        .in('jornada_id', [...resolvedJornadas])
       if (allPartsError) throw allPartsError
       const jornadaGroups = new Map()
       for (const p of (allParts || [])) {
@@ -2787,7 +2802,7 @@ app.get('/api/me/stats', async (req, res) => {
     }
 
     const byType = {}
-    for (const p of (parts || [])) {
+    for (const p of resolvedParts) {
       const type = jornadaType.get(p.jornada_id)
       if (!type) continue
       if (!byType[type]) byType[type] = { correct: 0, total: 0 }
