@@ -242,7 +242,7 @@ const MediaSemana = () => {
         </div>
 
         {/* Info Card + Ranking */}
-        <div className="grid sm:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+        <div className="grid sm:grid-cols-2 items-start gap-4 sm:gap-6 mb-6 sm:mb-8">
         <div className="bg-slate-800/60 backdrop-blur-lg border border-slate-700 rounded-xl p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>

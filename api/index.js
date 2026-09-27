@@ -2713,13 +2713,19 @@ app.get('/api/participations/:id/public', async (req, res) => {
       .select(`
         id, user_id, jornada_id, payment_amount, correct_predictions, predictions_count,
         position, prize_amount, prize_status, created_at,
-        admin_jornadas ( type, name ),
+        admin_jornadas ( type, name, status ),
         users ( username )
       `)
       .eq('id', id)
       .single()
 
     if (partError || !participation) return res.status(404).json({ error: 'Participación no encontrada' })
+
+    // Las quinielas de otros usuarios solo son visibles cuando la jornada ya cerró,
+    // para evitar que se copien pronósticos mientras sigue abierta.
+    if (participation.admin_jornadas?.status === 'active') {
+      return res.status(403).json({ error: 'Los pronósticos se podrán ver cuando cierre la quiniela' })
+    }
 
     const { data: predictions, error: predError } = await supabase
       .from('predictions')

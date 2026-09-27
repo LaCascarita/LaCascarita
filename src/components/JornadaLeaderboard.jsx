@@ -3,6 +3,7 @@ import { apiFetch } from '../utils/api'
 
 const JornadaLeaderboard = ({ jornadaType }) => {
   const [leaderboard, setLeaderboard] = useState([])
+  const [jornadaClosed, setJornadaClosed] = useState(false)
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(null)
   const [detailData, setDetailData] = useState(null)
@@ -15,6 +16,7 @@ const JornadaLeaderboard = ({ jornadaType }) => {
         if (res.ok) {
           const data = await res.json()
           setLeaderboard(data.leaderboard || [])
+          setJornadaClosed(data.jornada?.status === 'inactive' || data.jornada?.status === 'completed')
         }
       } catch (e) {
         console.error('Error fetching leaderboard:', e)
@@ -82,8 +84,14 @@ const JornadaLeaderboard = ({ jornadaType }) => {
                     <td className="py-2 pr-2 text-emerald-400 font-semibold">{entry.correct}/{entry.total}</td>
                     <td className="py-2 text-right">
                       <button
-                        onClick={() => openDetail(entry)}
-                        className="bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold px-3 py-1 rounded-md transition-colors"
+                        onClick={() => jornadaClosed && openDetail(entry)}
+                        disabled={!jornadaClosed}
+                        title={jornadaClosed ? '' : 'Disponible al cierre de la quiniela'}
+                        className={`text-xs font-semibold px-3 py-1 rounded-md transition-colors ${
+                          jornadaClosed
+                            ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                            : 'bg-slate-600 text-slate-400 cursor-not-allowed'
+                        }`}
                       >
                         Ver
                       </button>
