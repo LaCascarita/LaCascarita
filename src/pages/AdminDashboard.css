@@ -603,6 +603,69 @@
   .match-column {
     font-size: 10px;
   }
+
+  /* Retiros: filas como tarjetas apiladas */
+  .withdrawals-table {
+    min-width: 0;
+  }
+
+  .withdrawals-table thead {
+    display: none;
+  }
+
+  .withdrawals-table tbody tr {
+    display: block;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    padding: 12px;
+  }
+
+  .withdrawals-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    border: none;
+    padding: 6px 0;
+    text-align: right;
+    min-width: 0;
+  }
+
+  .withdrawals-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #94a3b8;
+    text-align: left;
+  }
+
+  .withdrawals-table td:first-child {
+    position: static;
+    min-width: 0;
+    background: transparent;
+    padding-left: 0;
+  }
+}
+
+/* Saldos de usuarios: tabla compacta de 2 columnas */
+.users-table {
+  min-width: 0;
+}
+
+.users-table th,
+.users-table td {
+  min-width: 0;
+}
+
+.users-table th:first-child,
+.users-table td:first-child {
+  position: static;
+  min-width: 0;
+}
+
+.users-table th:last-child,
+.users-table td:last-child {
+  text-align: right;
 }
 
 /* Retiros simulados (temporal) */

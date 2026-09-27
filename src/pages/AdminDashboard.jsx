@@ -739,7 +739,7 @@ const AdminDashboard = () => {
 
             {users.length > 0 && (
               <div className="participations-table-wrapper">
-                <table className="participations-table">
+                <table className="participations-table users-table">
                   <thead>
                     <tr>
                       <th>Usuario</th>
@@ -779,7 +779,7 @@ const AdminDashboard = () => {
 
             {withdrawals.length > 0 && (
               <div className="participations-table-wrapper">
-                <table className="participations-table">
+                <table className="participations-table withdrawals-table">
                   <thead>
                     <tr>
                       <th>Titular</th>
@@ -793,14 +793,14 @@ const AdminDashboard = () => {
                   <tbody>
                     {withdrawals.map((w) => (
                       <tr key={w.id}>
-                        <td>{w.card_holder}</td>
-                        <td>{w.clabe ? `****${w.clabe.slice(-6)}` : '-'}</td>
-                        <td>{formatMoney(w.amount)}</td>
-                        <td>
+                        <td data-label="Titular">{w.card_holder}</td>
+                        <td data-label="CLABE">{w.clabe ? `****${w.clabe.slice(-6)}` : '-'}</td>
+                        <td data-label="Monto">{formatMoney(w.amount)}</td>
+                        <td data-label="Estado">
                           <span className={`status-badge status-${w.status}`}>{w.status}</span>
                         </td>
-                        <td>{new Date(w.created_at).toLocaleDateString('es-MX')}</td>
-                        <td>
+                        <td data-label="Fecha">{new Date(w.created_at).toLocaleDateString('es-MX')}</td>
+                        <td data-label="Acciones">
                           {w.status === 'processing' && w.simulated && simulateEnabled && (
                             <>
                               <button
