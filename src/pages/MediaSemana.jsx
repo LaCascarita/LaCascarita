@@ -241,7 +241,7 @@ const MediaSemana = () => {
         </div>
 
         {/* Info Card */}
-        <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8">
+        <div className="bg-slate-800/60 backdrop-blur-lg border border-slate-700 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-lg sm:text-xl font-semibold text-white mb-2">💰 Bolsa Actual</h2>
@@ -255,7 +255,7 @@ const MediaSemana = () => {
         </div>
 
         {/* Selection Counter */}
-        <div className="bg-blue-500/20 border border-blue-500/30 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8">
+        <div className="bg-slate-800/60 backdrop-blur-lg border border-slate-700 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-lg sm:text-xl font-semibold text-white mb-2">🎯 Tu Selección</h2>
