@@ -743,7 +743,6 @@ const AdminDashboard = () => {
                   <thead>
                     <tr>
                       <th>Usuario</th>
-                      <th>Teléfono</th>
                       <th>Saldo</th>
                     </tr>
                   </thead>
@@ -751,7 +750,6 @@ const AdminDashboard = () => {
                     {users.map((user) => (
                       <tr key={user.id}>
                         <td>{user.username}</td>
-                        <td>{user.phone || '-'}</td>
                         <td>{formatMoney(user.balance)}</td>
                       </tr>
                     ))}

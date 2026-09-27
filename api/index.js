@@ -2616,7 +2616,7 @@ app.get('/api/admin/users', async (req, res) => {
 
     const { data: users, error } = await supabase
       .from('users')
-      .select('id, username, phone, balance, created_at')
+      .select('id, username, balance, created_at')
       .eq('role', 'user')
       .order('created_at', { ascending: false })
 
