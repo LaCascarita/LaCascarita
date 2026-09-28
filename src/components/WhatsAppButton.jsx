@@ -1,6 +1,6 @@
 // Enlace de invitacion al grupo de WhatsApp (obtenerlo en
 // Grupo > Invitar mediante enlace)
-const WHATSAPP_GROUP_URL = 'https://chat.whatsapp.com/TU-CODIGO-AQUI'
+const WHATSAPP_GROUP_URL = 'https://chat.whatsapp.com/CotDS3NXon1DC91XATO7nN'
 
 const WhatsAppButton = () => (
   <a
