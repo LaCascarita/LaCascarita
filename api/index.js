@@ -2439,14 +2439,20 @@ app.get('/api/admin/jornada-participations', async (req, res) => {
       .eq('jornada_id', jornada.id)
       .maybeSingle()
 
+    // Si la jornada ya se repartio, prize_carryover contiene el acumulado
+    // que salio hacia la siguiente jornada; el que aplico aqui es carryover_in
     let carryover = 0
     if (jornada.type !== 'dominical') {
-      const { data: carry } = await supabase
-        .from('prize_carryover')
-        .select('amount')
-        .eq('type', jornada.type)
-        .maybeSingle()
-      carryover = parseFloat(carry?.amount) || 0
+      if (distribution) {
+        carryover = parseFloat(distribution.carryover_in) || 0
+      } else {
+        const { data: carry } = await supabase
+          .from('prize_carryover')
+          .select('amount')
+          .eq('type', jornada.type)
+          .maybeSingle()
+        carryover = parseFloat(carry?.amount) || 0
+      }
     }
 
     res.json({
