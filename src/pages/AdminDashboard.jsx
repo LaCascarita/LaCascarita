@@ -549,6 +549,14 @@ const AdminDashboard = () => {
                   <p><strong>Acumulado de jornada anterior:</strong> {formatMoney(participationsData.carryover)}</p>
                 )}
                 <p><strong>Casa (30%):</strong> {formatMoney(participationsData.participations?.reduce((sum, p) => sum + (parseFloat(p.payment_amount) || 0), 0) * 0.3)}</p>
+                {participationsData.distribution && (
+                  <>
+                    <p><strong>1er lugar:</strong> {formatMoney(participationsData.distribution.first_place_pool)}</p>
+                    {participationsData.jornada.type !== 'dominical' && (
+                      <p><strong>2do lugar:</strong> {formatMoney(participationsData.distribution.second_place_pool)}</p>
+                    )}
+                  </>
+                )}
                 <p><strong>Estado:</strong> {participationsData.jornada.status === 'completed' ? 'Finalizada' : participationsData.jornada.status === 'inactive' ? 'Cerrada' : 'Activa'}</p>
               </div>
             )}
