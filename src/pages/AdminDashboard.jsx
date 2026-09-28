@@ -553,7 +553,9 @@ const AdminDashboard = () => {
                   <>
                     <p><strong>1er lugar:</strong> {formatMoney(participationsData.distribution.first_place_pool)}</p>
                     {participationsData.jornada.type !== 'dominical' && (
-                      <p><strong>2do lugar:</strong> {formatMoney(participationsData.distribution.second_place_pool)}</p>
+                      <p><strong>2do lugar:</strong> {participationsData.distribution.second_place_winners > 0
+                        ? formatMoney(participationsData.distribution.second_place_pool)
+                        : `$0 repartido — ${formatMoney(participationsData.distribution.carryover_out)} acumulados`}</p>
                     )}
                   </>
                 )}
