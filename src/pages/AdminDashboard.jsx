@@ -591,12 +591,12 @@ const AdminDashboard = () => {
                 <div className="participations-summary">
                   <p><strong>Premios repartidos</strong></p>
                   <p><strong>Bolsa total:</strong> {formatMoney(d.prize_pool)}{d.carryover_in > 0 ? ` (incluye ${formatMoney(d.carryover_in)} acumulado)` : ''}</p>
-                  <p><strong>1er lugar:</strong> {d.first_place_winners} quiniela{d.first_place_winners !== 1 ? 's' : ''} × {formatMoney(d.first_place_share)}</p>
+                  <p><strong>1er lugar:</strong> {formatMoney(d.first_place_pool)} — {d.first_place_winners} quiniela{d.first_place_winners !== 1 ? 's' : ''} × {formatMoney(d.first_place_share)}</p>
                   {d.jornada_type !== 'dominical' && (
                     d.second_place_winners > 0 ? (
-                      <p><strong>2do lugar:</strong> {d.second_place_winners} quiniela{d.second_place_winners !== 1 ? 's' : ''} × {formatMoney(d.second_place_share)}</p>
+                      <p><strong>2do lugar:</strong> {formatMoney(d.second_place_pool)} — {d.second_place_winners} quiniela{d.second_place_winners !== 1 ? 's' : ''} × {formatMoney(d.second_place_share)}</p>
                     ) : (
-                      <p><strong>2do lugar:</strong> sin premio{d.carryover_out > 0 ? ` — ${formatMoney(d.carryover_out)} acumulado para la próxima jornada` : ''}</p>
+                      <p><strong>2do lugar:</strong> {formatMoney(d.second_place_pool)} sin repartir{d.carryover_out > 0 ? ` — acumulado para la próxima jornada` : ''}</p>
                     )
                   )}
                 </div>
