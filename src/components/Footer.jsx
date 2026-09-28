@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import WhatsAppButton from './WhatsAppButton'
 
 const Footer = () => {
   const [open, setOpen] = useState(false)
@@ -43,6 +44,7 @@ const Footer = () => {
           participación a menores de 18 años. Juega de manera responsable.
         </p>
       </div>
+      <WhatsAppButton />
     </footer>
   )
 }
