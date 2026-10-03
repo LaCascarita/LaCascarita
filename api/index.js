@@ -989,7 +989,7 @@ app.post('/api/payments/deposit', async (req, res) => {
 
     if (paymentError) throw paymentError
 
-    const origin = req.headers.origin || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://lacascarita.vercel.app')
+    const origin = req.headers.origin || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://www.quinielacascarita.com.mx')
     const preference = {
       items: [{
         title: `Recarga de saldo La Cascarita - ${user.username}`,
