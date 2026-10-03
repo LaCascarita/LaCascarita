@@ -28,6 +28,8 @@ const AdminDashboard = () => {
   const [withdrawalsLoading, setWithdrawalsLoading] = useState(false)
   const [simulatingId, setSimulatingId] = useState(null)
   const [simulateEnabled, setSimulateEnabled] = useState(false)
+  const [reconciliation, setReconciliation] = useState(null)
+  const [reconLoading, setReconLoading] = useState(false)
 
   useEffect(() => {
     fetchLeagues()
@@ -47,6 +49,9 @@ const AdminDashboard = () => {
     }
     if (activeView === 'retiros') {
       fetchWithdrawals()
+    }
+    if (activeView === 'saldos') {
+      fetchReconciliation()
     }
   }, [activeView, participationsType])
 
@@ -292,6 +297,19 @@ const AdminDashboard = () => {
       console.error('Error fetching users:', error)
     } finally {
       setUsersLoading(false)
+    }
+  }
+
+  const fetchReconciliation = async () => {
+    setReconLoading(true)
+    try {
+      const response = await adminFetch('/api/admin/reconciliation')
+      const data = await response.json()
+      setReconciliation(data)
+    } catch (error) {
+      console.error('Error fetching reconciliation:', error)
+    } finally {
+      setReconLoading(false)
     }
   }
 
@@ -738,6 +756,62 @@ const AdminDashboard = () => {
         {activeView === 'saldos' && (
           <div className="admin-section">
             <h2>Saldos de Usuarios</h2>
+
+            {reconLoading && <p className="no-results">Calculando conciliación...</p>}
+
+            {reconciliation && !reconLoading && (
+              <div className="recon-card">
+                <h3>Conciliación</h3>
+                <div className="recon-grid">
+                  <div className="recon-item">
+                    <span className="recon-label">Saldo total en usuarios (pasivo)</span>
+                    <span className="recon-value">{formatMoney(reconciliation.user_balances)}</span>
+                  </div>
+                  <div className="recon-item">
+                    <span className="recon-label">Depósitos cobrados</span>
+                    <span className="recon-value">{formatMoney(reconciliation.deposits_paid)}</span>
+                  </div>
+                  <div className="recon-item">
+                    <span className="recon-label">Retiros pagados</span>
+                    <span className="recon-value">{formatMoney(reconciliation.withdrawals_paid)}</span>
+                  </div>
+                  <div className="recon-item recon-highlight">
+                    <span className="recon-label">Efectivo esperado en banco/Openpay</span>
+                    <span className="recon-value">{formatMoney(reconciliation.expected_cash)}</span>
+                  </div>
+                  <div className="recon-item">
+                    <span className="recon-label">Jugado en quinielas</span>
+                    <span className="recon-value">{formatMoney(reconciliation.quiniela_spend)}</span>
+                  </div>
+                  <div className="recon-item">
+                    <span className="recon-label">Premios repartidos</span>
+                    <span className="recon-value">{formatMoney(reconciliation.prizes_paid)}</span>
+                  </div>
+                  <div className="recon-item">
+                    <span className="recon-label">Acumulado pendiente (2° lugar)</span>
+                    <span className="recon-value">{formatMoney(reconciliation.carryover_pending)}</span>
+                  </div>
+                  <div className="recon-item recon-highlight">
+                    <span className="recon-label">Margen bruto casa (antes de comisiones)</span>
+                    <span className="recon-value">{formatMoney(reconciliation.house_margin_gross)}</span>
+                  </div>
+                  {(reconciliation.deposits_pending > 0 || reconciliation.withdrawals_processing > 0) && (
+                    <div className="recon-item recon-note">
+                      <span className="recon-label">En tránsito</span>
+                      <span className="recon-value">
+                        {reconciliation.deposits_pending > 0 && `Depósitos: ${formatMoney(reconciliation.deposits_pending)} `}
+                        {reconciliation.withdrawals_processing > 0 && `Retiros: ${formatMoney(reconciliation.withdrawals_processing)}`}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <p className="section-hint">
+                  "Efectivo esperado" = depósitos cobrados - retiros pagados. Es lo que debería haber
+                  entre Openpay y tu banco <strong>antes de comisiones</strong>. Debe ser ≥ al pasivo
+                  de usuarios; la diferencia es el margen de la casa.
+                </p>
+              </div>
+            )}
 
             <button
               onClick={fetchUsers}

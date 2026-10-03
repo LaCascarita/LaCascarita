@@ -2635,6 +2635,66 @@ app.get('/api/admin/users', async (req, res) => {
   }
 })
 
+// Conciliación: resumen financiero (pasivo de usuarios vs efectivo esperado)
+app.get('/api/admin/reconciliation', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const admin = getAdminFromToken(req)
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' })
+
+    const [
+      { data: balances, error: balErr },
+      { data: payments, error: payErr },
+      { data: participations, error: partErr },
+      { data: carryovers, error: carrErr }
+    ] = await Promise.all([
+      supabase.from('users').select('balance').eq('role', 'user'),
+      supabase.from('payments').select('direction, amount, status'),
+      supabase.from('participations').select('payment_amount, prize_amount, prize_status').eq('payment_status', 'paid'),
+      supabase.from('prize_carryover').select('amount')
+    ])
+
+    if (balErr) throw balErr
+    if (payErr) throw payErr
+    if (partErr) throw partErr
+    if (carrErr) throw carrErr
+
+    const sum = (rows, fn) => (rows || []).reduce((acc, r) => acc + fn(r), 0)
+    const r2 = n => Math.round(n * 100) / 100
+
+    const userBalances = sum(balances, u => Number(u.balance) || 0)
+    const depositsPaid = sum(payments, p => p.direction === 'deposit' && p.status === 'paid' ? Number(p.amount) : 0)
+    const depositsPending = sum(payments, p => p.direction === 'deposit' && ['pending', 'processing'].includes(p.status) ? Number(p.amount) : 0)
+    const withdrawalsPaid = sum(payments, p => p.direction === 'withdrawal' && p.status === 'paid' ? Number(p.amount) : 0)
+    const withdrawalsProcessing = sum(payments, p => p.direction === 'withdrawal' && ['pending', 'processing'].includes(p.status) ? Number(p.amount) : 0)
+    const quinielaSpend = sum(participations, p => Number(p.payment_amount) || 0)
+    const prizesPaid = sum(participations, p => p.prize_status === 'paid' ? Number(p.prize_amount) || 0 : 0)
+    const carryoverPending = sum(carryovers, c => Number(c.amount) || 0)
+
+    res.json({
+      user_balances: r2(userBalances),
+      deposits_paid: r2(depositsPaid),
+      deposits_pending: r2(depositsPending),
+      withdrawals_paid: r2(withdrawalsPaid),
+      withdrawals_processing: r2(withdrawalsProcessing),
+      expected_cash: r2(depositsPaid - withdrawalsPaid),
+      quiniela_spend: r2(quinielaSpend),
+      prizes_paid: r2(prizesPaid),
+      carryover_pending: r2(carryoverPending),
+      house_margin_gross: r2(quinielaSpend - prizesPaid - carryoverPending)
+    })
+  } catch (error) {
+    console.error('Error fetching reconciliation:', error)
+    res.status(500).json({ error: 'Error al obtener conciliación' })
+  }
+})
+
 // ============================================================
 // RANKING DE USUARIOS POR ACIERTOS
 // ============================================================
