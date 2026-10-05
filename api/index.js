@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
-import twilio from 'twilio'
+import crypto from 'crypto'
 import express from 'express'
 
 const app = express()
@@ -18,9 +18,43 @@ const supabase = createClient(supabaseUrl, supabaseKey)
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.VITE_JWT_SECRET || 'default_secret_change_in_production'
 
-const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID
-const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN
-const twilioVerifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID
+const resendApiKey = process.env.RESEND_API_KEY
+const emailFrom = process.env.EMAIL_FROM || 'La Cascarita <noreply@quinielacascarita.com.mx>'
+
+const maskEmail = (email) => {
+  const [local, domain] = email.split('@')
+  if (!domain) return email
+  const visible = local.length <= 2 ? local[0] : local.slice(0, 2)
+  return `${visible}***@${domain}`
+}
+
+const sendResetEmail = async (to, code) => {
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${resendApiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      from: emailFrom,
+      to: [to],
+      subject: 'Código de recuperación - La Cascarita',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; background: #0B0B0B; color: #e2e8f0; padding: 32px; border-radius: 12px;">
+          <h2 style="color: #34d399; margin: 0 0 16px;">LA CASCARITA</h2>
+          <p>Recibimos una solicitud para restablecer tu contraseña. Usa este código:</p>
+          <div style="font-size: 36px; font-weight: bold; letter-spacing: 8px; text-align: center; background: #1e293b; padding: 20px; border-radius: 8px; margin: 24px 0; color: #ffffff;">${code}</div>
+          <p style="color: #94a3b8; font-size: 13px;">El código expira en 10 minutos. Si no solicitaste este cambio, ignora este correo.</p>
+        </div>
+      `
+    })
+  })
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}))
+    throw new Error(err.message || `Resend HTTP ${response.status}`)
+  }
+}
 
 // Vercel rewrites /api/login -> /api/index?path=login
 app.use((req, res, next) => {
@@ -96,13 +130,18 @@ app.post('/api/register', async (req, res) => {
       return res.status(500).json({ error: 'Variables de entorno de Supabase no configuradas' })
     }
 
-    const { username, phone, password } = req.body
-    if (!username || !phone || !password) {
+    const { username, phone, email, password } = req.body
+    if (!username || !phone || !email || !password) {
       return res.status(400).json({ error: 'Todos los campos son requeridos' })
     }
 
     if (!/^\d{10}$/.test(phone)) {
       return res.status(400).json({ error: 'El teléfono debe tener 10 dígitos' })
+    }
+
+    const normalizedEmail = email.trim().toLowerCase()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({ error: 'Ingresa un correo válido' })
     }
 
     const { data: existingUsername } = await supabase
@@ -126,13 +165,24 @@ app.post('/api/register', async (req, res) => {
       return res.status(400).json({ error: 'El teléfono ya está registrado para un usuario' })
     }
 
+    const { data: existingEmail } = await supabase
+      .from('users')
+      .select('email')
+      .eq('email', normalizedEmail)
+      .eq('role', 'user')
+      .limit(1)
+
+    if (existingEmail && existingEmail.length > 0) {
+      return res.status(400).json({ error: 'El correo ya está registrado para un usuario' })
+    }
+
     const randomNumber = Math.floor(Math.random() * 900000) + 100000
     const userId = `LC-${randomNumber}`
     const passwordHash = await bcrypt.hash(password, 10)
 
     const { data: newUser, error: insertError } = await supabase
       .from('users')
-      .insert([{ username, phone, user_id: userId, password_hash: passwordHash, balance: 0.00 }])
+      .insert([{ username, phone, email: normalizedEmail, user_id: userId, password_hash: passwordHash, balance: 0.00 }])
       .select()
       .single()
 
@@ -284,33 +334,48 @@ app.post('/api/send-verification', async (req, res) => {
       return res.status(400).json({ error: 'El nombre de usuario es requerido' })
     }
 
-    if (!twilioAccountSid || !twilioAuthToken || !twilioVerifyServiceSid) {
-      return res.status(500).json({ error: 'Error de configuración del servidor' })
-    }
-
     const { data: user, error: userError } = await supabase
       .from('users')
-      .select('phone, username')
+      .select('id, email, username')
       .eq('username', username)
+      .eq('role', 'user')
       .single()
 
     if (userError || !user) {
       return res.status(404).json({ error: 'Usuario no encontrado' })
     }
 
-    const client = twilio(twilioAccountSid, twilioAuthToken)
-    let phoneNumber = user.phone
-    if (!phoneNumber.startsWith('+')) phoneNumber = `+52${phoneNumber}`
+    if (!user.email) {
+      return res.status(400).json({ error: 'Esta cuenta no tiene un correo registrado. Contacta a soporte por WhatsApp.' })
+    }
 
-    await client.verify.v2.services(twilioVerifyServiceSid).verifications.create({
-      to: phoneNumber,
-      channel: 'sms'
-    })
+    if (!resendApiKey) {
+      return res.status(500).json({ error: 'Error de configuración del servidor' })
+    }
 
-    const maskedPhone = phoneNumber.replace(/(\+\d{2})(\d{4})(\d{4})/, '$1****$3')
-    res.json({ message: 'Código enviado exitosamente', maskedPhone, username: user.username })
-  } catch (twilioError) {
-    res.status(500).json({ error: 'Error al enviar código de verificación: ' + twilioError.message })
+    const code = String(crypto.randomInt(100000, 1000000))
+    const codeHash = crypto.createHash('sha256').update(code).digest('hex')
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
+
+    await supabase
+      .from('password_reset_codes')
+      .update({ used: true })
+      .eq('user_id', user.id)
+      .eq('used', false)
+
+    const { error: insertError } = await supabase
+      .from('password_reset_codes')
+      .insert([{ user_id: user.id, code_hash: codeHash, expires_at: expiresAt }])
+
+    if (insertError) {
+      return res.status(500).json({ error: 'Error al generar código' })
+    }
+
+    await sendResetEmail(user.email, code)
+
+    res.json({ message: 'Código enviado exitosamente', maskedEmail: maskEmail(user.email), username: user.username })
+  } catch (error) {
+    res.status(500).json({ error: 'Error al enviar código de verificación: ' + error.message })
   }
 })
 
@@ -332,30 +397,37 @@ app.post('/api/verify-code', async (req, res) => {
       return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' })
     }
 
-    if (!twilioAccountSid || !twilioAuthToken || !twilioVerifyServiceSid) {
-      return res.status(500).json({ error: 'Error de configuración del servidor' })
-    }
-
     const { data: user, error: userError } = await supabase
       .from('users')
-      .select('phone, username')
+      .select('id, username')
       .eq('username', username)
+      .eq('role', 'user')
       .single()
 
     if (userError || !user) {
       return res.status(404).json({ error: 'Usuario no encontrado' })
     }
 
-    const client = twilio(twilioAccountSid, twilioAuthToken)
-    let phoneNumber = user.phone
-    if (!phoneNumber.startsWith('+')) phoneNumber = `+52${phoneNumber}`
+    const { data: resetCode } = await supabase
+      .from('password_reset_codes')
+      .select('id, code_hash, expires_at, attempts')
+      .eq('user_id', user.id)
+      .eq('used', false)
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
 
-    const verificationCheck = await client.verify.v2.services(twilioVerifyServiceSid).verificationChecks.create({
-      to: phoneNumber,
-      code: code
-    })
+    if (!resetCode || resetCode.attempts >= 5) {
+      return res.status(400).json({ error: 'Código inválido o expirado. Solicita uno nuevo.' })
+    }
 
-    if (verificationCheck.status !== 'approved') {
+    const codeHash = crypto.createHash('sha256').update(code).digest('hex')
+    if (codeHash !== resetCode.code_hash) {
+      await supabase
+        .from('password_reset_codes')
+        .update({ attempts: resetCode.attempts + 1 })
+        .eq('id', resetCode.id)
       return res.status(400).json({ error: 'Código inválido o expirado' })
     }
 
@@ -369,9 +441,14 @@ app.post('/api/verify-code', async (req, res) => {
       return res.status(500).json({ error: 'Error al actualizar contraseña' })
     }
 
+    await supabase
+      .from('password_reset_codes')
+      .update({ used: true })
+      .eq('id', resetCode.id)
+
     res.json({ message: 'Contraseña actualizada exitosamente' })
-  } catch (twilioError) {
-    res.status(500).json({ error: 'Error al verificar código: ' + twilioError.message })
+  } catch (error) {
+    res.status(500).json({ error: 'Error al verificar código: ' + error.message })
   }
 })
 

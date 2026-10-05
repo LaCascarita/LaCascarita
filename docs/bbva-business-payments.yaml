@@ -1,0 +1,3492 @@
+openapi: 3.0.0
+info:
+  title: Business Payments
+  description: |
+    This API handles individual payments via `SPEI interbank and BBVA transfers.` Users can `check payment status` and review `fee summaries. Note:` To set up asynchronous webhook notifications for status changes, contact your sales executive for details.
+  version: 1.1.38
+x-authentication-uri:
+  - url: https://apis.mx.bbvaapimarket.com/auth/oauth/v2/token
+    description: Production Server
+  - url: https://sbx.mx.bbvaapimarket.com/auth/oauth/v2/token
+    description: Sandbox Server 
+  - url: https://qa-apis-work-mx.bbvaapimarket.com/auth/oauth/v2/token
+    description: Advanced Sandbox Server
+
+servers:
+  - url: https://apis.mx.bbvaapimarket.com/mx/business-payments/v1
+    description: Production Server
+  - url: https://sbx.mx.bbvaapimarket.com/mx/business-payments/v1
+    description: Sandbox Server
+  - url: https://qa-apis-work-mx.bbvaapimarket.com/mx/business-payments/v1
+    description: Advanced Sandbox Server
+
+tags:
+  - name: 2-legged OAuth
+    description: La autenticación del endpoint es de 2 patas mediante OAuth.
+
+paths:
+  /internal-transfers:
+    summary: Internal Transfers
+    description: Pay to third party BBVA Accounts.
+    post:
+      tags:
+        - 2-legged OAuth
+      summary: |
+        Pay to third party BBVA Accounts.
+      description: |
+        API that allows you to transfer funds from your own accounts linked to the contract to third-party BBVA accounts, in local currency, euros, or dollars—provided both accounts operate in the same currency. Payments can be directed to BBVA account numbers, CLABE numbers, or debit card numbers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/POST_internal-transfer_Request"
+            examples:
+              check_account:
+                $ref: "#/components/examples/POST_internal-transfer_CH_Example"
+              debit_card:
+                $ref: "#/components/examples/POST_internal-transfer_TDD_Example"
+              CLABE:
+                $ref: "#/components/examples/POST_internal-transfer_CLABE_Example"
+
+      responses:
+        "200":
+          description: OK.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/POST_internal-transfer_Response"
+              examples:
+                default:
+                  $ref: "#/components/examples/POST_internal-transfer_Response_Example"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              examples:
+                mandatoryParametersMissing:
+                  description: JSON output example for mandatory parameters missing.
+                  value:
+                    messages:
+                      - code: mandatoryParametersMissing
+                        message: Required input parameters missing.
+                        type: ERROR
+                InsufficientAvailable:
+                    description: Account Insufficient available error
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: 01085041#BGE0515 DISPONIBLE INSUFICIENTE
+                          parameters: []
+                          type: FATAL
+                AccountBlockedDuetoInactivity:
+                    description: The charging account is blocked
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: 01085041#BGE1390 CUENTA CON BLOQUEO O CANCELACIÓN AUTOMATICA POR INACTIVIDAD
+                          parameters: []
+                          type: FATAL
+                AccountBlockedByDepartment:
+                    description: The source account does not record any movement or balance for a prolonged period.
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: 01085041#BGE0181 CUENTA BLOQUEADA POR DEPARTAMENTO
+                          parameters: []
+                          type: FATAL
+                CurrencyError:
+                    description: The charge account does not match the indicated currency.
+                                 Correct the "tranferAmount.value.currency.code" field to the currency corresponding to the "sender.contract.product.checkAccount.accountNumber" account.
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: LA DIVISA ES INCORRECTA
+                          parameters: []
+                          type: FATAL
+                CurrencyAndAccountError:
+                    description: The currency entered is not the same as the source and destination accounts.
+                                Correct the "transferAmount.value.currency.code" field to the correct currency for the source and destination accounts.
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: 01085041#BGE0664 DIVISA NO COINCIDE CON LA DE LA CUENTA
+                          parameters: []
+                          type: FATAL
+                AccountCancelledError:
+                    description: The source account is cancelled.
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: 01085041#BGE0060 CUENTA CUENTA CARGO CANCELA CANCELADA
+                          parameters: []
+                          type: FATAL
+                Pre-CanceledAccount:
+                    description: The source account is in pre-cancelled status.
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: 01085041#BGE0170 OPERACION NO REALIZADA. CTA
+                          parameters: []
+                          type: FATAL
+                InvalidDestinationAccount:
+                    description: The destination checking or CLABE account does not belong to a BBVA account.
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: CUENTA DESTINO NO PERTENECIENTE AL BANCO
+                          parameters: []
+                          type: FATAL
+                InvalidDestinationAccount(TDD):
+                    description: The debit card number does not belong to a BBVA account.
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: 01085041#MPE1279 NUMERO DE BIN NO EXISTE
+                          parameters: []
+                          type: FATAL
+                ContractCancelled:
+                    description: The channel's contract is cancelled.
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: 01085041#CNE4041 CONTRATO CANCELADO
+                          parameters: []
+                          type: FATAL
+                BlockedContract:
+                    description: The channel's contract is blocked.
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: 01085041#CNE4042 CONTRATO BLOQUEADO
+                          parameters: []
+                          type: FATAL
+                UncontractedService:
+                    description: The BBVA payment service is not associated with the channel contract.
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: 01085041#CNE4046 SERVICIO NO CONTRATADO
+                          parameters: []
+                          type: FATAL
+                Non-AssociatedService:
+                    description: The BBVA payment service is not associated with the charge account.
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: 01085041#KNE0803 SERVICIO NO ASIGNADO A LA REFERENCIA O ALUSUARIO ACTIVO.
+                          parameters: []
+                          type: FATAL
+               
+              schema:
+                description: Default data structure for errors in BBVA APIs
+                type: object
+                additionalProperties: false
+                required:
+                  - messages
+                properties:
+                  messages:
+                    description: Array containing the diferent errors in a resource invocation
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required:
+                        - code
+                        - message
+                        - type
+                      properties:
+                        code:
+                          description: Code associated to the error
+                          type: string
+                        message:
+                          description: Meesage associated to the error
+                          type: string
+                        parameters:
+                          description: Parameters wrong informed.
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: false
+                            required:
+                              - name
+                            properties:
+                              name:
+                                description: Name of parameter wrong informed.
+                                type: string
+                        type:
+                          description: Type of error.
+                          type: string
+        
+        "401":
+          description: Bad Request
+          content:
+            application/json:
+              examples:
+                UnauthorizedService:
+                  description: Examples of exit for unauthorized service
+                  value:
+                    messages:
+                      - code: 401
+                        message: Unauthorized
+                        type: ERROR
+              schema:
+                description: Default data structure for errors in BBVA APIs
+                type: object
+                additionalProperties: false
+                required:
+                  - messages
+                properties:
+                  messages:
+                    description: Array containing the diferent errors in a resource invocation
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required:
+                        - code
+                        - message
+                        - type
+                      properties:
+                        code:
+                          description: Code associated to the error
+                          type: string
+                        message:
+                          description: Meesage associated to the error
+                          type: string
+                        parameters:
+                          description: Parameters wrong informed.
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: false
+                            required:
+                              - name
+                            properties:
+                              name:
+                                description: Name of parameter wrong informed.
+                                type: string
+                        type:
+                          description: Type of error.
+                          type: string
+                  
+        "403":
+          description: Bad Request
+          content:
+            application/json:
+              examples:
+                AccessDenied:
+                  description: Examples of exit for unauthorized service
+                  value:
+                    messages:
+                      - code: 403
+                        message: Acceso denegado
+                        parameters: []
+                        type: FATAL
+              schema:
+                description: Default data structure for errors in BBVA APIs
+                type: object
+                additionalProperties: false
+                required:
+                  - messages
+                properties:
+                  messages:
+                    description: Array containing the diferent errors in a resource invocation
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required:
+                        - code
+                        - message
+                        - type
+                      properties:
+                        code:
+                          description: Code associated to the error
+                          type: string
+                        message:
+                          description: Meesage associated to the error
+                          type: string
+                        parameters:
+                          description: Parameters wrong informed.
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: false
+                            required:
+                              - name
+                            properties:
+                              name:
+                                description: Name of parameter wrong informed.
+                                type: string
+                        type:
+                          description: Type of error.
+                          type: string
+                  
+        
+        "500":
+          description: Bad Request
+          content:
+            application/json:
+              examples:
+                ServerError:
+                  description: Examples of exit for server error service
+                  value:
+                    messages:
+                      - code: 500
+                        message: internal server error
+                        parameters: []
+                        type: FATAL
+              schema:
+                description: Default data structure for errors in BBVA APIs
+                type: object
+                additionalProperties: false
+                required:
+                  - messages
+                properties:
+                  messages:
+                    description: Array containing the diferent errors in a resource invocation
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required:
+                        - code
+                        - message
+                        - type
+                      properties:
+                        code:
+                          description: Code associated to the error
+                          type: string
+                        message:
+                          description: Meesage associated to the error
+                          type: string
+                        parameters:
+                          description: Parameters wrong informed.
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: false
+                            required:
+                              - name
+                            properties:
+                              name:
+                                description: Name of parameter wrong informed.
+                                type: string
+                        type:
+                          description: Type of error.
+                          type: string
+                  
+
+  /spei-transfers:
+    summary: SPEI Transfers
+    description: Pay to third party accounts in other banks via SPEI interbank transfers.
+    post: 
+      tags:
+        - 2-legged OAuth 
+      summary: |
+          Pay to third party accounts in other banks via SPEI interbank transfers.
+      description: |
+         Endpoint that enables interbank transfers from a BBVA source account—linked to the channel contract—to another bank account using CLABE, debit card number, or mobile number format in Mexican Pesos (MXP)
+      requestBody:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/POST_spei-transfer_Request"
+              examples:
+                check_account:
+                  $ref: "#/components/examples/POST_spei-transfer_CLABE_Request_Example"
+                debit_card:
+                  $ref: "#/components/examples/POST_spei-transfer_DEBITO_Request_Example"
+                celular:
+                  $ref: "#/components/examples/POST_spei-transfer_CEL_Request_Example"
+      responses:
+        "200":
+          description: OK.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/POST_spei-transfer_Response"
+              examples:
+                default:
+                  $ref: "#/components/examples/POST_spei-transfer_Response_Example"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              examples:
+                mandatoryParametersMissing:
+                  description: JSON output example for mandatory parameters missing.
+                  value:
+                    messages:
+                      - code: mandatoryParametersMissing
+                        message: Required input parameters missing.
+                        type: ERROR
+                DateNotValid:
+                    description: Edit the operationDate field to the current day.
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: 01573016#Error fecha de operacion no valida
+                          parameters: []
+                          type: FATAL
+                CurrencyError:
+                    description: The charge account is not an account in national currency (MXN)
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: 01573234#DIVISA INFORMADA DIFERENTE A LA CUENTA
+                          parameters: []
+                          type: FATAL
+                ErrorBalance:
+                    description: The charge account has no balance
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: 01573231#SALDO DISPONIBLE INSUFICIENTE
+                          parameters: []
+                          type: FATAL
+                AccountBlockedError:
+                    description: The charging account is blocked
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: 01573233#CUENTA BLOQUEADA
+                          parameters: []
+                          type: FATAL
+                InvalidAccountError:
+                    description: The destination CLABE account belongs to a BBVA account, correct the field
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: 01573224#CUENTA DESTINO INVALIDA
+                          parameters: []
+                          type: FATAL
+                DestinationBankError:
+                    description: The destination bank fields "bank.financialEntityId" and "bank.name" are not in the active bank catalog or belong to BBVA. Correct the fields "bank.name" and "bank.financialEntity"
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: 01573232#Banco erróneo en la clave Destino
+                          parameters: []
+                          type: FATAL
+                ErrorServicio:
+                    description: The spei payment service is not associated with the contract/account charged
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: 01573230#SERVICIO NO CONTRATADO
+                          parameters: []
+                          type: FATAL
+                AccountCanceled:
+                    description: The source account is cancelled
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: 01573223#CUENTA CANCELADA
+                          parameters: []
+                          type: FATAL
+                ContractNotFound:
+                    description: The channel's contract is cancelled
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: 01573225#CONTRATO CANCELADO
+                          parameters: []
+                          type: FATAL
+                UnblockedContract:
+                    description: The channel's contract is blocked
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: 01573226#CONTRATO BLOQUEADO
+                          parameters: []
+                          type: FATAL
+                ErrorProperty:
+                    description: Message to indicate an error when omitting the value of a mandatory parameter; this may not be entered or may be empty.
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: property 'propertyName' is not correctly informed.
+                          type: FATAL
+                        
+                        
+                        
+                        
+                        
+                        
+              schema:
+                description: Default data structure for errors in BBVA APIs
+                type: object
+                additionalProperties: false
+                required:
+                  - messages
+                properties:
+                  messages:
+                    description: Array containing the diferent errors in a resource invocation
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required:
+                        - code
+                        - message
+                        - type
+                      properties:
+                        code:
+                          description: Code associated to the error
+                          type: string
+                        message:
+                          description: Meesage associated to the error
+                          type: string
+                        parameters:
+                          description: Parameters wrong informed.
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: false
+                            required:
+                              - name
+                            properties:
+                              name:
+                                description: Name of parameter wrong informed.
+                                type: string
+                        type:
+                          description: Type of error.
+                          type: string
+        
+        "401":
+          description: Bad Request
+          content:
+            application/json:
+              examples:
+                UnauthorizedService:
+                  description: Examples of exit for unauthorized service
+                  value:
+                    messages:
+                      - code: 401
+                        message: Unauthorized
+                        type: ERROR
+              schema:
+                  description: Default data structure for errors in BBVA APIs
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - messages
+                  properties:
+                    messages:
+                      description: Array containing the diferent errors in a resource invocation
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - code
+                          - message
+                          - type
+                        properties:
+                          code:
+                            description: Code associated to the error
+                            type: string
+                          message:
+                            description: Meesage associated to the error
+                            type: string
+                          parameters:
+                            description: Parameters wrong informed.
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: false
+                              required:
+                                - name
+                              properties:
+                                name:
+                                  description: Name of parameter wrong informed.
+                                  type: string
+                          type:
+                            description: Type of error.
+                            type: string                              
+        
+        "403":
+          description: Bad Request
+          content:
+            application/json:
+              examples:
+                AccessDenied:
+                  description: Examples of exit for unauthorized service
+                  value:
+                    messages:
+                      - code: 403
+                        message: Acceso denegado
+                        parameters: []
+                        type: FATAL
+              schema:
+                  description: Default data structure for errors in BBVA APIs
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - messages
+                  properties:
+                    messages:
+                      description: Array containing the diferent errors in a resource invocation
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - code
+                          - message
+                          - type
+                        properties:
+                          code:
+                            description: Code associated to the error
+                            type: string
+                          message:
+                            description: Meesage associated to the error
+                            type: string
+                          parameters:
+                            description: Parameters wrong informed.
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: false
+                              required:
+                                - name
+                              properties:
+                                name:
+                                  description: Name of parameter wrong informed.
+                                  type: string
+                          type:
+                            description: Type of error.
+                            type: string                              
+        
+        "500":
+          description: Bad Request
+          content:
+            application/json:
+              examples:
+                ServerError:
+                  description: Examples of exit for server error service
+                  value:
+                    messages:
+                      - code: 500
+                        message: internal server error
+                        parameters: []
+                        type: FATAL
+              schema:
+                  description: Default data structure for errors in BBVA APIs
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - messages
+                  properties:
+                    messages:
+                      description: Array containing the diferent errors in a resource invocation
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - code
+                          - message
+                          - type
+                        properties:
+                          code:
+                            description: Code associated to the error
+                            type: string
+                          message:
+                            description: Meesage associated to the error
+                            type: string
+                          parameters:
+                            description: Parameters wrong informed.
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: false
+                              required:
+                                - name
+                              properties:
+                                name:
+                                  description: Name of parameter wrong informed.
+                                  type: string
+                          type:
+                            description: Type of error.
+                            type: string                              
+
+  /transfer-pdf/{transaction}/document:
+      summary: Transfer PDF
+      description: Generate an operation receipt in PDF.
+      get: 
+        tags:
+          - 2-legged OAuth 
+        summary: |
+          Generate an operation receipt in PDF 
+        description: |
+          API that generates a PDF “Base64” with the summary of the payment previously instructed in Channel (up to 90 days).
+        parameters:
+        - name: transaction
+          description: |
+              The channel's unique folio with 10 positions, obtained from the “sequenceReference” field in the response of transfers from the same bank, SPEI and CIE.  
+                - It can also be retrieved by querying the transactions endpoint using the transaction date, where it appears in the same field.
+                - Example: "0000077793"
+          required: true
+          example: '0000000205'
+          in: path
+          schema:
+            description: |
+                  The channel's unique folio, with 10 positions, is obtained from the "sequenceReference" field in the response of transfers from the same bank, SPEI and CIE.  
+                        - It can also be retrieved by querying the transaction's endpoint using the transaction date, where it appears in the same field.
+            example: '0000000205'
+            type: number
+        - name: operationYear
+          description: |
+                      Year in which the transaction was made “YYYY”
+                        - Example: "2025"
+          required: true
+          in: query
+          schema:
+            description: |
+                        Year in which the transaction was made “YYYY”
+                          - '2019'
+            type: string
+        - name: productId
+          description: |
+                      Product identifier.The fixed value for this field will always be "COMPROBANTE_PAGO"
+                        - Example: "COMPROBANTE_PAGO"
+          required: true
+          in: query
+          schema:
+            description: Product identifier.The fixed value for this field will always be "COMPROBANTE_PAGO"
+            example: "COMPROBANTE_PAGO"
+            type: string
+        - name: version
+          description: |
+                      Version. The fixed value for this field will always be “1.1.”
+                        - Example: "1.1"
+          required: true
+          in: query
+          schema:
+            description: Version. The fixed value for this field will always be “1.1.”
+            example: 1.1
+            type: number
+        - name: type
+          description: |
+                      Document type for the final output. The default value for this field will always be "PDF"
+                        - Example: "PDF"
+          required: true
+          in: query
+          schema:
+            description: Document type for the final output. The default value for this field will always be "PDF"
+            example: "PDF"
+            type: string
+        responses:
+          "200":
+            description: OK.
+            content:
+              application/json:
+                schema:
+                  $ref: "#/components/schemas/GET_transfer-pdf_Response"
+                examples:
+                  default:
+                    $ref: "#/components/examples/GET_transfer-pdf_Response_Example"
+          
+          "400":
+            description: Bad Request
+            content:
+              application/json:
+                examples:
+                  mandatoryParametersMissing:
+                    description: JSON output example for mandatory parameters missing.
+                    value:
+                      messages:
+                        - code: mandatoryParametersMissing
+                          message: Required input parameters missing.
+                          type: ERROR
+                  Range90DaysExceeded:
+                    description: JSON output example for mandatory parameters missing.
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: 00931219#SOLO SE PUEDEN CONSULTAR 90  DIAS ANTERIORES
+                          parameters: []
+                          type: FATAL
+                  UniqueFolioNotFound:
+                    description: JSON output example for mandatory parameters missing.
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: FOLIO UNICO NO ENCONTRADO.
+                          parameters: []
+                          type: FATAL
+                          
+              
+                schema:
+                  description: Default data structure for errors in BBVA APIs
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - messages
+                  properties:
+                    messages:
+                      description: Array containing the diferent errors in a resource invocation
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - code
+                          - message
+                          - type
+                        properties:
+                          code:
+                            description: Code associated to the error
+                            type: string
+                          message:
+                            description: Meesage associated to the error
+                            type: string
+                          parameters:
+                            description: Parameters wrong informed.
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: false
+                              required:
+                                - name
+                              properties:
+                                name:
+                                  description: Name of parameter wrong informed.
+                                  type: string
+                          type:
+                            description: Type of error.
+                            type: string
+          
+          
+          "401":
+            description: Bad Request
+            content:
+              application/json:
+                examples:
+                  UnauthorizedService:
+                    description: Examples of exit for unauthorized service
+                    value:
+                      messages:
+                        - code: 401
+                          message: Unauthorized
+                          type: ERROR  
+                schema:
+                  description: Default data structure for errors in BBVA APIs
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - messages
+                  properties:
+                    messages:
+                      description: Array containing the diferent errors in a resource invocation
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - code
+                          - message
+                          - type
+                        properties:
+                          code:
+                            description: Code associated to the error
+                            type: string
+                          message:
+                            description: Meesage associated to the error
+                            type: string
+                          parameters:
+                            description: Parameters wrong informed.
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: false
+                              required:
+                                - name
+                              properties:
+                                name:
+                                  description: Name of parameter wrong informed.
+                                  type: string
+                          type:
+                            description: Type of error.
+                            type: string
+                    
+          "403":
+            description: Bad Request
+            content:
+              application/json:
+                examples:
+                  AccessDenied:
+                    description: Examples of exit for unauthorized service
+                    value:
+                      messages:
+                        - code: 403
+                          message: Acceso denegado
+                          parameters: []
+                          type: FATAL
+          
+                schema:
+                  description: Default data structure for errors in BBVA APIs
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - messages
+                  properties:
+                    messages:
+                      description: Array containing the diferent errors in a resource invocation
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - code
+                          - message
+                          - type
+                        properties:
+                          code:
+                            description: Code associated to the error
+                            type: string
+                          message:
+                            description: Meesage associated to the error
+                            type: string
+                          parameters:
+                            description: Parameters wrong informed.
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: false
+                              required:
+                                - name
+                              properties:
+                                name:
+                                  description: Name of parameter wrong informed.
+                                  type: string
+                          type:
+                            description: Type of error.
+                            type: string          
+          "500":
+            description: Bad Request
+            content:
+              application/json:
+                examples:
+                  ServerError:
+                    description: Examples of exit for server error service
+                    value:
+                      messages:
+                        - code: 500
+                          message: internal server error
+                          parameters: []
+                          type: FATAL
+                schema:
+                  description: Default data structure for errors in BBVA APIs
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - messages
+                  properties:
+                    messages:
+                      description: Array containing the diferent errors in a resource invocation
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - code
+                          - message
+                          - type
+                        properties:
+                          code:
+                            description: Code associated to the error
+                            type: string
+                          message:
+                            description: Meesage associated to the error
+                            type: string
+                          parameters:
+                            description: Parameters wrong informed.
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: false
+                              required:
+                                - name
+                              properties:
+                                name:
+                                  description: Name of parameter wrong informed.
+                                  type: string
+                          type:
+                            description: Type of error.
+                            type: string
+                    
+          
+  /transactions:
+      summary: Transactions
+      description: Operations inquiry.
+      get: 
+        tags:
+          - 2-legged OAuth 
+        summary: |
+          Operations inquiry
+        description: |
+            Retrieve operations generated through the channel by specifying a date range, folio range, or a specific folio or transaction date. It is available for querying Internal Transfer, SPEI, and CIE payments processed via the API.
+            `Note:` Queries can only be performed within the last 90 days from the current date, and date range queries are limited to a period that does not exceed 31 days.
+            To query a specific date or folio, you must declare one of the date or transaction folio fields, along with the pagination key and page size
+          
+        parameters:
+        - name: fromOperationDate
+          description: |
+                        String based on the ISO-8601 standard to specify the initial query date.
+                        Format "YYYY-MM-DD"
+                          - The queries are for up to 31 consecutive days. The date range must be within the last 90 days from the current date.
+                          - Example: "2019-06-11"
+          required: false
+          in: query
+          schema:
+            description: |
+                        String based on the ISO-8601 standard to specify the initial query date.
+                        Format "YYYY-MM-DD"
+                          - Example: "2019-06-11"
+            example: '2019-06-11'
+            type: string
+
+
+        - name: toOperationDate
+          description: |
+                      String based on the ISO-8601 standard to specify the end date of the query.
+                      Format "YYYY-MM-DD"
+                        - The queries are for up to 31 consecutive days. The date range must be within the last 90 days from the current date.
+                        - Example: "2019-06-11"
+          required: false
+          in: query
+          schema:
+            description: String based on the ISO-8601 standard to specify the end date of the query.
+              Format "YYYY-MM-DD"
+            example: '2019-11-06'
+            type: string
+        
+        
+        - name: beginTransaction
+          description: |
+                      Initial single consultation folio
+                        - Example: "0000000099"
+          required: true
+          in: query
+          schema:
+            description: Final single consultation folio
+            example: '0000000099'
+            type: string
+        - name: endTransaction
+          description: |
+                      Final single consultation folio
+                        - Example: "0000000102"
+          required: false
+          in: query
+          schema:
+            description: Version.
+            example: '0000000102'
+            type: number
+
+        - name: paginationKey
+          description: |
+                      Indicates which page to get
+                      The fixed value for this field will always be 1
+                        - Example: "1"
+          required: true
+          in: query
+          schema:
+            description: Indicates which page to get
+                      The fixed value for this field will always be 1
+            example: 2
+            type: string
+        
+        - name: pageSize
+          description:  Indicates how many records or operations to present          per page, the maximum is 50
+          required: true
+          in: query
+          schema:
+            description: Indicates how many records or operations to present          per page, the maximum is 50
+            example: 50
+            type: string
+       
+        responses:
+          "200":
+            description: OK.
+            content:
+              application/json:
+                schema:
+                  $ref: "#/components/schemas/GET_transaction_Response"
+                examples:
+                  pagoSPEIExample:
+                     $ref: "#/components/examples/GET_trasactions_Response_Example"
+                  pagoBBVAExample:
+                     $ref: "#/components/examples/GET_trasactions_Response_BBVA_Example"
+                  pagoCIEExample:
+                     $ref: "#/components/examples/GET_trasactions_Response_CIE_Example"
+                  ConsultaRangoFechas:
+                     $ref: "#/components/examples/GET_trasactions_Response_Rango_Fechas_Example"
+          "400":
+            description: Bad Request
+            content:
+              application/json:
+                examples:
+                  mandatoryParametersMissing:
+                    description: JSON output example for mandatory parameters missing.
+                    value:
+                      messages:
+                        - code: mandatoryParametersMissing
+                          message: Required input parameters missing.
+                          type: ERROR
+                  IncorrectDateRange:
+                    description: JSON output example for mandatory parameters missing.
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: 00931221#EL VALOR CAMPO fromOperationDa DEBE SER MENOR AL VALOR DEL CAMPO toOperationDate
+                          parameters: []
+                          type: FATAL
+                  Range90DaysExceeded:
+                    description: JSON output example for mandatory parameters missing.
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: 00931219#SOLO SE PUEDEN CONSULTAR 90  DIAS ANTERIORES
+                          parameters: []
+                          type: FATAL
+                  Range31DaysExceeded:
+                    description: JSON output example for mandatory parameters missing.
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: RANGO DE CONSULTA MAYOR A 31 DIAS
+                          parameters: []
+                          type: FATAL
+                schema:
+                  description: Default data structure for errors in BBVA APIs
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - messages
+                  properties:
+                    messages:
+                      description: Array containing the diferent errors in a resource invocation
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - code
+                          - message
+                          - type
+                        properties:
+                          code:
+                            description: Code associated to the error
+                            type: string
+                          message:
+                            description: Meesage associated to the error
+                            type: string
+                          parameters:
+                            description: Parameters wrong informed.
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: false
+                              required:
+                                - name
+                              properties:
+                                name:
+                                  description: Name of parameter wrong informed.
+                                  type: string
+                          type:
+                            description: Type of error.
+                            type: string
+          "401":
+            description: Bad Request
+            content:
+              application/json:
+                examples:
+                  UnauthorizedService:
+                    description: Examples of exit for unauthorized service
+                    value:
+                      messages:
+                        - code: 401
+                          message: Unauthorized
+                          type: ERROR  
+                schema:
+                  description: Default data structure for errors in BBVA APIs
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - messages
+                  properties:
+                    messages:
+                      description: Array containing the diferent errors in a resource invocation
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - code
+                          - message
+                          - type
+                        properties:
+                          code:
+                            description: Code associated to the error
+                            type: string
+                          message:
+                            description: Meesage associated to the error
+                            type: string
+                          parameters:
+                            description: Parameters wrong informed.
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: false
+                              required:
+                                - name
+                              properties:
+                                name:
+                                  description: Name of parameter wrong informed.
+                                  type: string
+                          type:
+                            description: Type of error.
+                            type: string
+                      
+                          
+          "403":
+            description: Bad Request
+            content:
+              application/json:
+                examples:
+                  AccessDenied:
+                    description: Examples of exit for unauthorized service
+                    value:
+                      messages:
+                        - code: 403
+                          message: Acceso denegado
+                          parameters: []
+                          type: FATAL
+                schema:
+                  description: Default data structure for errors in BBVA APIs
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - messages
+                  properties:
+                    messages:
+                      description: Array containing the diferent errors in a resource invocation
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - code
+                          - message
+                          - type
+                        properties:
+                          code:
+                            description: Code associated to the error
+                            type: string
+                          message:
+                            description: Meesage associated to the error
+                            type: string
+                          parameters:
+                            description: Parameters wrong informed.
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: false
+                              required:
+                                - name
+                              properties:
+                                name:
+                                  description: Name of parameter wrong informed.
+                                  type: string
+                          type:
+                            description: Type of error.
+                            type: string
+                    
+          "500":
+            description: Bad Request
+            content:
+              application/json:
+                examples:
+                  ServerError:
+                    description: Examples of exit for server error service
+                    value:
+                      messages:
+                        - code: 500
+                          message: internal server error
+                          parameters: []
+                          type: FATAL
+                schema:
+                  description: Default data structure for errors in BBVA APIs
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - messages
+                  properties:
+                    messages:
+                      description: Array containing the diferent errors in a resource invocation
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - code
+                          - message
+                          - type
+                        properties:
+                          code:
+                            description: Code associated to the error
+                            type: string
+                          message:
+                            description: Meesage associated to the error
+                            type: string
+                          parameters:
+                            description: Parameters wrong informed.
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: false
+                              required:
+                                - name
+                              properties:
+                                name:
+                                  description: Name of parameter wrong informed.
+                                  type: string
+                          type:
+                            description: Type of error.
+                            type: string
+                    
+
+  
+  /transfer-fees:
+      summary: Transfer Fees
+      description: Check operations over a selected time range.
+      get: 
+        tags:
+          - 2-legged OAuth 
+        summary: |
+          Check operations over a selected time range.
+        description: |
+           Get details about fees generated from channel operations during a specific time period.
+        parameters:
+        - name: paymentPeriod
+          description: |
+                        Time period used as a range for the query.
+                        The query cannot be longer than three months.
+                        Format "YYYYMM"
+                        `NOTE:` If no information is found for the consultation month, only the account record and groupdetailrecord fields will be returned, both with a value of 0.
+
+
+                          - `Example: "202505"`
+          required: true
+          in: query
+          schema:
+            description: Time period used as a range for the query.
+                        The query cannot be longer than three months.
+                        Format "YYYYMM"
+            example: '202505'
+            type: number
+        responses:
+          "200":
+            description: OK.
+            
+            content:
+              application/json:
+                schema:
+                  $ref: "#/components/schemas/GET_transfer_fees_Response"
+                examples:
+                  happyPath:
+                    $ref: "#/components/examples/GET_transfer-fees_Response_Example"
+                  happyPath_Bacio:
+                    $ref: "#/components/examples/GET_transfer-fees_Response_Bacio_Example"
+                  
+          "400":
+            description: Bad Request
+            content:
+              application/json:
+                examples:
+                  mandatoryParametersMissing:
+                    description: JSON output example for mandatory parameters missing.
+                    value:
+                      messages:
+                        - code: mandatoryParametersMissing
+                          message: Required input parameters missing.
+                          type: ERROR
+                  3MonthConsultation:
+                    description: JSON output example for mandatory parameters missing.
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: 00931218#SOLO SE PUEDEN CONSULTAR 3 MESES ANTERIORES
+                          parameters: []
+                          type: FATAL
+                  InvalidDate:
+                    description: JSON output example for mandatory parameters missing.
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: Parámetros inválidos YYYYMM
+                          parameters: []
+                          type: FATAL
+                schema:
+                  description: Default data structure for errors in BBVA APIs
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - messages
+                  properties:
+                    messages:
+                      description: Array containing the diferent errors in a resource invocation
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - code
+                          - message
+                          - type
+                        properties:
+                          code:
+                            description: Code associated to the error
+                            type: string
+                          message:
+                            description: Meesage associated to the error
+                            type: string
+                          parameters:
+                            description: Parameters wrong informed.
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: false
+                              required:
+                                - name
+                              properties:
+                                name:
+                                  description: Name of parameter wrong informed.
+                                  type: string
+                          type:
+                            description: Type of error.
+                            type: string
+          "401":
+            description: Bad Request
+            content:
+              application/json:
+                examples:
+                  UnauthorizedService:
+                    description: Examples of exit for unauthorized service
+                    value:
+                      messages:
+                        - code: 401
+                          message: Unauthorized
+                          type: ERROR
+                schema:
+                  description: Default data structure for errors in BBVA APIs
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - messages
+                  properties:
+                    messages:
+                      description: Array containing the diferent errors in a resource invocation
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - code
+                          - message
+                          - type
+                        properties:
+                          code:
+                            description: Code associated to the error
+                            type: string
+                          message:
+                            description: Meesage associated to the error
+                            type: string
+                          parameters:
+                            description: Parameters wrong informed.
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: false
+                              required:
+                                - name
+                              properties:
+                                name:
+                                  description: Name of parameter wrong informed.
+                                  type: string
+                          type:
+                            description: Type of error.
+                            type: string                    
+                          
+          "403":
+            description: Bad Request
+            content:
+              application/json:
+                examples:
+                  AccessDenied:
+                    description: Examples of exit for unauthorized service
+                    value:
+                      messages:
+                        - code: 403
+                          message: Acceso denegado
+                          parameters: []
+                          type: FATAL
+                schema:
+                  description: Default data structure for errors in BBVA APIs
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - messages
+                  properties:
+                    messages:
+                      description: Array containing the diferent errors in a resource invocation
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - code
+                          - message
+                          - type
+                        properties:
+                          code:
+                            description: Code associated to the error
+                            type: string
+                          message:
+                            description: Meesage associated to the error
+                            type: string
+                          parameters:
+                            description: Parameters wrong informed.
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: false
+                              required:
+                                - name
+                              properties:
+                                name:
+                                  description: Name of parameter wrong informed.
+                                  type: string
+                          type:
+                            description: Type of error.
+                            type: string                    
+          
+          "500":
+            description: Bad Request
+            content:
+              application/json:
+                examples:
+                  ServerError:
+                    description: Examples of exit for server error service
+                    value:
+                      messages:
+                        - code: 500
+                          message: internal server error
+                          parameters: []
+                          type: FATAL
+                schema:
+                  description: Default data structure for errors in BBVA APIs
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - messages
+                  properties:
+                    messages:
+                      description: Array containing the diferent errors in a resource invocation
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - code
+                          - message
+                          - type
+                        properties:
+                          code:
+                            description: Code associated to the error
+                            type: string
+                          message:
+                            description: Meesage associated to the error
+                            type: string
+                          parameters:
+                            description: Parameters wrong informed.
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: false
+                              required:
+                                - name
+                              properties:
+                                name:
+                                  description: Name of parameter wrong informed.
+                                  type: string
+                          type:
+                            description: Type of error.
+                            type: string                    
+
+  /spei-transfers/{spei-transfer-id}/status:
+    parameters:
+      - name: spei-transfer-id
+        description: |
+                    Inquiry Folio obtained in the SPEI payment response. 
+                    Allowed Values:
+
+                    `SequenceReference:`A unique, 10-digit folio from the channel, obtained in the payment request response  (sequenceReference).
+                    - `Example: "0000077799"`
+
+                    `InterbankReference :` A 10-digit transaction folio used institutionally to identify movements. It is obtained from the payment request response (applicationId).
+                    - `Example: "0034962651"`
+
+                    `InterbankTrackingID:` The 24-character SPEI tracking folio obtained from the payment request response (trackingId).
+                    - `Example: "APIC01002503210026128252"`
+        required: true
+        in: path
+        schema:
+          example: 0000141689
+          type: string
+
+
+      - name: typeReference
+        description: |
+                      This value `must match` the folio type declared in the spei-transfer-id query parameter.
+                      Allowed Values:
+                        - `sequenceReference`
+                        - `interbankReference`
+                        - `interbankTrackingId`
+        required: true
+        in: query
+        schema:
+          description: |
+                      This value `must match` the folio type declared in the spei-transfer-id query parameter.
+                      Allowed Values:
+                        - `sequenceReference`
+                        - `interbankReference`
+                        - `interbankTrackingId`
+          example: 'interbankTrackingId'
+          type: string
+    summary: |
+      Request the status of a SPEI payment.
+    description: |
+      API that allows you to obtain the status of an SPEI payment for the last 90 calendar days, including the current day.
+    get:
+      summary: |
+        Request the status of a SPEI payment.
+      tags:
+        - 2-legged OAuth
+      description: |
+        API that allows you to obtain the status of an SPEI payment for the last 90 calendar days, including the current day.
+      responses:
+        "200":
+          description: OK.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GET_spei-transfers_Response"
+              examples:
+                settled:
+                  $ref: "#/components/examples/GET_spei-transfers_Settled_Response_Example"
+                returned: 
+                  $ref: "#/components/examples/GET_spei-transfers_Returned_Response_Example"
+        "400":
+            description: Bad Request
+            content:
+              application/json:
+                examples:
+                  mandatoryParametersMissing:
+                    description: JSON output example for mandatory parameters missing.
+                    value:
+                      messages:
+                        - code: mandatoryParametersMissing
+                          message: Required input parameters missing.
+                          type: ERROR
+                  UniqueFolioNotFound:
+                    description: JSON output example for mandatory parameters missing.
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: FOLIO UNICO NO ENCONTRADO.
+                          parameters: []
+                          type: FATAL
+                  Consultation90Days:
+                    description: JSON output example for mandatory parameters missing.
+                    value:
+                      messages:
+                        - code: functionalError
+                          message: 00931219#SOLO SE PUEDEN CONSULTAR 90  DIAS ANTERIORES
+                          parameters: []
+                          type: FATAL
+                  ErrorPropertyName:
+                    description: JSON output example for mandatory parameters missing.
+                    value:
+                      messages:
+                        - code: mandatoryParametersMissing
+                          message: property 'propertyName' is not correctly informed.
+                          type: FATAL
+
+                schema:
+                  description: Default data structure for errors in BBVA APIs
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - messages
+                  properties:
+                    messages:
+                      description: Array containing the diferent errors in a resource invocation
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - code
+                          - message
+                          - type
+                        properties:
+                          code:
+                            description: Code associated to the error
+                            type: string
+                          message:
+                            description: Meesage associated to the error
+                            type: string
+                          parameters:
+                            description: Parameters wrong informed.
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: false
+                              required:
+                                - name
+                              properties:
+                                name:
+                                  description: Name of parameter wrong informed.
+                                  type: string
+                          type:
+                            description: Type of error.
+                            type: string
+        "401":
+            description: Bad Request
+            content:
+              application/json:
+                examples:
+                  UnauthorizedService:
+                    description: Examples of exit for unauthorized service
+                    value:
+                      messages:
+                        - code: 401
+                          message: Unauthorized
+                          type: ERROR  
+                schema:
+                  description: Default data structure for errors in BBVA APIs
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - messages
+                  properties:
+                    messages:
+                      description: Array containing the diferent errors in a resource invocation
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - code
+                          - message
+                          - type
+                        properties:
+                          code:
+                            description: Code associated to the error
+                            type: string
+                          message:
+                            description: Meesage associated to the error
+                            type: string
+                          parameters:
+                            description: Parameters wrong informed.
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: false
+                              required:
+                                - name
+                              properties:
+                                name:
+                                  description: Name of parameter wrong informed.
+                                  type: string
+                          type:
+                            description: Type of error.
+                            type: string
+                            
+        "403":
+            description: Bad Request
+            content:
+              application/json:
+                examples:
+                  AccessDenied:
+                    description: Examples of exit for unauthorized service
+                    value:
+                      messages:
+                        - code: 403
+                          message: Acceso denegado
+                          parameters: []
+                          type: FATAL
+                schema:
+                  description: Default data structure for errors in BBVA APIs
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - messages
+                  properties:
+                    messages:
+                      description: Array containing the diferent errors in a resource invocation
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - code
+                          - message
+                          - type
+                        properties:
+                          code:
+                            description: Code associated to the error
+                            type: string
+                          message:
+                            description: Meesage associated to the error
+                            type: string
+                          parameters:
+                            description: Parameters wrong informed.
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: false
+                              required:
+                                - name
+                              properties:
+                                name:
+                                  description: Name of parameter wrong informed.
+                                  type: string
+                          type:
+                            description: Type of error.
+                            type: string          
+          
+        "500":
+            description: Bad Request
+            content:
+              application/json:
+                examples:
+                  ServerError:
+                    description: Examples of exit for server error service
+                    value:
+                      messages:
+                        - code: 500
+                          message: internal server error
+                          parameters: []
+                          type: FATAL
+                schema:
+                  description: Default data structure for errors in BBVA APIs
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - messages
+                  properties:
+                    messages:
+                      description: Array containing the diferent errors in a resource invocation
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - code
+                          - message
+                          - type
+                        properties:
+                          code:
+                            description: Code associated to the error
+                            type: string
+                          message:
+                            description: Meesage associated to the error
+                            type: string
+                          parameters:
+                            description: Parameters wrong informed.
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: false
+                              required:
+                                - name
+                              properties:
+                                name:
+                                  description: Name of parameter wrong informed.
+                                  type: string
+                          type:
+                            description: Type of error.
+                            type: string          
+
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+            
+
+components:
+  schemas:
+    POST_internal-transfer_Request:
+      title: internal-transfers Request
+      description: Request body for internal-transfers endpoint.
+      required:
+            - transferAmount
+            - concept
+            - sender
+            - receiver
+            - operationDate
+      properties:
+        transferAmount:
+          description: |
+            Information related to the transfer amount.
+          type: object
+          additionalProperties: false
+          required:
+            - value
+          properties:
+            value: 
+              description: Information related to the value of transfer amount.
+              type: object
+              additionalProperties: false
+              required:
+                - currency
+                - amount
+              properties:
+                currency:
+                  description: String for specifying the currency.
+                  type: object
+                  additionalProperties: false
+                  required:
+                     - code
+                  properties:
+                    code:
+                      description: |
+                                  Debit account currency.  
+                                  - `NOTE:` This currency must be the same as the beneficiary's account (receiverAccountNumber), and only the following currencies are allowed:
+                                  * `MXP`: Denomination of Mexican currency.
+                                  * `EUR`: Denomination of the official currency of the eurozone.
+                                  * `USD`: Denomination of the US dollar.
+
+                      type: string
+                      enum: 
+                      - MXP
+                      - EUR
+                      - USD
+                amount:
+                  description: Amount to be transferred. The length of the amount is a maximum of 13 integers and 2 decimals, without a thousands separator and using a period (.) as the decimal separator.
+                  type: number
+                  example: 9999999999999.99
+        concept:
+          description: |
+            Transfer short description. It has a maximum length of 20 characters, do not include special characters, accents, or Ñ, to avoid rejections.
+          type: string
+        sender:
+          description: |
+            Information related to the origin account were the funds will be debited.
+          type: object
+          additionalProperties: false
+          required:
+            - contract
+          properties:
+            contract:
+              description: Information related to the origin account contract.
+              type: object
+              additionalProperties: false
+              required:
+                - product
+              properties:
+                product:
+                  description: Information related to the financial product.
+                  type: object
+                  additionalProperties: false
+                  required:
+                   - checkAccount
+                  properties:
+                      checkAccount: 
+                        description: Information related to the checking account.
+                        type: object
+                        required:
+                          - accountNumber
+                        properties:
+                          accountNumber:
+                            description: |
+                                         20-digit origin account number, previously registered and associated with the service specified in the contract, from which the funds will be debited.  
+                                         - `NOTE:` The 20-position account fromat can be found in details provided within Annex "A" of the contract, where the  20-position account number is visible.
+                            type: string
+        receiver:
+            description: |
+              Information related to the destination of the transfer.
+            type: object
+            additionalProperties: false
+            required:
+              - contract
+            properties:
+              contract:
+                description: Information related to the product that receives the transferred amount.
+                type: object
+                additionalProperties: false
+                required:
+                  - product
+                properties:
+                  product:
+                    description: |
+                                 Information related to the financial product.  
+                                 When the beneficiary account is a checking account (10 positions) or CLABE (18 positions), the "accountNumber" field is reported; if it is a debit card, the "cardNumber" field is reported.
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      checkAccount: 
+                        description: Information related to the checking account.
+                        type: object
+                        required:
+                          - accountNumber
+                        properties:
+                          accountNumber:
+                            description:  |
+                                          Destination account number where the funds will be credited, the account must be provided with 10 digits, or in case the format its a CLABE account , 18 digits must be provided.  
+                                          - `NOTE:` If a CLABE account (which must be linked to a BBVA account) is reported with 18 positions, the API will internally take and extract the account to 10 positions.
+                            type: string
+                      debitCard:
+                        description: financial product either debit card or clabe.
+                        type: object
+                        required:
+                          - cardNumber
+                        properties:
+                          cardNumber:
+                            description: |
+                                          Debit card number where the funds will be credited, the account must be provided with 16 digits.  
+                                            - Example: "4027665701414980"
+                            type: string
+        operationDate:
+          description: |
+                       String based on the ISO-8601 standard to specify the date on which the transfer is ordered.  
+                       In the absence of payment scheduling, the date must always be the current date; otherwise, the transaction will be rejected.
+          type: string
+          format: "AAAA-MM-DD"
+          example: 2025-01-30
+
+    POST_internal-transfer_Response:
+      title: internal-transfers Response
+      description: Response for POST_internal-transfers request
+      required:
+        - operationDate
+        - executionDate
+        - authorizationInfo
+        - sequenceReference
+        - accountingDate
+        - id
+        - finalBalanceSender
+        - finalBalanceReceiver
+
+      properties:
+        operationDate:
+          description: |
+            String based on the ISO-8601 standard to specify the transaction operation date.
+          type: string
+          format: "AAAA-MM-DDTHH:MM:SS.000-0600"
+        executionDate: 
+          description: |
+            String based on the ISO-8601 standard that specifies the date on which the channel executed the payment instruction.
+          type: string
+          format: "AAAA-MM-DD"
+        id:
+          description: |
+            Unique transfer identifier.
+          type: string
+        finalBalanceSender:
+          description: |
+            Information related to the origin of the transfer.
+          type: object
+          additionalProperties: false
+          required:
+              - balance
+          properties:
+            balance:
+              description: |
+                  Information related to the balance of the sender.
+              type: object
+              additionalProperties: false
+              required:
+                  - amount
+              properties:
+                  amount:
+                    description: Post-debit balance.
+                                 This field will retain a fixed value of 0.0.
+                    type: number
+        finalBalanceReceiver:
+          description: |
+            Information related to the destination of the transfer.
+          type: object
+          additionalProperties: false
+          required:
+              - balance
+          properties:
+            balance:
+              description: |
+                  Information related to the balance of the receiver.
+              type: object
+              additionalProperties: false
+              required:
+                  - amount
+              properties:
+                  amount:
+                    description: Post-credit balance.
+                                 This field will retain a fixed value of 0.0.
+                    type: number
+        authorizationInfo: 
+          description: |
+            Information related to the authorization.
+          type: object
+          additionalProperties: false
+          required:
+            - senderAuthNumber
+            - receiverAuthNumber
+          properties:
+            receiverAuthNumber:
+              description: |
+                           9-digit number to identify the authorization for movement of the charge account.                           
+                           This is an internal authorization number and you should not use it.
+              example: “000001127”
+              type: string
+            senderAuthNumber:
+              description: |
+                           9-digit number that refers to the authorization for movement of the credit account.  
+                           This is an internal authorization number and you should not use it.
+              type: string
+              example: “000001128”
+        sequenceReference:
+            description: |
+                        Unique 10-digit channel folio identifier used specifically for transaction queries and tracking.
+                        
+                          This field is known by different names depending on the endpoint where it is used.
+                          - It is referred to as `"transaction"` in both the PDF receipt endpoint (GET v1/transfer-pdf) and the transaction query endpoint (GET v1/transactions).
+                          - For the SPEI query endpoint (GET v1/spei-transfers/{spei-transfer-id}/status), it is known as `"spei-transfer-id"`.
+
+            type: string
+        accountingDate:
+            description: |
+                String based on the ISO-8601 standard to specify the date on which the transaction was recorded in internal accounting systems.  
+                This date may vary from the execution date depending on the change of day of the payment system.
+            type: string 
+            format: "AAAA-MM-DD"
+
+    POST_spei-transfer_Request:
+      title: spei-transfers
+      description: Request body for spei-transfer endpoint
+      required:
+        - operationDate
+        - concept
+        - numericReference
+        - sender
+        - receiver
+        - name
+        - bank
+        - transferAmount
+        - reference
+        - digitalTaxCertificateSender
+        - digitalTaxCertificate
+      properties:
+        operationDate:
+          description: |
+            String based on the ISO-8601 standard to specify the date on which the transfer is ordered.  
+            In the absence of payment scheduling, the date must always be the current date; otherwise, the transaction will be rejected.
+          example: "2025-01-27"
+          type: string
+          format: "AAAA-MM-DD"
+        concept:
+          description: |
+            Transfer short description. It has a maximum length of 20 characters. Do not include special characters, accents, or Ñ, to avoid rejections.
+          type: string
+        numericReference: 
+          description: |
+            Payment folio provided by the participant to uniquely identify the payment, with a maximum of 7 positions and a minimum of 1 position.  
+            If "0" is entered, a 7-digit random number will be assigned.  
+              `Example entry: "0"`
+              `Example modified entry: "0791784"` 
+
+            If the entered value is less than 7 digits, the system will complete with leading zeros.  
+              `Example entry: "01"`
+              `Example modified entry: "0000001"`
+          type: string
+        reference: 
+          description: |
+            Brief description of reference with a maximum of 10 positions.  
+            Informative field.
+          type: string
+        sender: 
+          description: |
+            Information related to the origin account were the funds will be debited.
+          type: object
+          required:
+            - contract
+          properties:
+            contract:
+              description: |
+                Information related to the origin account contract.
+              type: object
+              required:
+                - product
+              properties: 
+                product:
+                  description: |
+                    Information related to the financial product either debit card or clabe.
+                  type: object
+                  required:
+                    - checkAccount
+                  properties: 
+                    checkAccount:
+                      description: |
+                        Information related to the checking account.
+                      type: object
+                      required:
+                        - accountNumber
+                      properties:
+                        accountNumber:
+                          description: |
+                               20-digit origin account number, previously registered and associated with the service specified in the contract, from which the funds will be debited.  
+                                - `NOTE:` The 20-position account fromat can be found in details provided within Annex "A" of the contract, where the  20-position account number is visible.
+                               
+                          type: string               
+        digitalTaxCertificateSender:
+          description: |
+            Information about the client's RFC (mexican Tax Identifier).
+          type: object
+          required:
+            - taxpayer
+          properties:
+            taxpayer:
+              description:
+                Client's RFC (mexican Tax Identifier).
+              type: string
+        digitalTaxCertificate:
+          description: |
+            Information related to the beneficiary's RFC (mexican Tax Identifier). 
+          type: object
+          required:
+            - taxpayer
+          properties:
+            taxpayer:
+              description:
+                Beneficiary's RFC (mexican Tax Identifier).
+              type: string
+        receiver: 
+          description: |
+            Information related to the destination of the transfer.
+          type: object
+          required:
+            - contract
+          properties:
+            contract:
+              description: |
+                Information related to the product that receives the transferred amount.
+              type: object
+              required:
+                - product
+              properties: 
+                product:
+                  description: |
+                              “Information related to the financial product of the beneficiary.
+
+                              The data reported within this field depends on the type of beneficiary account:
+
+                                - Interbank CLABE: The `interbankCode` field is reported inside the `debitCard` object.
+                                - Debit Card: The `cardNumber` field is reported inside the `debitCard` object.
+                                - Mobile Phone: The `cellphoneNumber` field is reported inside the `expressAccount` object.
+
+                  type: object
+                  properties: 
+                    debitCard:
+                      description: |
+                        Information related to the financial product either debit card or clabe.
+                      type: object
+                      required:
+                        - interbankCode
+                        - cardNumber
+                      properties:
+                        interbankCode:
+                          description: |
+                            18-position CLABE account number where the funds will be credited.
+                          type: string
+                        cardNumber:
+                          description: |
+                            16-digit debit card number where the funds will be credited.
+                              - Example: "4027665701414980"
+                          type: string
+                    expressAccount:
+                      description: |
+                        Information related to the financial product. Cellphone number.
+                      type: object
+                      required:
+                        - cellphoneNumber
+                      properties:
+                        cellphoneNumber:
+                          description: |
+                            10-digit cell phone number related to the destination account where the funds will be credited.  
+                            - `NOTE:` Mobile payments are only available through the SPEI interbank payment system; this flow is different from the DIMO payment system. To make mobile payments, the mobile phone must have never been enrolled in DIMO and must also be linked to an account at a participating SPEI institution.   
+                            - Example: 5512345678
+                          type: string
+        name:
+          description: |
+              Beneficiary name. It has a maximum length of 40 characters.
+          type: string
+        bank:
+          description: |
+              Information related to the bank.
+          type: object
+          required:
+            - financialEntityId
+            - name
+          properties:
+            financialEntityId:
+              description: |
+                 SPEI Code of the Receiving Bank.  
+                 -`NOTE:` To find the SPEI code of the receiving bank, please refer to the official Banxico website `www.banxico.org.mx/cep-scl/listaInstituciones.do`.  
+                 
+                 The code corresponds to the last four digits listed for each bank.  
+                 For BBVA the value corresponds to “0012”
+              type: string
+            name:
+              description: |
+                Recipient bank's SPEI key (Provide the same value as bank.financialEntityId).
+              type: string
+        transferAmount:
+          description: |
+            Information related to the transfer amount.
+          type: object
+          required:
+            - value
+          properties: 
+            value:
+              description:  |
+                Information related to the value of transfer amount.
+              type: object
+              required: 
+                - amount
+              properties:
+                amount:
+                  description: |
+                    Amount to be transferred.  
+                    The length of the amount is a maximum of 13 integers and 2 decimals, without a thousands separator and using a period (.) as the decimal separator.
+                  type: string
+                  example: 9999999999999.99
+        
+    POST_spei-transfer_Response:
+      title: spei-transfers response
+      description: Response for spei-transfers request
+      properties:
+        operationDate: 
+          description: String based on the ISO-8601 standard to specify the transaction operation date.
+          type: string
+          format: “YYYY-MM-DDTHH:MM:SS.000-0600”
+          example: "2021-01-21T00:00:00.0-0600"
+        id:
+          description: identifier of the created transfer.
+          type: string
+        finalBalanceReceiver:
+          type: object
+          description: Recipient of the final balance
+          properties:
+            availableBalance:
+              description: Information related to transfer identifiers.
+              type: object
+              properties:
+                currency:
+                  type: object
+                  description: object with information about the currency
+                  properties:
+                    code:
+                      description: String based on ISO-4217 to specify the currency.
+                      type: string
+                    name:
+                      description: String based on ISO-4217 to specify the currency.
+                      type: string
+                    id:
+                      description: String based on ISO-4217 to specify the currency.
+                      type: string
+        entityId:
+          description:  Information related to transfer identifiers.
+          type: object
+          properties:
+            applicationId: 
+              description: |
+                           Interbank folio.  
+                           A 10-digit transaction folio used at the institutional level to identify and track interbank transfers.  
+                           This folio is for informational purposes only.
+              type: string
+              example: "0026380946"
+            trackingId:
+              description: |
+                          SPEI tracking key in 24-character format.  
+                          Format (This ID is known locally as 'clave de rastreo'): APIC + #### + AAMMDD + entityId.applicationId.
+              type: string
+              example: “APIC01002503210026128252”
+        sequenceReference:
+          description: |
+                        Unique 10-digit channel folio identifier used specifically for transaction queries and tracking.
+                        
+                          This field is known by different names depending on the endpoint where it is used.
+                          - It is referred to as `"transaction"` in both the PDF receipt endpoint (GET v1/transfer-pdf) and the transaction query endpoint (GET v1/transactions).
+                          - For the SPEI query endpoint (GET v1/spei-transfers/{spei-transfer-id}/status), it is known as `"spei-transfer-id"`.
+
+          type: string
+        accountingDate: 
+          description: String based on the ISO-8601 standard to specify the date on which the transaction was recorded in internal accounting systems.
+          format:  “AAAA-MM-DD”
+    
+    GET_transfer-pdf_Response:
+      title: transfer-pdf-response
+      description: Response for GET-transfer-pdf request
+      properties:
+        content:
+          description: |
+            main content of the answer
+          items:
+            type: object
+          additionalProperties: false
+          properties:
+            data:
+              description: |
+                Contains the Base64 code of the receipt in quotation marks  
+                `NOTES:`  
+                To view it, you will need a Base64 to PDF decoder.  
+                Transaction result, values:
+                - `REALIZADA`
+                - `NO REALIZADA`
+                  
+                The "REALIZADA" status only indicates that the transaction was executed successfully, but does not reflect whether it was settled or refunded.
+                
+                On the other hand, the "NO REALIZADA" status indicates that an error occurred during processing and the transaction wasn't settled.
+              type: string
+        
+             
+    GET_transaction_Response:
+      title: transactions-response
+      description: response for transactions request.
+      properties:
+        transaction:
+          items:
+            type: object
+          additionalProperties: false
+          required:
+            - sequenceReference
+            - operationYear
+            - codeTransaction
+            - movementNumber
+            - concept
+            - applicationDate
+            - applicationHour
+            - registryDate
+            - currentDate
+            - referenceAST
+            - paymentDescription
+            - channel
+            - accountingDate
+            - internalReferenceTransaction
+
+            
+          properties:
+            sequenceReference:
+              description: |
+                Unique folio identifier of the channel generated in the SPEI, Same Bank (BBVA) and CIE transfer.
+              type: string
+              example: "1234542"
+            operationYear:
+              description: |
+                Year in which the operation was performed.
+              type: string
+            codeTransaction:
+              description: |
+                Transaction code.  
+                - `NOTE:` The transaction differentiates the channel where the operation was carried out (this is internal information, you must not use it when consuming this API).
+              type: string
+            amount:
+              description: |
+                Information related to the transfer amount.
+              type: object
+              properties:
+                amount:
+                  description: | 
+                    Transfer amount.
+                  type: string
+            currency: 
+              type: object
+              properties:
+                code:
+                  description: | 
+                    String for specifying the currency.
+                  type: string
+            movementNumber:
+              description: |
+                Only shown for successful operations, indicating 
+                the number ofmovement in the account
+                orderer.
+              type: string
+            sender:
+              description: Information related to the origin of the transfer.
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Paying account holder
+                numberAccount:
+                  type: string
+                  description: 20-digit origin account number.
+                amount:
+                  description:  Information related to the transfer amount.
+                  type: object
+                  properties:
+                    currency:
+                      description: String for specifying the currency.
+                      type: object
+                      properties:
+                        code: 
+                          description: Currency of the transaction.
+                          type: string
+                fiscalNumber:
+                  type: string
+                  description: RFC (mexican Tax Identifier) of the ordering account holder
+                clientNumber:
+                  type: string
+                  description: Contract number reported in the contract.
+            receiver: 
+              description: Information related to the destination of the transfer.
+              type: object
+              properties:
+                informationReceiver:
+                  type: object 
+                  properties:
+                    name:
+                      type: string
+                      description: |
+                        Beneficiary name.  
+                        In BBVA Payments: Account holder.  
+                        In SPEI Payments: Beneficiary indicated in the original transaction.
+                    numberAccount:
+                      type: string
+                      description: Last 4 digits of the beneficiary account.
+                    bankInformation:
+                      type: object
+                      description: |
+                        Information related to the beneficiary bank.
+                      properties:
+                        id:
+                          type: string
+                          description: Beneficiary bank code
+                        name:
+                          type: string
+                          description: Beneficiary bank name
+            concept:
+              description: |
+                Transfer short description.
+              type: string
+            applicationDate:
+              description: |
+                Transaction operation date.
+              type: string
+            applicationHour:
+              description: |
+                Transaction operation time.
+              type: string
+            status:
+              type: object
+              properties:
+                id:
+                  type: string
+                  description: |
+                              Result of the operation, values:  
+                                  ● `REALIZADA`
+                                  ● `NO REALIZADA`
+                                  - `NOTE:` The "REALIZADA" status only indicates that the transaction was executed successfully, but does not reflect whether it was settled or returned.  
+                                  On the other hand, the "NO REALIZADA" status indicates that an error occurred during processing and the account could not be charged.
+                description:
+                  type: string
+                  description: |
+                    For operation `REALIZADA:` this field is not displayed  
+                    For operation `NO REALIZADA:` Error description
+            operationErrorCode:
+              type: string
+              description: |
+                    For operation `REALIZADA:` this field is not displayed  
+                    For operation `NO REALIZADA:` Error code
+            currentDate:
+              description: |
+                Date and time it is executed
+                query API operations
+              type: string
+            interbankReference:
+              type: string
+              description: |
+                            For SPEI Payments and "REALIZADA" transactions: Interbank Folio  
+                            For "NO REALIZADA" transactions, BBVA and CIE Payments: The field is not displayed.
+            interbankTrackingId:
+              type: string
+              description: |
+                            'For SPEI Payments with status "REALIZADA" transactions: "Clave de rastreo"  
+                            For "NO REALIZADA" transactions, BBVA and CIE Payments: The field is not displayed.'
+            numericReference:
+              description: 7-digit numerical reference applies only to SPEI.
+              type: string
+            paymentDescription:
+              description: |
+                Payment type, values:
+                   `PAGO BBVA`
+                   `PAGO SPEI` 
+                   `PAGO CIE `
+              type: string
+            accountingDate:
+              description: |
+                For operation "NO REALIZADA":
+                Field not shown  
+                For operation "REALIZADA":
+                Date Value of the transaction
+              type: string
+            cieGuide:
+              type: string
+              description: | 
+                            For CIE payment "REALIZADA" : CIE guide.  
+                            For BBVA Payment/SPEI Transfer/NOT MADE operations, the field is not displayed.
+            referenceCIE:
+              type: string
+              description: |
+                            For CIE payment "REALIZADA" : CIE Reference.  
+                            For other operations BBVA Payment / SPEI Transfer / NOT MADE, the field is not displayed.
+
+    GET_transfer_fees_Response:
+      title: transfer-fees-Response
+      description: response for transfer fees request
+      properties:
+            statusPayment:
+              description: |
+                contract and payment status.
+              type: object
+              properties:
+                id:
+                  description: |
+                    If the contract status value is anything other than Active, the field will be not returned and only the account record and groupdetailrecord fields will be returned, both with a value of 0. 
+                    A1 = "Activo" 
+                  type: string
+            extendedData:
+              description: "registration date in yyyy-mm-dd format"
+              type: object
+              properties:
+                creationDate:
+                  description: |
+                                Contract start date  
+                                Format “yyyy-mm-dd”
+                  type: string
+                modificationDate:
+                  description:  |
+                                Date of accumulation  
+                                Format “yyyy-mm-dd”
+                  type: string
+            rate:
+              type: object
+              properties:
+                annualFee:
+                  description: if your contract expecify an annual fee it would be included otherwise , it will retourn "0.00"
+                  type: object
+                  properties:
+                    amount:
+                      type: string
+                      description: Amount of the annual fee (if it exists)
+                monthlyFee:
+                  description: if your contract expecify a monthly fee it would be included otherwise , it will retourn "0.00"
+                  type: object
+                  properties:
+                    amount:
+                      type: string
+                      description: Amount of the monthly charge for the use of the channel (if it exist)
+                fixedFee:
+                  type: object
+                  description: if your contract expecify a fixed fee it would be included otherwise , it will retourn "0.00"
+                  properties:
+                    amount:
+                      type: string
+                      description: Amount of fixed commission collection (if it exist)
+                operationsFee:
+                  type: object
+                  description: if your contract expecify an operations fee it would be included otherwise , it will retourn "0.00"
+                  properties:
+                    amount:
+                      type: string
+                      description: Amount of commission collection from the Variable commission (if it exist).
+            taxAmount: 
+              type: object
+              description: amounts. 
+              properties:
+                amount:
+                  type: string
+                  description: IVA amount
+            totalAmount:
+              type: object
+              description: amounts
+              properties:
+                amount:
+                  type: string
+                  description: Cumulative total
+            subtotalAmount:
+              type: object
+              description: amounts
+              properties:
+                amount:
+                  type: string
+                  description: subtotal amount 
+            groupsDetail:
+              type: array
+              description: group details. 
+              properties:
+                accumulationType:
+                  type: string
+                  description: |
+                                Accumulation Type  
+                                RG = Regular
+                groupNumber:
+                  type: string
+                  description: |
+                    Grouping number, depending on the service consumed  
+                    `01	CONFIRMACIÓN CIE`
+                    `02	PAGO CIE`
+                    `03	CONSULTAS CIE`
+                    `04	CONCILIACIÓN CIE`
+                    `05	PAGO BBVA INDIVIDUAL`
+                    `06	PAGO SPEI INDIVIDUAL`
+                    `09	COMPROBANTE PDF`
+                    `10	COMPROBANTES TXT`
+                    `11	RETIRO SIN TARJETA`
+                    `13	CONSULTA DE COMISIONES`
+                    `14	CONSULTA SPEI`
+                    `15	CODI QR`
+                    `16	CODI PUSH`
+                    `17	CODI NOTIFICACIÓN`
+                    `18	CODI CONSULTA`
+                    `19	CODI REPORTE`
+                    `20	NOTIFICACIÓN CIE`  
+                    TXT RECEIPTS* Also known as transaction query.
+                operationNumber:
+                  type: string
+                  description: Number of transactions executed.
+                billableOperationNumber:
+                  type: string
+                  description: Number of transactions subject to commission.
+                monthlyAmount:
+                  type: string
+                  description: Total amount accumulated per month by group.
+                unitCost: 
+                  type: string
+                  description: Unit cost amount per transaction.
+            accountRecords:
+              type: string
+              description: Account records.
+            groupsDetailRecords:
+              type: string
+              description: Indicates the number of groups generated by the query.
+
+    GET_spei-transfers_Response:
+      title: spei-transfers status response
+      description: Response body for spei-transfers status endpoint.
+      properties:
+        trackingFolio:
+          description: |
+                        A 10-digit transaction folio used at the institutional level to identify and track interbank transfers. This folio is for informational purposes only.  
+                        Corresponds to the "entityId.applicationId" field of the "spei-transfers" service.
+          type: string
+        description:
+          description: |
+                        Transfer short description. It has a maximum length of 20 characters.  
+                        Corresponds to the “concept” field of the “spei-transfers” service.
+          type: string
+        sender:
+          description: Information related to the origin of the transfer.
+          type: object
+          required:
+             - numberAccount
+          properties:
+            numberAccount:
+               description: |
+                            20-digit origin account number, previously registered and associated with the service specified in the contract, from which the funds will be debited.  
+                            The output format is 23 characters long, consisting of the 20-digit source account number plus 3 spaces, grouped into blocks of 4 digits, space, 4 digits, space, 2 digits, space, 10 digits.  
+                            The 20-digit account number is the one previously registered and associated with the service in the channel contract, from which the funds were debited.  
+                            - `NOTE:` The 20-digit account number can be found in the channel contract, specifically in the "Issues" appendix, where the 20-digit format is detailed.
+               type: string
+               example: "9999 9999 99 999999999"
+        receiver:
+          description: |
+            Information related to the destination of the transfer.
+          type: object
+          required:
+             - informationReceiver
+          properties:
+              informationReceiver:
+                description: Information related to the destination of the transfer.
+                type: object
+                required:
+                  - name
+                  - numberAccount
+                  - typeAccount
+                properties:
+                  name:
+                    description: Beneficiary name. It has a maximum length of 40 characters.
+                    type: string
+                  numberAccount:
+                    description: |
+                                  Destination account number with 20 digits. This can be a CLABE, Debit Card, or cell phone number (linked to an account) with a leading "0."  
+                                  Output example:  
+                                  `Cell phone: "00000000005562255651"`
+                                  `TDD: "00004027665701414980"`
+                                  `CLABE: "00002180010000054087"`
+                    type: string
+                  typeAccount:
+                    description: Information related to the type of financial product.
+                    type: object
+                    required:
+                      - id
+                    properties:
+                      id:
+                        description: Credit account code
+                                      `40 - CLABE Account`
+                                      `03 - Debit Card
+                                      `10 - Cell Phone`
+                        type: string 
+        status:
+          description: |
+            Information related to the status of the transfer.
+          type: object
+          required:
+           - id
+           - description
+          properties:
+            id:
+              description: | 
+                Transaction status code
+                 `207 (Settled)`
+                 `205 (In process)`
+                 `301 (Returned)`
+              type: string
+              enum:
+                - 207 (Settled)
+                - 205 (In process)
+                - 301 (Returned)
+            description:
+              description: | 
+                Description of the status of the transaction.
+                `LIQUIDADO: ` This status indicates that the payment has been successfully credited to the beneficiary's account.
+                `EN PROCESO: ` The payment is currently being processed and is pending final settlement.
+                `DEVUELTO: ` This status means the payment was NOT processed and the funds have been returned to the originating account.
+              type: string
+              enum:
+                - LIQUIDADO
+                - EN PROCESO
+                - DEVUELTO
+        operationDate:
+          description: |
+              Date on which the transaction was sent (DDMMYYYY)
+          type: string
+          format: "DDMMAAAA"
+        numberReference: 
+          description: | 
+            Payment folio provided by the participant to uniquely identify the payment, with 7 positions.
+          type: string
+        devolutionDate:
+          description: | 
+            Return date.  
+            Displayed exclusively for returns.  
+            For "devolutionCode" fields other than 02 and 03, the constant 01010001 will be displayed.
+            `Note:` Only applies if the transaction resulted in a return status.id of "301."
+          type: string
+          format: "DDMMAAAA"
+        devolutionCode: 
+          description: |
+            Return Code. Displayed exclusively for returns.  
+            Possible values indicating the return code.  
+            `01    (Non-existent account)`
+            `02    (Account blocked)`
+            `03    (Account canceled)`
+            `05    (Account in another currency)`
+            `06    (Account does not belong to the Participant)`
+            `14    (Missing mandatory information)`
+            `15    (Incorrect payment type)`
+            `16    (Incorrect operation type)`
+            `17    (Account type does not correspond)`
+            `19    (Invalid character)`
+            `20    (Exceeds the authorized balance limit)`
+            `21    (Exceeds the allowed deposit limit)`
+            `22    (Mobile phone line number)`
+            `23    (Additional account does not receive payments)`
+            `24    (Information structure)`
+            `25    (Missing instruction for disbursement)`
+            `26    (Resolution resulting from the Agreement)`
+            `27    (Optional payment not accepted)`
+            `30    (Tracking key repeated)`
+            `31    (Certificate of the Issuing Participant)`
+            `D    (Unidentified reason)`
+
+          type: string
+        descriptionCode:
+          description: |
+            Description of the return.  
+            Displayed exclusively for returns.  
+            Example: If the "ReturnCode" field is "02," "Cuenta bloqueada" will be displayed.
+          type: string
+        payInstruction:
+          description: |
+            SPEI tracking key in 24-character  
+            Format : APIC + #### + YYMMDD + entityId.applicationId  
+            Example: “APIC01002503210026128252”  
+            Corresponds to the “entityId.trackingId” field of the “spei-transfers” service
+          type: string
+        operationAmount:
+          description: |
+            Information related to the transfer amount.
+          type: object
+          required:
+            - amount
+          properties:
+            amount:
+              description: |
+                SPEI Payment Amount.  
+                The amount is a maximum of 13 integers and 2 decimal places, with no thousands separator and a period (.) as the decimal separator.  
+                Example: 9999999999999.99
+              type: string
+      required:
+        - trackingFolio
+        - description
+        - sender
+        - receiver
+        - status
+        - operationDate
+        - numberReference
+        - devolutionDate
+        - payInstruction
+        - operationAmount
+
+
+  examples:
+    POST_internal-transfer_CH_Example:
+      value:
+        transferAmount:
+          value:
+            currency:
+              code: "MXP"
+            amount: 0.50
+        concept: "MOTIVO PAGO"
+        sender:
+          contract:
+            product:
+              checkAccount:
+                accountNumber: "00743607000123456789"
+        receiver:
+          contract:
+            product:
+              checkAccount:
+                accountNumber: "0123456789"
+        operationDate: "2019-10-07"
+
+    POST_internal-transfer_TDD_Example:
+      value:
+        transferAmount:
+          value:
+            currency:
+              code: "MXP"
+            amount: 1.50
+        concept: "MOTIVO PAGO"
+        sender:
+          contract:
+            product:
+              checkAccount:
+                accountNumber: "00743607000123456789"
+        receiver:
+          contract:
+            product:
+              debitCard:
+                cardNumber: "4152313984115274"
+        operationDate: "2019-10-07"
+
+    POST_internal-transfer_CLABE_Example:
+      value:
+        transferAmount:
+          value:
+            currency:
+              code: "MXP"
+            amount: 100.50
+        concept: "MOTIVO PAGO"
+        sender:
+          contract:
+            product:
+              checkAccount:
+                accountNumber: "00743607000123456789"
+        receiver:
+          contract:
+            product:
+              checkAccount:
+                accountNumber: "012180015052220317"
+        operationDate: "2019-10-07"
+
+
+    POST_internal-transfer_Response_Example:
+      value:
+        operationDate: "2025-04-22T17:26:42.000-0600"
+        executionDate: "2025-04-22"
+        id: "0060154003"
+        finalBalanceSender:
+          balance:
+            amount: 0.00
+        finalBalanceReceiver:
+          balance:
+            amount: 0.00
+        authorizationInfo:
+          receiverAuthNumber: "000000334"
+          senderAuthNumber: "000001127"
+        sequenceReference: "0000000062"
+        accountingDate: "2025-04-22"
+
+    POST_spei-transfer_CLABE_Request_Example :
+      value:
+        operationDate: "2021-01-21"
+        concept: "prueba 01 del 02"
+        numericReference: "1234567"
+        reference: "pruebaAPIS"
+        sender:
+          contract: 
+            product:
+              checkAccount:
+                accountNumber: "00743607001102625431"
+        digitalTaxCertificateSender: 
+          taxpayer: "CALM990112ASW"
+        digitalTaxCertificate:
+          taxpayer: "TELM990112ASY"
+        receiver:
+          contract:
+            product:
+              debitCard:
+                interbankCode: "127180013337520161"
+        name: "MARIA REYES DE BALTAZAR"
+        bank:
+          financialEntityId: "0012"
+          name: "0012"
+        transferAmount:
+          value:
+            amount: "1.04"
+        
+
+    POST_spei-transfer_DEBITO_Request_Example:
+      value:
+        operationDate: "2021-01-21"
+        concept: "prueba Canal APIs 02"
+        numericReference: "1111112"
+        reference: "pruebaAPIS"
+        sender:
+          contract: 
+            product:
+              checkAccount:
+                accountNumber: "0074360700123456789"
+        digitalTaxCertificateSender: 
+          taxpayer: "CALM990112ASW"
+        digitalTaxCertificate:
+          taxpayer: "TELM990112ASY"
+        receiver:
+          contract:
+            product:
+              debitCard:
+                cardNumber: "5112142211064337"
+        name: "MARIA REYES DE BALTAZAR"
+        bank:
+          financialEntityId: "0072"
+          name: "0072"
+        transferAmount:
+          value:
+            amount: "1.04"
+
+    POST_spei-transfer_CEL_Request_Example:
+      value:
+        operationDate: "2021-01-21"
+        concept: "prueba Canal APIs 02"
+        numericReference: "1111112"
+        reference: "pruebaAPIS"
+        sender:
+          contract: 
+            product:
+              checkAccount:
+                accountNumber: "0074360700123456789"
+        digitalTaxCertificateSender: 
+          taxpayer: "CALM990112ASW"
+        digitalTaxCertificate:
+          taxpayer: "TELM990112ASY"
+        receiver:
+          contract:
+            product:
+              expressAccount:
+                cellphoneNumber: "551234567890"
+        name: "MARIA REYES DE BALTAZAR"
+        bank:
+          financialEntityId: "0072"
+          name: "0072"
+        transferAmount:
+          value:
+            amount: "1.04"
+
+    POST_spei-transfer_Response_Example:
+      value:
+        operationDate: "2021-01-21T00:00:00.0-0600"
+        id: "0007172005"
+        finalBalanceReceiver:
+          availableBalance:
+            currency:
+              id: "MXN"
+              code: "MXN"
+              name: "MXN"
+          amount: 1.04
+        entityId: 
+          applicationId: "0034961763"
+          trackingId: "APIC01002101220034961763"
+        sequenceReference: "0000077793"
+        accountingDate": "2021-01-22"
+    
+    GET_transfer-pdf_Request_Example:
+      value:
+        transaction: '000012345'
+        
+
+    GET_transfer-pdf_Response_Example:
+      value:
+        content:
+          data: "JVBERi0xLjQKJeLjz9MNCjQgMCBvYmoKPDwKL1R5cGUvWE9iamVjdAovU3VidHlwZS9Gb3JtCi9Gb3JtVHlwZSAxCi9CQm94IFszMi4xNSA2NC4yMzQ5MzIgNTc5LjIxMjk5IDc0MC44MTQ2OV0KL01hdHJpeCBbMSAwIDAgMSAwIDBdCi9SZXNvdXJjZXMgPDwKL1Byb2NTZXQgMSAwIFIKL0ZvbnQgPDwKL0YgNSAwIFIKL0YwIDYgMCBSCi9GMSA3IDAgUgovRjIgOCAwIFIKL0YzIDkgMCBSCi9GNCAxMCAwIFIKPj4KPj4KL0ZpbHRlci9GbGF0ZURlY29kZQovTGVuZ3RoIDEzNjYKPj4Kc3RyZWFtCnictVfbbttGEG3zyK/YR7eoNjsze+2ba8uogcBJHAF5ZmjGYSGJiiQHaD8q39jZXS4lx4xRx6iNBPRw9szsz................."
+        
+          
+    GET_trasactions_Response_Example:
+      value:
+        transaction:
+          sequenceReference: "0000000101"
+          operationYear: "2019"
+          codeTransaction: "ABCD"
+          amount:
+            amount: 0.01
+          currency:
+            code: "MXP"
+          movementNumber: "69923"
+          sender:
+            name: "EMPRESA 123 SA DE CV"
+            numberAccount: "0074360700123456789"
+            amount:
+              currency:
+                code: "MXP"
+            fiscalNumber: "BBA830831lj2"
+            clientNumber: "00000001"
+          receiver:
+              informationReceiver:
+                name: "EMPRESA RECEPTORA SA DE CV"
+                numberAccount: "*****1265"
+                bankInformation:
+                  id: "0002" 
+                  name: "BANAMEX"
+          concept: "PAGO SPEI"
+          applicationDate: "2025-05-16T21:07:43.280-0600"
+          applicationHour: "2025-05-16T21:07:43.280-0600"
+          status:
+            id: "REALIZADA"
+            description: "FUNC REQ ASUN PROP. 4152313562912345 NO VALIDO(A)"
+          operationErrorCode: "CNE0008"
+          currentDate: "2025-06-03T13:03:23.710-0600"
+          interbankReference: "0001755511"
+          interbankTrackingId: "APIC01001910310001755511"
+          numericReference: "2727272"
+          paymentDescription: "PAGO BBVA"
+          accountingDate: "31/10/2019"
+          cieGuide: "3687860"
+          referenceCIE: "9998"
+
+    GET_trasactions_Response_BBVA_Example:  
+      value:
+        transaction:
+          sequenceReference: "0000000102"
+          operationYear: "2019"
+          codeTransaction: "EFGH"
+          amount:
+            amount: 0.02
+          currency:
+            code: "MXP"
+          movementNumber: "69924"
+          sender:
+            name: "EMPRESA 123 SA DE CV"
+            numberAccount: "0074360700123456789"
+            amount:
+              currency:
+                code: "MXP"
+            fiscalNumber: "BBA830831lj2"
+            clientNumber: "00000001"
+          receiver:
+              informationReceiver:
+                name: "EMPRESA RECEPTORA SA DE CV"
+                numberAccount: "*****1265"
+                bankInformation:
+                  id: "0001" 
+                  name: "BBVA"
+          concept: "PAGO BBVA"
+          applicationDate: "2025-05-16T21:07:43.280-0600"
+          applicationHour: "2025-05-16T21:07:43.280-0600"
+          status:
+            id: "REALIZADA"
+            description: "REALIZADA"
+          operationErrorCode: "REALIZADA"
+          currentDate: "2025-06-03T13:03:23.710-0600"
+          numericReference: "2727273"
+          paymentDescription: "PAGO BBVA"
+          accountingDate: "REALIZADA"  
+                
+
+    GET_trasactions_Response_CIE_Example:
+      value:
+        transaction:
+          sequenceReference: "0000000103"
+          operationYear: "2019"
+          codeTransaction: "IJKL"
+          amount:
+            amount: 0.03
+          currency:
+            code: "MXP"
+          movementNumber: "69925"
+          sender:
+            name: "EMPRESA 123 SA DE CV"
+            numberAccount: "0074360700123456789"
+            amount:
+              currency:
+                code: "MXP"
+            fiscalNumber: "BBA830831lj2"
+            clientNumber: "00000001"
+          receiver:
+              informationReceiver:
+                name: "EMPRESA RECEPTORA SA DE CV"
+                numberAccount: "*****1265"
+                bankInformation:
+                  id: "0021" 
+                  name: "BBVA PAYMENTS"
+          concept: "PAGO CIE"
+          applicationDate: "2025-05-16T21:07:43.280-0600"
+          applicationHour: "2025-05-16T21:07:43.280-0600"
+          status:
+            id: "REALIZADA"
+            description: "REALIZADA"
+          operationErrorCode: "REALIZADA"
+          currentDate: "2025-06-03T13:03:23.710-0600"
+          numericReference: "2727274"
+          paymentDescription: "PAGO CIE"
+          accountingDate: "REALIZADA"
+    GET_trasactions_Response_Rango_Fechas_Example:
+      value:
+        transaction:
+        - sequenceReference: "0000000103"
+          operationYear: "2019"
+          codeTransaction: "IJKL"
+          amount:
+            amount: 0.03
+          currency:
+            code: "MXP"
+          movementNumber: "69925"
+          sender:
+            name: "EMPRESA 123 SA DE CV"
+            numberAccount: "0074360700123456789"
+            amount:
+              currency:
+                code: "MXP"
+            fiscalNumber: "BBA830831lj2"
+            clientNumber: "00000001"
+          receiver:
+              informationReceiver:
+                name: "EMPRESA RECEPTORA SA DE CV"
+                numberAccount: "*****1265"
+                bankInformation:
+                  id: "0021" 
+                  name: "BBVA PAYMENTS"
+          concept: "PAGO CIE"
+          applicationDate: "2025-05-16T21:07:43.280-0600"
+          applicationHour: "2025-05-16T21:07:43.280-0600"
+          status:
+            id: "REALIZADA"
+            description: "REALIZADA"
+          operationErrorCode: "REALIZADA"
+          currentDate: "2025-06-03T13:03:23.710-0600"
+          numericReference: "2727274"
+          paymentDescription: "PAGO CIE"
+          accountingDate: "REALIZADA"
+        - sequenceReference: "0000000102"
+          operationYear: "2019"
+          codeTransaction: "EFGH"
+          amount:
+            amount: 0.02
+          currency:
+            code: "MXP"
+          movementNumber: "69924"
+          sender:
+            name: "EMPRESA 123 SA DE CV"
+            numberAccount: "0074360700123456789"
+            amount:
+              currency:
+                code: "MXP"
+            fiscalNumber: "BBA830831lj2"
+            clientNumber: "00000001"
+          receiver:
+              informationReceiver:
+                name: "EMPRESA RECEPTORA SA DE CV"
+                numberAccount: "*****1265"
+                bankInformation:
+                  id: "0001" 
+                  name: "BBVA"
+          concept: "PAGO BBVA"
+          applicationDate: "2025-06-16T21:07:43.280-0600"
+          applicationHour: "2025-06-16T21:07:43.280-0600"
+          status:
+            id: "REALIZADA"
+            description: "REALIZADA"
+          operationErrorCode: "REALIZADA"
+          currentDate: "2025-06-03T13:03:23.710-0600"
+          numericReference: "2727273"
+          paymentDescription: "PAGO BBVA"
+          accountingDate: "REALIZADA"   
+        - sequenceReference: "0000000103"
+          operationYear: "2019"
+          codeTransaction: "IJKL"
+          amount:
+            amount: 0.03
+          currency:
+            code: "MXP"
+          movementNumber: "69925"
+          sender:
+            name: "EMPRESA 123 SA DE CV"
+            numberAccount: "0074360700123456789"
+            amount:
+              currency:
+                code: "MXP"
+            fiscalNumber: "BBA830831lj2"
+            clientNumber: "00000001"
+          receiver:
+              informationReceiver:
+                name: "EMPRESA RECEPTORA SA DE CV"
+                numberAccount: "*****1265"
+                bankInformation:
+                  id: "0021" 
+                  name: "BBVA PAYMENTS"
+          concept: "PAGO CIE"
+          applicationDate: "2025-07-16T21:07:43.280-0600"
+          applicationHour: "2025-07-16T21:07:43.280-0600"
+          status:
+            id: "REALIZADA"
+            description: "REALIZADA"
+          operationErrorCode: "REALIZADA"
+          currentDate: "2025-06-03T13:03:23.710-0600"
+          numericReference: "2727274"
+          paymentDescription: "PAGO CIE"
+          accountingDate: "REALIZADA"
+
+
+
+
+
+    GET_transfer-fees_Response_Example:
+      value:
+        statusPayment:
+          id: "A1"
+        extendedData:
+          creationDate: "2017/08/30"
+          modificationDate: "0001/01/01"
+        rate: 
+          annualFee:
+            amount: "12.34"
+          monthlyFee:
+            amount: "56.75"
+          fixedFee:
+            amount: "45.64"
+          operationsFee:
+            amount: "53.45"
+        taxAmount: 
+          amount: "145"
+        totalAmount: 
+          amount: "145"
+        subtotalAmount: 
+          amount: "145"
+        groupsDetail:
+          - accumulationType: "RG"
+            groupNumber: "02"
+            operationNumber: 515
+            billableOperationNumber: 514
+            monthlyAmount: 2056
+            unitCost: 4
+        accountRecords: 1
+        groupsDetailRecords: 6
+    GET_transfer-fees_Response_Bacio_Example:
+      value:
+        accountRecords: 0
+        groupsDetailRecords: 0
+
+    GET_spei-transfers_Settled_Response_Example:
+      value:
+        trackingFolio: "47093588"
+        originBank: "0178"
+        description: "PRUEBA 01 DEL 02"
+        sender: 
+          numberAccount: "0074 3607 68 1102625431"
+        receiver: 
+          informationReceiver: 
+            name: "JDJUS"
+            numberAccount: "00127180013337520166"
+            typeAccount: 
+              id: "40"
+        status: 
+          id: "207"
+          description: "LIQUIDADO"
+        operationDate: "14042021"
+        numberReference: "1234567"
+        devolutionDate: "01010001"
+        payInstruction: "APIC01002104140047093588"
+        operationAmount: 
+          amount: 1.00
+          operationTax: 0.00
+        devolutionCommisions: 
+          amount: 0.00
+        taxCommisions: "0.00"
+
+    GET_spei-transfers_Returned_Response_Example:
+      value:
+        trackingFolio: "47093843"
+        originBank: "0178"
+        description: "PRUEBA 01 DEL 02"
+        sender: 
+          numberAccount: "0074 3607 68 1102625431"
+        receiver: 
+          informationReceiver: 
+          name: "JDJUS"
+          numberAccount: "00036180500134130146"
+          typeAccount: 
+            id: "40"
+        status: 
+          id: "301"
+          description: "DEVUELTO"
+        operationDate: "14042021"
+        numberReference: "7777777"
+        devolutionDate: "14042021"
+        devolutionCode: "03"
+        descriptionCode: "Cuenta cancelada"
+        payInstruction: "APIC01002104140047093843"
+        operationAmount: 
+          amount: 1.00
+          operationTax: 0.00
+        devolutionCommisions: 
+          amount: 0.00
+        taxCommisions: "0.00"
+
+
+

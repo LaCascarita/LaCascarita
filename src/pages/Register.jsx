@@ -7,6 +7,7 @@ const Register = () => {
   const [formData, setFormData] = useState({
     username: '',
     phone: '',
+    email: '',
     password: '',
     confirmPassword: '',
     acceptTerms: false
@@ -43,6 +44,14 @@ const Register = () => {
     }
     if (!/^\d{10}$/.test(formData.phone)) {
       setError('El número de teléfono debe tener 10 dígitos')
+      return false
+    }
+    if (!formData.email.trim()) {
+      setError('El correo electrónico es requerido')
+      return false
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      setError('Ingresa un correo electrónico válido')
       return false
     }
     if (!formData.password) {
@@ -85,6 +94,7 @@ const Register = () => {
         body: JSON.stringify({
           username: formData.username,
           phone: formData.phone,
+          email: formData.email,
           password: formData.password
         })
       })
@@ -202,6 +212,25 @@ const Register = () => {
                 maxLength={10}
                 disabled={loading}
               />
+            </div>
+
+            {/* Email */}
+            <div>
+              <label className="block text-white font-medium mb-2">
+                Correo electrónico *
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                placeholder="tu@correo.com"
+                disabled={loading}
+              />
+              <p className="text-slate-400 text-xs mt-2">
+                Lo usaremos para recuperar tu contraseña.
+              </p>
             </div>
 
             {/* Password */}

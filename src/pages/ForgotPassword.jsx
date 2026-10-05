@@ -10,7 +10,7 @@ const ForgotPassword = () => {
     newPassword: '',
     confirmPassword: ''
   })
-  const [userPhone, setUserPhone] = useState('')
+  const [userEmail, setUserEmail] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState('')
@@ -56,8 +56,8 @@ const ForgotPassword = () => {
         return
       }
 
-      setUserPhone(data.maskedPhone)
-      setSuccess(`Código enviado al número ${data.maskedPhone}`)
+      setUserEmail(data.maskedEmail)
+      setSuccess(`Código enviado al correo ${data.maskedEmail}`)
       setStep(2)
       setLoading(false)
 
@@ -169,7 +169,7 @@ const ForgotPassword = () => {
         return
       }
 
-      setSuccess(`Nuevo código enviado al número ${data.maskedPhone}`)
+      setSuccess(`Nuevo código enviado al correo ${data.maskedEmail}`)
       setLoading(false)
     } catch (error) {
       setError('Error al conectar con el servidor. Intente nuevamente.')
@@ -194,7 +194,7 @@ const ForgotPassword = () => {
           </h2>
           <p className="text-slate-400 mt-2">
             {step === 1 && 'Ingresa tu usuario para buscar tu cuenta'}
-            {step === 2 && 'Ingresa el código que enviamos a tu teléfono'}
+            {step === 2 && 'Ingresa el código que enviamos a tu correo'}
             {step === 3 && 'Establece tu nueva contraseña'}
           </p>
         </div>
@@ -270,8 +270,8 @@ const ForgotPassword = () => {
           {step === 2 && (
             <form onSubmit={handleStep2} className="space-y-6">
               <div className="bg-white/5 rounded-lg p-4 mb-4">
-                <p className="text-slate-400 text-sm mb-1">Número de teléfono:</p>
-                <p className="text-white font-semibold">{userPhone}</p>
+                <p className="text-slate-400 text-sm mb-1">Correo electrónico:</p>
+                <p className="text-white font-semibold">{userEmail}</p>
               </div>
 
               <div>
