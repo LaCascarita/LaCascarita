@@ -274,6 +274,14 @@ const ForgotPassword = () => {
                 <p className="text-white font-semibold">{userEmail}</p>
               </div>
 
+              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-4">
+                <p className="text-yellow-200/90 text-sm">
+                  Si no ves el correo en tu bandeja de entrada, revisa la carpeta de
+                  <strong> Spam</strong> o <strong>Correo no deseado</strong> y márcalo como
+                  "No es spam" para recibir nuestros próximos correos.
+                </p>
+              </div>
+
               <div>
                 <label className="block text-white font-medium mb-2">
                   Código de verificación
