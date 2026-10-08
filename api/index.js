@@ -1515,6 +1515,22 @@ app.post('/api/withdrawals', async (req, res) => {
     const balance = parseFloat(userData.balance) || 0
     if (balance < amount) return res.status(400).json({ error: 'Saldo insuficiente' })
 
+    // Límite de retiros por usuario en las últimas 24 horas
+    const dailyLimit = parseFloat(process.env.MAX_DAILY_WITHDRAWAL || '10000')
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    const { data: recentWithdrawals } = await supabase
+      .from('payments')
+      .select('amount')
+      .eq('user_id', user.id)
+      .eq('direction', 'withdrawal')
+      .in('status', ['pending', 'processing', 'paid'])
+      .gte('created_at', since)
+
+    const dailyTotal = (recentWithdrawals || []).reduce((acc, p) => acc + (Number(p.amount) || 0), 0)
+    if (dailyTotal + amount > dailyLimit) {
+      return res.status(400).json({ error: `Límite de retiro diario alcanzado. Máximo ${dailyLimit.toLocaleString('es-MX')} MXN cada 24 horas` })
+    }
+
     const externalReference = `LC-WD-${user.id}-${Date.now()}`
 
     const { data: payment, error: paymentError } = await supabase
@@ -1565,6 +1581,55 @@ app.post('/api/withdrawals', async (req, res) => {
       reference_id: payment.id,
       description: 'Retiro SPEI solicitado'
     })
+
+    // Dispersión automática vía BBVA. Si falla por error técnico queda pendiente
+    // para reintento manual desde el admin; si BBVA la rechaza, se reembolsa.
+    if (bbvaConfigured()) {
+      try {
+        const { ok, status, data } = await createSpeiTransfer({
+          clabe,
+          beneficiaryName: card_holder,
+          amount: parseFloat(amount)
+        })
+
+        if (ok) {
+          const operationYear = (data.accountingDate || data.operationDate || '').slice(0, 4) || String(new Date().getFullYear())
+          await supabase.from('payments').update({
+            status: 'processing',
+            provider_metadata: {
+              ...payment.provider_metadata,
+              bbva_transfer_id: data.id,
+              bbva_sequence_reference: data.sequenceReference,
+              bbva_tracking_id: data.entityId?.trackingId,
+              bbva_application_id: data.entityId?.applicationId,
+              bbva_operation_year: operationYear
+            }
+          }).eq('id', payment.id)
+          await supabase.from('withdrawals').update({ status: 'processing' }).eq('id', withdrawal.id)
+
+          return res.json({
+            message: 'Retiro enviado a tu banco',
+            withdrawal,
+            payout_status: 'processing',
+            tracking_id: data.entityId?.trackingId
+          })
+        }
+
+        console.error('BBVA auto-dispatch rejected:', JSON.stringify(data))
+        await applyPayoutResult(externalReference, false)
+        const detail = bbvaErrorMessage(data) || `HTTP ${status}`
+        return res.status(502).json({ error: `El banco rechazó el retiro (${detail}). Tu saldo fue devuelto.` })
+      } catch (dispatchError) {
+        console.error('BBVA auto-dispatch error:', dispatchError.message)
+      }
+    } else if (process.env.SIMULATE_PAYOUTS === 'true') {
+      await supabase.from('payments').update({
+        status: 'processing',
+        provider_metadata: { ...payment.provider_metadata, simulated: true, payout_status: 'in_progress' }
+      }).eq('id', payment.id)
+      await supabase.from('withdrawals').update({ status: 'processing' }).eq('id', withdrawal.id)
+      return res.json({ message: 'Retiro en proceso (simulado)', withdrawal, payout_status: 'in_progress' })
+    }
 
     res.json({ message: 'Retiro solicitado. Lo recibirás en tu banco una vez procesado.', withdrawal, payout_status: 'pending' })
   } catch (error) {
