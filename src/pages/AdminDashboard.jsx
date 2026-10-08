@@ -287,6 +287,26 @@ const AdminDashboard = () => {
     }
   }
 
+  const handleProcessWithdrawal = async (withdrawal) => {
+    if (!window.confirm(`¿Dispersar ${formatMoney(withdrawal.amount)} a ${withdrawal.card_holder} (CLABE ****${withdrawal.clabe?.slice(-6)})?`)) return
+    setSimulatingId(withdrawal.id)
+    try {
+      const response = await adminFetch('/api/admin/process-withdrawal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ withdrawal_id: withdrawal.id })
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Error al dispersar')
+      setMessage(data.message)
+      fetchWithdrawals()
+    } catch (error) {
+      setMessage(error.message)
+    } finally {
+      setSimulatingId(null)
+    }
+  }
+
   const fetchUsers = async () => {
     setUsersLoading(true)
     try {
@@ -852,7 +872,7 @@ const AdminDashboard = () => {
           <div className="admin-section">
             <h2>Retiros SPEI</h2>
             <p className="section-hint">
-              Sección temporal para pruebas de dispersión. Los botones solo aparecen en retiros simulados (SIMULATE_PAYOUTS activo).
+              Los retiros pendientes se dispersan por SPEI desde aquí. Los botones de simulación solo aparecen en retiros simulados (SIMULATE_PAYOUTS activo).
             </p>
 
             {withdrawalsLoading && <p className="no-results">Cargando retiros...</p>}
@@ -871,7 +891,7 @@ const AdminDashboard = () => {
                       <th>Monto</th>
                       <th>Estado</th>
                       <th>Fecha</th>
-                      <th>Simular</th>
+                      <th>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -885,6 +905,15 @@ const AdminDashboard = () => {
                         </td>
                         <td data-label="Fecha">{new Date(w.created_at).toLocaleDateString('es-MX')}</td>
                         <td data-label="Acciones">
+                          {w.status === 'pending' && (
+                            <button
+                              className="action-button simulate-btn"
+                              disabled={simulatingId === w.id}
+                              onClick={() => handleProcessWithdrawal(w)}
+                            >
+                              {simulatingId === w.id ? '...' : 'Dispersar SPEI'}
+                            </button>
+                          )}
                           {w.status === 'processing' && w.simulated && simulateEnabled && (
                             <>
                               <button

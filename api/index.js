@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 import express from 'express'
+import { bbvaConfigured, createSpeiTransfer, getSpeiStatus, bbvaErrorMessage } from './_lib/bbva.js'
 
 const app = express()
 app.use(express.json())
@@ -954,6 +955,27 @@ const applyPayoutResult = async (externalReference, succeeded) => {
   }
 }
 
+// Consulta a BBVA el estado de los retiros en proceso y aplica el resultado
+const syncBbvaWithdrawalStatuses = async (payments) => {
+  if (!bbvaConfigured()) return
+  for (const payment of payments || []) {
+    const seqRef = payment.provider_metadata?.bbva_sequence_reference
+    if (payment.status !== 'processing' || !seqRef) continue
+    try {
+      const { ok, data } = await getSpeiStatus(seqRef, payment.provider_metadata?.bbva_operation_year)
+      if (!ok) continue
+      const statusId = String(data?.status?.id || '')
+      if (statusId === '207') {
+        await applyPayoutResult(payment.external_reference, true)
+      } else if (statusId.startsWith('3')) {
+        await applyPayoutResult(payment.external_reference, false)
+      }
+    } catch (error) {
+      console.error('BBVA status sync error:', error.message)
+    }
+  }
+}
+
 const reconcileSpeiPayments = async (userId) => {
   try {
     const merchantId = process.env.OPENPAY_MERCHANT_ID
@@ -1493,14 +1515,6 @@ app.post('/api/withdrawals', async (req, res) => {
     const balance = parseFloat(userData.balance) || 0
     if (balance < amount) return res.status(400).json({ error: 'Saldo insuficiente' })
 
-    const merchantId = process.env.OPENPAY_MERCHANT_ID
-    const privateKey = process.env.OPENPAY_PRIVATE_KEY
-    const baseUrl = (process.env.OPENPAY_BASE_URL || 'https://sandbox-api.openpay.mx/v1').replace(/\/$/, '')
-
-    if (!merchantId || !privateKey) {
-      return res.status(500).json({ error: 'Openpay no está configurado' })
-    }
-
     const externalReference = `LC-WD-${user.id}-${Date.now()}`
 
     const { data: payment, error: paymentError } = await supabase
@@ -1519,51 +1533,6 @@ app.post('/api/withdrawals', async (req, res) => {
 
     if (paymentError) throw paymentError
 
-    const payoutRes = await fetch(`${baseUrl}/${merchantId}/payouts`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${Buffer.from(`${privateKey}:`).toString('base64')}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        method: 'bank_account',
-        amount: parseFloat(amount),
-        description: 'Retiro de saldo - La Cascarita',
-        order_id: externalReference,
-        bank_account: {
-          clabe: clabe,
-          holder_name: card_holder
-        }
-      })
-    })
-
-    const payout = await payoutRes.json()
-
-    // Simulación local: solo entra si Openpay responde 3006 (servicio de dispersiones no activado)
-    // y SIMULATE_PAYOUTS=true. Con el servicio activo o la bandera apagada, el flujo real no cambia.
-    const simulated = !payoutRes.ok && payout.error_code === 3006 && process.env.SIMULATE_PAYOUTS === 'true'
-    const payoutId = simulated ? `sim-${Date.now()}` : payout.id
-    const payoutStatus = simulated ? 'in_progress' : payout.status
-
-    if (!payoutRes.ok && !simulated) {
-      await supabase.from('payments').update({ status: 'failed' }).eq('id', payment.id)
-      console.error('Openpay payout error:', payout)
-      return res.status(502).json({ error: payout.description || 'Error al crear la dispersión en Openpay' })
-    }
-
-    await supabase
-      .from('payments')
-      .update({
-        status: 'processing',
-        provider_metadata: {
-          clabe, holder_name: card_holder, bank_name,
-          openpay_payout_id: payoutId,
-          payout_status: payoutStatus,
-          ...(simulated && { simulated: true })
-        }
-      })
-      .eq('id', payment.id)
-
     const { data: withdrawal, error: withdrawError } = await supabase
       .from('withdrawals')
       .insert([{
@@ -1574,7 +1543,7 @@ app.post('/api/withdrawals', async (req, res) => {
         account_number,
         clabe,
         card_holder,
-        status: 'processing'
+        status: 'pending'
       }])
       .select()
       .single()
@@ -1594,10 +1563,10 @@ app.post('/api/withdrawals', async (req, res) => {
       balance_before: balance,
       balance_after: newBalance,
       reference_id: payment.id,
-      description: 'Retiro SPEI enviado'
+      description: 'Retiro SPEI solicitado'
     })
 
-    res.json({ message: 'Retiro enviado a tu banco', withdrawal, payout_status: payoutStatus })
+    res.json({ message: 'Retiro solicitado. Lo recibirás en tu banco una vez procesado.', withdrawal, payout_status: 'pending' })
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
@@ -1618,10 +1587,10 @@ app.get('/api/admin/withdrawals', async (req, res) => {
     const admin = getAdminFromToken(req)
     if (!admin) return res.status(403).json({ error: 'Acceso denegado' })
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('withdrawals')
       .select('id, payment_id, amount, clabe, card_holder, status, created_at')
-      .in('status', ['processing', 'paid', 'rejected'])
+      .in('status', ['pending', 'processing', 'paid', 'rejected'])
       .order('created_at', { ascending: false })
       .limit(50)
 
@@ -1629,16 +1598,31 @@ app.get('/api/admin/withdrawals', async (req, res) => {
 
     const paymentIds = (data || []).map(w => w.payment_id).filter(Boolean)
     const { data: payments } = paymentIds.length
-      ? await supabase.from('payments').select('id, provider_metadata').in('id', paymentIds)
+      ? await supabase.from('payments').select('id, external_reference, status, provider_metadata').in('id', paymentIds)
       : { data: [] }
+
+    // Sincronizar con BBVA los retiros dispersados que siguen en proceso
+    await syncBbvaWithdrawalStatuses(payments)
+
+    // Recargar por si el sync actualizó estados
+    if ((payments || []).some(p => p.status === 'processing' && p.provider_metadata?.bbva_sequence_reference)) {
+      const refreshed = await supabase
+        .from('withdrawals')
+        .select('id, payment_id, amount, clabe, card_holder, status, created_at')
+        .in('status', ['pending', 'processing', 'paid', 'rejected'])
+        .order('created_at', { ascending: false })
+        .limit(50)
+      if (!refreshed.error) data = refreshed.data
+    }
 
     const metaByPayment = Object.fromEntries((payments || []).map(p => [p.id, p.provider_metadata]))
     const withdrawals = (data || []).map(w => ({
       ...w,
-      simulated: !!metaByPayment[w.payment_id]?.simulated
+      simulated: !!metaByPayment[w.payment_id]?.simulated,
+      dispersed: !!metaByPayment[w.payment_id]?.bbva_sequence_reference
     }))
 
-    res.json({ withdrawals, simulate_enabled: process.env.SIMULATE_PAYOUTS === 'true' })
+    res.json({ withdrawals, simulate_enabled: process.env.SIMULATE_PAYOUTS === 'true', bbva_enabled: bbvaConfigured() })
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
@@ -1684,6 +1668,98 @@ app.post('/api/admin/simulate-payout', async (req, res) => {
 
     res.json({ message: `Resultado simulado: ${result}` })
   } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// ============================================================
+// ADMIN DISPERSAR RETIRO POR SPEI (BBVA Business Payments)
+// ============================================================
+app.post('/api/admin/process-withdrawal', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const admin = getAdminFromToken(req)
+    if (!admin) return res.status(403).json({ error: 'Acceso denegado' })
+
+    const { withdrawal_id } = req.body
+    if (!withdrawal_id) return res.status(400).json({ error: 'withdrawal_id requerido' })
+
+    const { data: withdrawal } = await supabase
+      .from('withdrawals')
+      .select('*')
+      .eq('id', withdrawal_id)
+      .maybeSingle()
+
+    if (!withdrawal) return res.status(404).json({ error: 'Retiro no encontrado' })
+    if (withdrawal.status !== 'pending') {
+      return res.status(400).json({ error: 'Solo se pueden dispersar retiros pendientes' })
+    }
+
+    const { data: payment } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('id', withdrawal.payment_id)
+      .single()
+
+    if (!payment) return res.status(404).json({ error: 'Pago asociado no encontrado' })
+
+    // Sin BBVA configurado: modo simulación si está habilitado
+    if (!bbvaConfigured()) {
+      if (process.env.SIMULATE_PAYOUTS !== 'true') {
+        return res.status(500).json({ error: 'BBVA no está configurado' })
+      }
+      await supabase.from('payments').update({
+        status: 'processing',
+        provider_metadata: { ...payment.provider_metadata, simulated: true, payout_status: 'in_progress' }
+      }).eq('id', payment.id)
+      await supabase.from('withdrawals').update({ status: 'processing' }).eq('id', withdrawal.id)
+      return res.json({ message: 'Retiro marcado como en proceso (simulado)' })
+    }
+
+    const { ok, status, data } = await createSpeiTransfer({
+      clabe: withdrawal.clabe,
+      beneficiaryName: withdrawal.card_holder,
+      amount: parseFloat(withdrawal.amount)
+    })
+
+    if (!ok) {
+      const detail = bbvaErrorMessage(data) || `Error BBVA HTTP ${status}`
+      console.error('BBVA spei-transfer error:', JSON.stringify(data))
+      return res.status(502).json({ error: `BBVA rechazó la dispersión: ${detail}` })
+    }
+
+    const operationYear = (data.accountingDate || data.operationDate || '').slice(0, 4) || String(new Date().getFullYear())
+
+    await supabase.from('payments').update({
+      status: 'processing',
+      provider_metadata: {
+        ...payment.provider_metadata,
+        bbva_transfer_id: data.id,
+        bbva_sequence_reference: data.sequenceReference,
+        bbva_tracking_id: data.entityId?.trackingId,
+        bbva_application_id: data.entityId?.applicationId,
+        bbva_operation_year: operationYear
+      }
+    }).eq('id', payment.id)
+
+    await supabase
+      .from('withdrawals')
+      .update({ status: 'processing', processed_by: admin.userId })
+      .eq('id', withdrawal.id)
+
+    res.json({
+      message: 'Dispersión SPEI enviada a BBVA',
+      tracking_id: data.entityId?.trackingId,
+      sequence_reference: data.sequenceReference
+    })
+  } catch (error) {
+    console.error('Error processing withdrawal:', error)
     res.status(500).json({ error: error.message })
   }
 })
