@@ -18,11 +18,13 @@ export const bbvaConfigured = () =>
 export const getBbvaToken = async () => {
   if (cachedToken && Date.now() < tokenExpiresAt - 60000) return cachedToken
 
-  const res = await fetch(`${TOKEN_URL}?grant_type=client_credentials`, {
+  const res = await fetch(TOKEN_URL, {
     method: 'POST',
     headers: {
-      'Authorization': `Basic ${Buffer.from(`${APP_ID}:${SECRET}`).toString('base64')}`
-    }
+      'Authorization': `Basic ${Buffer.from(`${APP_ID}:${SECRET}`).toString('base64')}`,
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: 'grant_type=client_credentials&scope=oob'
   })
 
   const data = await res.json().catch(() => ({}))
