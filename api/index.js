@@ -3154,19 +3154,28 @@ app.get('/api/ranking', async (req, res) => {
 
     const { data: parts, error: partsError } = await supabase
       .from('participations')
-      .select('user_id, correct_predictions')
+      .select('user_id, jornada_id, correct_predictions')
     if (partsError) throw partsError
+
+    // Por usuario y jornada solo cuenta la quiniela con mas aciertos
+    const bestPerJornada = new Map()
+    for (const p of (parts || [])) {
+      const key = `${p.user_id}|${p.jornada_id}`
+      const hits = p.correct_predictions || 0
+      if (hits > (bestPerJornada.get(key) || 0)) bestPerJornada.set(key, hits)
+    }
 
     const byUser = new Map()
     for (const u of (users || [])) {
       byUser.set(u.id, { user_id: u.id, username: u.username, points: 0 })
     }
-    for (const p of (parts || [])) {
-      const entry = byUser.get(p.user_id)
+    for (const [key, hits] of bestPerJornada) {
+      const userId = key.split('|')[0]
+      const entry = byUser.get(userId)
       if (entry) {
-        entry.points += (p.correct_predictions || 0)
+        entry.points += hits
       } else {
-        byUser.set(p.user_id, { user_id: p.user_id, username: 'Usuario', points: (p.correct_predictions || 0) })
+        byUser.set(userId, { user_id: userId, username: 'Usuario', points: hits })
       }
     }
 
