@@ -722,7 +722,7 @@ const AdminDashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {participationsData.participations.map((participation) => (
+                    {[...participationsData.participations].sort((a, b) => (b.correct_predictions || 0) - (a.correct_predictions || 0)).map((participation) => (
                       <tr key={participation.id}>
                         <td>
                           <div className="user-cell">
