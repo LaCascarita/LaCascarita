@@ -613,28 +613,40 @@ const AdminDashboard = () => {
 
             {message && <div className={`message ${message.includes('rror') ? 'error' : 'success'}`}>{message}</div>}
 
-            {participationsData?.jornada && (
-              <div className="participations-summary">
-                <p><strong>Participantes:</strong> {participationsData.participations?.length || 0}</p>
-                <p><strong>Total recaudado:</strong> {formatMoney(participationsData.participations?.reduce((sum, p) => sum + (parseFloat(p.payment_amount) || 0), 0))}</p>
-                <p><strong>Bolsa de premios (70%):</strong> {formatMoney(participationsData.participations?.reduce((sum, p) => sum + (parseFloat(p.payment_amount) || 0), 0) * 0.7 + (participationsData.carryover || 0))}</p>
-                {participationsData.carryover > 0 && (
-                  <p><strong>Acumulado de jornada anterior:</strong> {formatMoney(participationsData.carryover)}</p>
-                )}
-                <p><strong>Casa (30%):</strong> {formatMoney(participationsData.participations?.reduce((sum, p) => sum + (parseFloat(p.payment_amount) || 0), 0) * 0.3)}</p>
-                {participationsData.distribution && (
-                  <>
-                    <p><strong>1er lugar:</strong> {formatMoney(participationsData.distribution.first_place_pool)}</p>
-                    {participationsData.jornada.type !== 'dominical' && (
-                      <p><strong>2do lugar:</strong> {participationsData.distribution.second_place_winners > 0
-                        ? formatMoney(participationsData.distribution.second_place_pool)
-                        : `$0 repartido — ${formatMoney(participationsData.distribution.carryover_out)} acumulados`}</p>
-                    )}
-                  </>
-                )}
-                <p><strong>Estado:</strong> {participationsData.jornada.status === 'completed' ? 'Finalizada' : participationsData.jornada.status === 'inactive' ? 'Cerrada' : 'Activa'}</p>
-              </div>
-            )}
+            {participationsData?.jornada && (() => {
+              const collected = participationsData.participations?.reduce((sum, p) => sum + (parseFloat(p.payment_amount) || 0), 0) || 0
+              const uniqueUsers = new Set((participationsData.participations || []).map(p => p.user_id)).size
+              const basePool = collected * 0.7
+              const isDom = participationsData.jornada.type === 'dominical'
+              return (
+                <div className="participations-summary">
+                  <p><strong>Quinielas:</strong> {participationsData.participations?.length || 0}</p>
+                  <p><strong>Participantes:</strong> {uniqueUsers}</p>
+                  <p><strong>Total recaudado:</strong> {formatMoney(collected)}</p>
+                  <p><strong>Bolsa total de premios:</strong> {formatMoney(basePool + (participationsData.carryover || 0))}</p>
+                  <p><strong>Casa (30%):</strong> {formatMoney(collected * 0.3)}</p>
+                  {!participationsData.distribution && (
+                    <>
+                      <p><strong>Premio 1er lugar:</strong> {formatMoney(isDom ? basePool : basePool * 0.8)}</p>
+                      {!isDom && (
+                        <p><strong>Premio 2do lugar:</strong> {formatMoney(basePool * 0.2 + (participationsData.carryover || 0))}{participationsData.carryover > 0 ? ` (incluye ${formatMoney(participationsData.carryover)} acumulado)` : ''}</p>
+                      )}
+                    </>
+                  )}
+                  {participationsData.distribution && (
+                    <>
+                      <p><strong>1er lugar:</strong> {formatMoney(participationsData.distribution.first_place_pool)}</p>
+                      {participationsData.jornada.type !== 'dominical' && (
+                        <p><strong>2do lugar:</strong> {participationsData.distribution.second_place_winners > 0
+                          ? formatMoney(participationsData.distribution.second_place_pool)
+                          : `$0 repartido — ${formatMoney(participationsData.distribution.carryover_out)} acumulados`}</p>
+                      )}
+                    </>
+                  )}
+                  <p><strong>Estado:</strong> {participationsData.jornada.status === 'completed' ? 'Finalizada' : participationsData.jornada.status === 'inactive' ? 'Cerrada' : 'Activa'}</p>
+                </div>
+              )
+            })()}
 
             {participationsData?.jornada && participationsData.jornada.status !== 'completed' && participationsData.jornada.is_latest && (
               <div className="admin-actions" style={{ marginTop: '10px' }}>
