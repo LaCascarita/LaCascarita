@@ -20,11 +20,12 @@ export const getBbvaToken = async () => {
 
   const res = await fetch(TOKEN_URL, {
     method: 'POST',
-    headers: {
-      'Authorization': `Basic ${Buffer.from(`${APP_ID}:${SECRET}`).toString('base64')}`,
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body: 'grant_type=client_credentials&scope=oob'
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: APP_ID,
+      client_secret: SECRET
+    })
   })
 
   const data = await res.json().catch(() => ({}))
