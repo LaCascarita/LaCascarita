@@ -363,13 +363,10 @@ const Dashboard = () => {
                         <span className="ml-2 text-red-400 text-xs font-semibold">🔒 Cerrada</span>
                       )}
                     </p>
-                    <p className="text-slate-300 text-xs mb-1">Bolsa actual</p>
+                    <p className="text-slate-300 text-xs mb-1">Premio 1er lugar</p>
                     <p className="text-xl sm:text-2xl font-bold text-emerald-400">
-                      {formatCurrency(bag.prize_pool)}
+                      {formatCurrency(bag.first_place_prize)}
                     </p>
-                    {bag.carryover > 0 && (
-                      <p className="text-yellow-400 text-xs mt-1">+{formatCurrency(bag.carryover)} acumulado</p>
-                    )}
                     <p className="text-slate-400 text-xs mt-2">
                       {pending
                         ? 'Partidos por definir'
@@ -668,15 +665,9 @@ const Dashboard = () => {
                       </p>
                       <div className="space-y-2 mb-4">
                         <div className="flex justify-between text-xs sm:text-sm">
-                          <span className="text-slate-400">Bolsa:</span>
-                          <span className={`${style.text} font-semibold`}>{formatCurrency(bag.prize_pool)}</span>
+                          <span className="text-slate-400">Premio 1er lugar:</span>
+                          <span className={`${style.text} font-semibold`}>{formatCurrency(bag.first_place_prize)}</span>
                         </div>
-                        {bag.carryover > 0 && (
-                          <div className="flex justify-between text-xs sm:text-sm">
-                            <span className="text-slate-400">Acumulado:</span>
-                            <span className="text-yellow-400 font-semibold">+{formatCurrency(bag.carryover)}</span>
-                          </div>
-                        )}
                         <div className="flex justify-between text-xs sm:text-sm">
                           <span className="text-slate-400">Participantes:</span>
                           <span className="text-white">{bag.participants_count}</span>

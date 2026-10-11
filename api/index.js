@@ -2237,6 +2237,8 @@ app.get('/api/football/bag-prizes', async (req, res) => {
           jornada_status: 'pending',
           total_collected: 0,
           prize_pool: carryover,
+          first_place_prize: 0,
+          second_place_prize: carryover,
           carryover,
           house_amount: 0,
           participations_count: 0,
@@ -2267,6 +2269,8 @@ app.get('/api/football/bag-prizes', async (req, res) => {
       )
 
       const prizePool = totalCollected * 0.7 + carryover
+      const firstPlacePrize = type === 'dominical' ? totalCollected * 0.7 : totalCollected * 0.7 * 0.8
+      const secondPlacePrize = type === 'dominical' ? 0 : totalCollected * 0.7 * 0.2 + carryover
       const participantsCount = new Set((participations || []).map(p => p.user_id)).size
 
       result.push({
@@ -2277,6 +2281,8 @@ app.get('/api/football/bag-prizes', async (req, res) => {
         jornada_status: jornada.status,
         total_collected: totalCollected,
         prize_pool: prizePool,
+        first_place_prize: firstPlacePrize,
+        second_place_prize: secondPlacePrize,
         carryover,
         house_amount: totalCollected * 0.3,
         participations_count: (participations || []).length,
