@@ -11,7 +11,8 @@ const Register = () => {
     email: '',
     password: '',
     confirmPassword: '',
-    acceptTerms: false
+    acceptTerms: false,
+    acceptAdult: false
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -69,6 +70,10 @@ const Register = () => {
     }
     if (formData.password !== formData.confirmPassword) {
       setError('Las contraseñas no coinciden')
+      return false
+    }
+    if (!formData.acceptAdult) {
+      setError('Debes declarar que eres mayor de edad para continuar')
       return false
     }
     if (!formData.acceptTerms) {
@@ -291,6 +296,22 @@ const Register = () => {
               />
             </div>
 
+            {/* Legal Age Declaration */}
+            <div className="flex items-start">
+              <input
+                type="checkbox"
+                name="acceptAdult"
+                checked={formData.acceptAdult}
+                onChange={handleChange}
+                className="mt-1 w-5 h-5"
+                disabled={loading}
+              />
+              <span className="ml-3 text-slate-300 text-sm">
+                Declaro bajo protesta de decir verdad que soy mayor de 18 años
+                y que el RFC proporcionado me pertenece
+              </span>
+            </div>
+
             {/* Terms Acceptance */}
             <div className="flex items-start">
               <input
@@ -316,7 +337,7 @@ const Register = () => {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading || !formData.acceptTerms}
+              disabled={loading || !formData.acceptTerms || !formData.acceptAdult}
               className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-700 disabled:cursor-not-allowed text-white font-semibold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
             >
               {loading ? 'Registrando...' : 'Registrarse'}

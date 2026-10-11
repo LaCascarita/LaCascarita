@@ -91,7 +91,7 @@ export const bbvaRequest = async (method, path, bodyObj) => {
 
 // Transferencia SPEI a CLABE. Devuelve { ok, status, data } donde data incluye
 // sequenceReference, entityId.trackingId y entityId.applicationId
-export const createSpeiTransfer = async ({ clabe, beneficiaryName, amount }) => {
+export const createSpeiTransfer = async ({ clabe, beneficiaryName, amount, beneficiaryRfc }) => {
   const bankCode = `0${clabe.substring(0, 3)}`
   const today = new Date().toISOString().slice(0, 10)
   const numericReference = String(Date.now()).slice(-7)
@@ -109,7 +109,7 @@ export const createSpeiTransfer = async ({ clabe, beneficiaryName, amount }) => 
       }
     },
     digitalTaxCertificateSender: { taxpayer: SENDER_RFC },
-    digitalTaxCertificate: { taxpayer: BENEFICIARY_RFC },
+    digitalTaxCertificate: { taxpayer: beneficiaryRfc || BENEFICIARY_RFC },
     receiver: {
       contract: {
         product: {

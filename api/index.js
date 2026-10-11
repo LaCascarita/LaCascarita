@@ -1566,7 +1566,7 @@ app.post('/api/withdrawals', async (req, res) => {
 
     const { data: userData, error: userError } = await supabase
       .from('users')
-      .select('balance')
+      .select('balance, rfc')
       .eq('id', user.id)
       .single()
 
@@ -1649,7 +1649,8 @@ app.post('/api/withdrawals', async (req, res) => {
         const { ok, status, data } = await createSpeiTransfer({
           clabe,
           beneficiaryName: card_holder,
-          amount: parseFloat(amount)
+          amount: parseFloat(amount),
+          beneficiaryRfc: userData.rfc
         })
 
         if (ok) {
@@ -1834,6 +1835,12 @@ app.post('/api/admin/process-withdrawal', async (req, res) => {
 
     if (!payment) return res.status(404).json({ error: 'Pago asociado no encontrado' })
 
+    const { data: withdrawalUser } = await supabase
+      .from('users')
+      .select('rfc')
+      .eq('id', withdrawal.user_id)
+      .single()
+
     // Sin BBVA configurado: modo simulación si está habilitado
     if (!bbvaConfigured()) {
       if (process.env.SIMULATE_PAYOUTS !== 'true') {
@@ -1850,7 +1857,8 @@ app.post('/api/admin/process-withdrawal', async (req, res) => {
     const { ok, status, data } = await createSpeiTransfer({
       clabe: withdrawal.clabe,
       beneficiaryName: withdrawal.card_holder,
-      amount: parseFloat(withdrawal.amount)
+      amount: parseFloat(withdrawal.amount),
+      beneficiaryRfc: withdrawalUser?.rfc
     })
 
     if (!ok) {
