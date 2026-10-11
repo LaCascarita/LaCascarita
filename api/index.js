@@ -2268,9 +2268,10 @@ app.get('/api/football/bag-prizes', async (req, res) => {
         0
       )
 
-      const prizePool = totalCollected * 0.7 + carryover
-      const firstPlacePrize = type === 'dominical' ? totalCollected * 0.7 : totalCollected * 0.7 * 0.8
-      const secondPlacePrize = type === 'dominical' ? 0 : totalCollected * 0.7 * 0.2 + carryover
+      const basePool = round2(totalCollected * 0.7)
+      const prizePool = basePool + carryover
+      const firstPlacePrize = type === 'dominical' ? basePool : round2(basePool * 0.8)
+      const secondPlacePrize = type === 'dominical' ? 0 : round2(basePool * 0.2 + carryover)
       const participantsCount = new Set((participations || []).map(p => p.user_id)).size
 
       result.push({
