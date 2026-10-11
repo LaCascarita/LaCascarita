@@ -246,8 +246,18 @@ const Dominical = () => {
         <div className="bg-slate-800/60 backdrop-blur-lg border border-slate-700 rounded-xl p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-lg sm:text-xl font-semibold text-white mb-2">💰 Bolsa Actual</h2>
-              <p className="text-2xl sm:text-3xl font-bold text-emerald-400">{formatCurrency(bag?.prize_pool)}</p>
+              <h2 className="text-lg sm:text-xl font-semibold text-white mb-2">🏆 Premios</h2>
+              <p className="text-slate-300 text-sm">Premio 1er lugar</p>
+              <p className="text-2xl sm:text-3xl font-bold text-emerald-400">{formatCurrency(bag?.first_place_prize)}</p>
+              {bag?.type !== 'dominical' && (
+                <>
+                  <p className="text-slate-300 text-sm mt-3">Premio 2do lugar</p>
+                  <p className="text-xl sm:text-2xl font-bold text-emerald-300">{formatCurrency(bag?.second_place_prize)}</p>
+                  {bag?.carryover > 0 && (
+                    <p className="text-yellow-400 text-xs mt-1">incluye +{formatCurrency(bag.carryover)} acumulado</p>
+                  )}
+                </>
+              )}
             </div>
             <div className="text-left sm:text-right">
               <p className="text-slate-300 text-sm">Participantes</p>
