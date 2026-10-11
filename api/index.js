@@ -131,13 +131,19 @@ app.post('/api/register', async (req, res) => {
       return res.status(500).json({ error: 'Variables de entorno de Supabase no configuradas' })
     }
 
-    const { username, phone, email, password } = req.body
-    if (!username || !phone || !email || !password) {
-      return res.status(400).json({ error: 'Todos los campos son requeridos' })
+    const { username, phone, email, password, rfc } = req.body
+    if (!username || !email || !password || !rfc) {
+      return res.status(400).json({ error: 'Usuario, correo, RFC y contraseña son requeridos' })
     }
 
-    if (!/^\d{10}$/.test(phone)) {
+    const normalizedPhone = (phone || '').trim()
+    if (normalizedPhone && !/^\d{10}$/.test(normalizedPhone)) {
       return res.status(400).json({ error: 'El teléfono debe tener 10 dígitos' })
+    }
+
+    const rfcCheck = validateRfc(rfc)
+    if (!rfcCheck.valid) {
+      return res.status(400).json({ error: rfcCheck.error })
     }
 
     const normalizedEmail = email.trim().toLowerCase()
@@ -155,15 +161,28 @@ app.post('/api/register', async (req, res) => {
       return res.status(400).json({ error: 'El nombre de usuario ya está registrado' })
     }
 
-    const { data: existingPhone } = await supabase
+    const { data: existingRfc } = await supabase
       .from('users')
-      .select('phone')
-      .eq('phone', phone)
+      .select('rfc')
+      .eq('rfc', rfcCheck.rfc)
       .eq('role', 'user')
       .limit(1)
 
-    if (existingPhone && existingPhone.length > 0) {
-      return res.status(400).json({ error: 'El teléfono ya está registrado para un usuario' })
+    if (existingRfc && existingRfc.length > 0) {
+      return res.status(400).json({ error: 'El RFC ya está registrado para un usuario' })
+    }
+
+    if (normalizedPhone) {
+      const { data: existingPhone } = await supabase
+        .from('users')
+        .select('phone')
+        .eq('phone', normalizedPhone)
+        .eq('role', 'user')
+        .limit(1)
+
+      if (existingPhone && existingPhone.length > 0) {
+        return res.status(400).json({ error: 'El teléfono ya está registrado para un usuario' })
+      }
     }
 
     const { data: existingEmail } = await supabase
@@ -183,7 +202,7 @@ app.post('/api/register', async (req, res) => {
 
     const { data: newUser, error: insertError } = await supabase
       .from('users')
-      .insert([{ username, phone, email: normalizedEmail, user_id: userId, password_hash: passwordHash, balance: 0.00 }])
+      .insert([{ username, phone: normalizedPhone || null, email: normalizedEmail, rfc: rfcCheck.rfc, user_id: userId, password_hash: passwordHash, balance: 0.00 }])
       .select()
       .single()
 
@@ -884,6 +903,47 @@ const isValidClabe = (clabe) => {
   let sum = 0
   for (let i = 0; i < 17; i++) sum += (Number(clabe[i]) * weights[i % 3]) % 10
   return (10 - (sum % 10)) % 10 === Number(clabe[17])
+}
+
+const RFC_CHAR_VALUES = (() => {
+  // Tabla oficial del SAT: 0-9 = 0-9, A-N = 10-23, & = 24, O-Z = 25-36, espacio = 37, Ñ = 38
+  const map = { '&': 24, ' ': 37, 'Ñ': 38 }
+  for (let i = 0; i <= 9; i++) map[String(i)] = i
+  for (let i = 0; i < 14; i++) map['ABCDEFGHIJKLMN'[i]] = 10 + i
+  for (let i = 0; i < 12; i++) map['OPQRSTUVWXYZ'[i]] = 25 + i
+  return map
+})()
+
+const isValidRfcCheckDigit = (rfc) => {
+  let sum = 0
+  for (let i = 0; i < 12; i++) sum += (RFC_CHAR_VALUES[rfc[i]] ?? 0) * (13 - i)
+  const remainder = sum % 11
+  const expected = remainder === 0 ? '0' : (11 - remainder === 10 ? 'A' : String(11 - remainder))
+  return rfc[12] === expected
+}
+
+const validateRfc = (rfc) => {
+  const normalized = (rfc || '').trim().toUpperCase()
+  if (!/^[A-ZÑ&]{4}\d{6}[A-Z0-9]{3}$/.test(normalized)) {
+    return { valid: false, error: 'El RFC debe tener 13 caracteres: 4 letras, fecha de nacimiento (AAMMDD) y homoclave' }
+  }
+  const yy = Number(normalized.slice(4, 6))
+  const mm = Number(normalized.slice(6, 8))
+  const dd = Number(normalized.slice(8, 10))
+  const currentYy = new Date().getFullYear() % 100
+  const year = yy <= currentYy ? 2000 + yy : 1900 + yy
+  const birth = new Date(year, mm - 1, dd)
+  if (mm < 1 || mm > 12 || dd < 1 || birth.getFullYear() !== year || birth.getMonth() !== mm - 1 || birth.getDate() !== dd) {
+    return { valid: false, error: 'La fecha de nacimiento del RFC no es válida' }
+  }
+  const turns18 = new Date(year + 18, mm - 1, dd)
+  if (turns18 > new Date()) {
+    return { valid: false, error: 'Debes ser mayor de 18 años para registrarte' }
+  }
+  if (!isValidRfcCheckDigit(normalized)) {
+    return { valid: false, error: 'El dígito verificador del RFC no es válido. Revisa que esté bien escrito' }
+  }
+  return { valid: true, rfc: normalized }
 }
 
 const createBalanceTransaction = async ({ user_id, type, amount, balance_before, balance_after, reference_id = null, participation_id = null, description = '' }) => {

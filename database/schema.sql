@@ -14,7 +14,8 @@
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username VARCHAR(50) UNIQUE NOT NULL,
-    phone VARCHAR(10) NOT NULL,
+    phone VARCHAR(10), -- Opcional
+    rfc VARCHAR(13), -- Obligatorio en registro; valida mayoría de edad
     email VARCHAR(255) UNIQUE, -- Opcional para futuras funcionalidades
     auth_id UUID UNIQUE, -- Referencia a Supabase Auth
     user_id VARCHAR(20) UNIQUE NOT NULL, -- Formato LC-XXXXXX
@@ -33,6 +34,8 @@ CREATE TABLE users (
 -- Índices para optimizar búsquedas
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_phone ON users(phone);
+CREATE UNIQUE INDEX idx_users_rfc_unique ON users(rfc) WHERE rfc IS NOT NULL AND role = 'user';
+CREATE INDEX idx_users_rfc ON users(rfc);
 CREATE INDEX idx_users_user_id ON users(user_id);
 
 -- ============================================

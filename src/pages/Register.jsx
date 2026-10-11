@@ -7,6 +7,7 @@ const Register = () => {
   const [formData, setFormData] = useState({
     username: '',
     phone: '',
+    rfc: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -38,12 +39,16 @@ const Register = () => {
       setError('El nombre de usuario solo puede contener letras, números y guiones bajos')
       return false
     }
-    if (!formData.phone.trim()) {
-      setError('El número de teléfono es requerido')
+    if (formData.phone.trim() && !/^\d{10}$/.test(formData.phone.trim())) {
+      setError('El número de teléfono debe tener 10 dígitos')
       return false
     }
-    if (!/^\d{10}$/.test(formData.phone)) {
-      setError('El número de teléfono debe tener 10 dígitos')
+    if (!formData.rfc.trim()) {
+      setError('El RFC es requerido')
+      return false
+    }
+    if (!/^[A-Za-zÑñ&]{4}\d{6}[A-Za-z0-9]{3}$/.test(formData.rfc.trim())) {
+      setError('El RFC debe tener 13 caracteres: 4 letras, fecha (AAMMDD) y homoclave')
       return false
     }
     if (!formData.email.trim()) {
@@ -93,7 +98,8 @@ const Register = () => {
         credentials: 'include',
         body: JSON.stringify({
           username: formData.username,
-          phone: formData.phone,
+          phone: formData.phone.trim(),
+          rfc: formData.rfc.trim().toUpperCase(),
           email: formData.email,
           password: formData.password
         })
@@ -197,10 +203,30 @@ const Register = () => {
               </p>
             </div>
 
+            {/* RFC */}
+            <div>
+              <label className="block text-white font-medium mb-2">
+                RFC *
+              </label>
+              <input
+                type="text"
+                name="rfc"
+                value={formData.rfc}
+                onChange={handleChange}
+                className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all uppercase"
+                placeholder="13 caracteres"
+                maxLength={13}
+                disabled={loading}
+              />
+              <p className="text-slate-400 text-xs mt-2">
+                Tu RFC confirma que eres mayor de edad. Lo encontrarás en tu Constancia de Situación Fiscal o en el SAT.
+              </p>
+            </div>
+
             {/* Phone */}
             <div>
               <label className="block text-white font-medium mb-2">
-                Teléfono *
+                Teléfono <span className="text-slate-400 font-normal">(opcional)</span>
               </label>
               <input
                 type="tel"

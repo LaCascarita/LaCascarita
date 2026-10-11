@@ -18,7 +18,8 @@
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username VARCHAR(50) UNIQUE NOT NULL,
-    phone VARCHAR(10) UNIQUE NOT NULL,
+    phone VARCHAR(10), -- Opcional
+    rfc VARCHAR(13), -- Obligatorio en registro; valida mayoría de edad
     email VARCHAR(255) UNIQUE,
     auth_id UUID UNIQUE,
     user_id VARCHAR(20) UNIQUE NOT NULL,
