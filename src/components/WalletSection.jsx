@@ -222,13 +222,18 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
             {walletLoading ? 'Procesando...' : 'Generar referencia SPEI'}
           </button>
 
-          <div className="flex items-center gap-2 pt-1">
+          <div className="flex items-center gap-3 pt-1">
             <p className="text-slate-500 text-xs">Pagos procesados por</p>
-            <div className="overflow-hidden rounded" style={{ width: 150, height: 56 }}>
+            <img
+              src="/openpay-logo.jpg"
+              alt="Openpay by BBVA"
+              className="h-10 w-auto rounded-md"
+            />
+            <div className="bg-white rounded-md px-2 py-1">
               <img
-                src="/openpay-logo.png"
-                alt="Openpay by BBVA"
-                style={{ width: 375, marginLeft: -128, marginTop: -94, display: 'block' }}
+                src="/spei-logo.png"
+                alt="SPEI"
+                className="h-8 w-auto"
               />
             </div>
           </div>
