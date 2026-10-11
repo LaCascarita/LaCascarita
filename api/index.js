@@ -2664,21 +2664,40 @@ app.get('/api/admin/jornada-participations', async (req, res) => {
     const admin = getAdminFromToken(req)
     if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' })
 
-    const { type } = req.query
-    if (!type) return res.status(400).json({ error: 'Missing type parameter' })
+    const { type, jornada_id } = req.query
+    if (!type && !jornada_id) return res.status(400).json({ error: 'Missing type or jornada_id parameter' })
 
-    const { data: jornada, error: jornadaError } = await supabase
+    let jornada
+    if (jornada_id) {
+      const { data, error: jornadaError } = await supabase
+        .from('admin_jornadas')
+        .select('id, name, type, start_date, end_date, status')
+        .eq('id', jornada_id)
+        .maybeSingle()
+      if (jornadaError) throw jornadaError
+      jornada = data
+    } else {
+      const { data, error: jornadaError } = await supabase
+        .from('admin_jornadas')
+        .select('id, name, type, start_date, end_date, status')
+        .eq('type', type)
+        .in('status', ['active', 'inactive', 'completed'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+      if (jornadaError && jornadaError.code !== 'PGRST116') throw jornadaError
+      jornada = data
+    }
+    if (!jornada) return res.json({ jornada: null, matches: [], participations: [] })
+
+    const { data: latestOfType } = await supabase
       .from('admin_jornadas')
-      .select('id, name, type, start_date, end_date, status')
-      .eq('type', type)
-      .in('status', ['active', 'inactive', 'completed'])
+      .select('id')
+      .eq('type', jornada.type)
       .order('created_at', { ascending: false })
       .limit(1)
-      .single()
-
-    if (jornadaError && jornadaError.code === 'PGRST116') return res.json({ jornada: null, matches: [], participations: [] })
-    if (jornadaError) throw jornadaError
-    if (!jornada) return res.json({ jornada: null, matches: [], participations: [] })
+      .maybeSingle()
+    jornada.is_latest = latestOfType?.id === jornada.id
 
     await syncJornadaResults(jornada.id)
 
@@ -2757,6 +2776,61 @@ app.get('/api/admin/jornada-participations', async (req, res) => {
     })
   } catch (error) {
     console.error('Error fetching jornada participations:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// ============================================================
+// HISTORIAL DE JORNADAS (LISTA CON RESUMEN)
+// ============================================================
+app.get('/api/admin/jornada-history', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const admin = getAdminFromToken(req)
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' })
+
+    const { type } = req.query
+    let query = supabase
+      .from('admin_jornadas')
+      .select('id, name, type, status, start_date, end_date, created_at')
+      .order('created_at', { ascending: false })
+      .limit(100)
+    if (type) query = query.eq('type', type)
+
+    const { data: jornadas, error: jornadasError } = await query
+    if (jornadasError) throw jornadasError
+
+    const ids = (jornadas || []).map(j => j.id)
+    const stats = new Map()
+    if (ids.length > 0) {
+      const { data: parts } = await supabase
+        .from('participations')
+        .select('jornada_id, payment_amount')
+        .in('jornada_id', ids)
+        .eq('participation_status', 'confirmed')
+      for (const p of (parts || [])) {
+        const s = stats.get(p.jornada_id) || { count: 0, collected: 0 }
+        s.count += 1
+        s.collected += parseFloat(p.payment_amount) || 0
+        stats.set(p.jornada_id, s)
+      }
+    }
+
+    res.json({
+      jornadas: (jornadas || []).map(j => ({
+        ...j,
+        participations_count: stats.get(j.id)?.count || 0,
+        total_collected: stats.get(j.id)?.collected || 0
+      }))
+    })
+  } catch (error) {
+    console.error('Error fetching jornada history:', error)
     res.status(500).json({ error: error.message })
   }
 })

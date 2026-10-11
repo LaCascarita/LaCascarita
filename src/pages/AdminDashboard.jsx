@@ -18,6 +18,8 @@ const AdminDashboard = () => {
   const [activeView, setActiveView] = useState('jornada')
   const [participationsType, setParticipationsType] = useState('media_semana')
   const [participationsData, setParticipationsData] = useState(null)
+  const [jornadaHistory, setJornadaHistory] = useState([])
+  const [selectedJornadaId, setSelectedJornadaId] = useState('')
   const [participationsLoading, setParticipationsLoading] = useState(false)
   const [selectedParticipation, setSelectedParticipation] = useState(null)
   const [users, setUsers] = useState([])
@@ -45,6 +47,7 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     if (activeView === 'participaciones') {
+      fetchJornadaHistory()
       fetchParticipations()
     }
     if (activeView === 'retiros') {
@@ -190,13 +193,24 @@ const AdminDashboard = () => {
     }).format(amount || 0)
   }
 
-  const fetchParticipations = async () => {
+  const fetchJornadaHistory = async () => {
+    try {
+      const response = await adminFetch(`/api/admin/jornada-history?type=${participationsType}`)
+      const data = await response.json()
+      setJornadaHistory(data.jornadas || [])
+    } catch (error) {
+      console.error('Error fetching jornada history:', error)
+    }
+  }
+
+  const fetchParticipations = async (jornadaId = selectedJornadaId) => {
     setParticipationsLoading(true)
     setDistributionResult(null)
     try {
-      const response = await adminFetch(
-        `/api/admin/jornada-participations?type=${participationsType}`
-      )
+      const url = jornadaId
+        ? `/api/admin/jornada-participations?jornada_id=${jornadaId}`
+        : `/api/admin/jornada-participations?type=${participationsType}`
+      const response = await adminFetch(url)
       const data = await response.json()
       setParticipationsData(data)
     } catch (error) {
@@ -204,6 +218,11 @@ const AdminDashboard = () => {
     } finally {
       setParticipationsLoading(false)
     }
+  }
+
+  const handleJornadaSelect = (jornadaId) => {
+    setSelectedJornadaId(jornadaId)
+    fetchParticipations(jornadaId)
   }
 
   const handleDistributePrizes = async () => {
@@ -559,7 +578,7 @@ const AdminDashboard = () => {
               <label>Tipo de Jornada</label>
               <select
                 value={participationsType}
-                onChange={(e) => setParticipationsType(e.target.value)}
+                onChange={(e) => { setParticipationsType(e.target.value); setSelectedJornadaId('') }}
                 className="form-select"
               >
                 {jornadaTypes.map(type => (
@@ -568,8 +587,24 @@ const AdminDashboard = () => {
               </select>
             </div>
 
+            <div className="form-group">
+              <label>Jornada</label>
+              <select
+                value={selectedJornadaId}
+                onChange={(e) => handleJornadaSelect(e.target.value)}
+                className="form-select"
+              >
+                <option value="">Actual (más reciente)</option>
+                {jornadaHistory.slice(selectedJornadaId ? 0 : 1).map(j => (
+                  <option key={j.id} value={j.id}>
+                    {j.name} — {j.status === 'completed' ? 'Finalizada' : j.status === 'inactive' ? 'Cerrada' : 'Activa'} ({j.participations_count} part. · {formatMoney(j.total_collected)})
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <button
-              onClick={fetchParticipations}
+              onClick={() => fetchParticipations()}
               className="action-button"
               disabled={participationsLoading}
             >
@@ -601,7 +636,7 @@ const AdminDashboard = () => {
               </div>
             )}
 
-            {participationsData?.jornada && participationsData.jornada.status !== 'completed' && (
+            {participationsData?.jornada && participationsData.jornada.status !== 'completed' && participationsData.jornada.is_latest && (
               <div className="admin-actions" style={{ marginTop: '10px' }}>
                 {participationsData.jornada.status === 'active' ? (
                   <button
