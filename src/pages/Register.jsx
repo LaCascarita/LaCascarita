@@ -278,7 +278,7 @@ const Register = () => {
               />
               <span className="ml-3 text-slate-300 text-sm">
                 Declaro bajo protesta de decir verdad que soy mayor de 18 años
-                y que el RFC proporcionado me pertenece
+                y que los datos proporcionados me pertenecen
               </span>
             </div>
 
