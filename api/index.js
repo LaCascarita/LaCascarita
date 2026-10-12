@@ -2106,6 +2106,60 @@ app.post('/api/admin/process-withdrawal', async (req, res) => {
 })
 
 // ============================================================
+// ADMIN MARCAR RETIRO COMO PAGADO/RECHAZADO MANUALMENTE
+// (para dispersiones hechas a mano desde la banca empresarial)
+// ============================================================
+app.post('/api/admin/manual-payout', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const admin = getAdminFromToken(req)
+    if (!admin) return res.status(403).json({ error: 'Acceso denegado' })
+
+    const { withdrawal_id, result } = req.body
+    if (!withdrawal_id || !['paid', 'rejected'].includes(result)) {
+      return res.status(400).json({ error: "withdrawal_id y result ('paid'|'rejected') requeridos" })
+    }
+
+    const { data: withdrawal } = await supabase
+      .from('withdrawals')
+      .select('*')
+      .eq('id', withdrawal_id)
+      .maybeSingle()
+
+    if (!withdrawal) return res.status(404).json({ error: 'Retiro no encontrado' })
+    if (!['pending', 'processing'].includes(withdrawal.status)) {
+      return res.status(400).json({ error: 'Este retiro ya fue procesado' })
+    }
+
+    const { data: payment } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('id', withdrawal.payment_id)
+      .single()
+
+    if (!payment) return res.status(404).json({ error: 'Pago asociado no encontrado' })
+
+    if (result === 'paid') {
+      await supabase.from('payments').update({
+        provider_metadata: { ...payment.provider_metadata, manual_payout: true }
+      }).eq('id', payment.id)
+    }
+
+    await applyPayoutResult(payment.external_reference, result === 'paid')
+
+    res.json({ message: result === 'paid' ? 'Retiro marcado como pagado' : 'Retiro rechazado y saldo reembolsado' })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// ============================================================
 // ENVIAR QUINIELA
 // ============================================================
 app.post('/api/quinielas', async (req, res) => {

@@ -387,6 +387,27 @@ const AdminDashboard = () => {
     }
   }
 
+  const handleManualPayout = async (withdrawal, result) => {
+    const action = result === 'paid' ? 'marcar como PAGADO (ya hiciste la transferencia en tu banca)' : 'RECHAZAR (se reembolsa el saldo)'
+    if (!window.confirm(`¿${action} el retiro de ${formatMoney(withdrawal.amount)} a ${withdrawal.card_holder}?`)) return
+    setSimulatingId(withdrawal.id)
+    try {
+      const response = await adminFetch('/api/admin/manual-payout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ withdrawal_id: withdrawal.id, result })
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Error al procesar')
+      setMessage(data.message)
+      fetchWithdrawals()
+    } catch (error) {
+      setMessage(error.message)
+    } finally {
+      setSimulatingId(null)
+    }
+  }
+
   const fetchUsers = async () => {
     setUsersLoading(true)
     try {
@@ -1125,13 +1146,32 @@ const AdminDashboard = () => {
                         <td data-label="Fecha">{new Date(w.created_at).toLocaleDateString('es-MX')}</td>
                         <td data-label="Acciones">
                           {w.status === 'pending' && (
-                            <button
-                              className="action-button simulate-btn"
-                              disabled={simulatingId === w.id}
-                              onClick={() => handleProcessWithdrawal(w)}
-                            >
-                              {simulatingId === w.id ? '...' : 'Dispersar SPEI'}
-                            </button>
+                            <>
+                              <button
+                                className="action-button simulate-btn"
+                                disabled={simulatingId === w.id}
+                                onClick={() => handleProcessWithdrawal(w)}
+                              >
+                                {simulatingId === w.id ? '...' : 'Dispersar SPEI'}
+                              </button>
+                              {' '}
+                              <button
+                                className="action-button simulate-btn"
+                                disabled={simulatingId === w.id}
+                                onClick={() => handleManualPayout(w, 'paid')}
+                                title="Usar cuando ya hiciste la transferencia manualmente desde tu banca"
+                              >
+                                {simulatingId === w.id ? '...' : '✓ Pagado manual'}
+                              </button>
+                              {' '}
+                              <button
+                                className="action-button simulate-btn reject"
+                                disabled={simulatingId === w.id}
+                                onClick={() => handleManualPayout(w, 'rejected')}
+                              >
+                                {simulatingId === w.id ? '...' : '✗ Rechazar'}
+                              </button>
+                            </>
                           )}
                           {w.status === 'processing' && w.simulated && simulateEnabled && (
                             <>
