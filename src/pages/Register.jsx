@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { generateUserId } from '../lib/supabase'
 
@@ -18,6 +18,13 @@ const Register = () => {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [generatedId, setGeneratedId] = useState('')
+  const errorRef = useRef(null)
+
+  useEffect(() => {
+    if (error && errorRef.current) {
+      errorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [error])
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
@@ -185,7 +192,7 @@ const Register = () => {
         {/* Register Form */}
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 sm:p-8 border border-white/20">
           {error && (
-            <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-4 mb-6">
+            <div ref={errorRef} className="bg-red-500/20 border border-red-500/30 rounded-lg p-4 mb-6">
               <p className="text-red-300 text-sm">{error}</p>
             </div>
           )}
