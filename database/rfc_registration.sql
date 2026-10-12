@@ -8,6 +8,9 @@
 -- RFC de persona física (13 caracteres)
 ALTER TABLE users ADD COLUMN IF NOT EXISTS rfc VARCHAR(13);
 
+-- Fecha de nacimiento: valida mayoría de edad y sirve para KYC
+ALTER TABLE users ADD COLUMN IF NOT EXISTS birth_date DATE;
+
 -- El teléfono pasa a ser opcional
 ALTER TABLE users ALTER COLUMN phone DROP NOT NULL;
 

@@ -7,6 +7,7 @@ const Register = () => {
   const [formData, setFormData] = useState({
     username: '',
     phone: '',
+    birth_date: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -41,6 +42,16 @@ const Register = () => {
     }
     if (formData.phone.trim() && !/^\d{10}$/.test(formData.phone.trim())) {
       setError('El número de teléfono debe tener 10 dígitos')
+      return false
+    }
+    if (!formData.birth_date) {
+      setError('La fecha de nacimiento es requerida')
+      return false
+    }
+    const birth = new Date(`${formData.birth_date}T00:00:00`)
+    const turns18 = new Date(birth.getFullYear() + 18, birth.getMonth(), birth.getDate())
+    if (turns18 > new Date()) {
+      setError('Debes ser mayor de 18 años para registrarte')
       return false
     }
     if (!formData.email.trim()) {
@@ -95,6 +106,7 @@ const Register = () => {
         body: JSON.stringify({
           username: formData.username,
           phone: formData.phone.trim(),
+          birth_date: formData.birth_date,
           email: formData.email,
           password: formData.password
         })
@@ -213,6 +225,26 @@ const Register = () => {
                 maxLength={10}
                 disabled={loading}
               />
+            </div>
+
+            {/* Birth Date */}
+            <div>
+              <label className="block text-white font-medium mb-2">
+                Fecha de nacimiento *
+              </label>
+              <input
+                type="date"
+                name="birth_date"
+                value={formData.birth_date}
+                onChange={handleChange}
+                max={new Date().toISOString().split('T')[0]}
+                className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all [color-scheme:dark]"
+                disabled={loading}
+                required
+              />
+              <p className="text-slate-400 text-xs mt-2">
+                Debes ser mayor de 18 años para participar.
+              </p>
             </div>
 
             {/* Email */}

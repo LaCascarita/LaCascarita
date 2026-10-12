@@ -131,9 +131,18 @@ app.post('/api/register', async (req, res) => {
       return res.status(500).json({ error: 'Variables de entorno de Supabase no configuradas' })
     }
 
-    const { username, phone, email, password } = req.body
-    if (!username || !email || !password) {
-      return res.status(400).json({ error: 'Usuario, correo y contraseña son requeridos' })
+    const { username, phone, email, password, birth_date } = req.body
+    if (!username || !email || !password || !birth_date) {
+      return res.status(400).json({ error: 'Usuario, correo, fecha de nacimiento y contraseña son requeridos' })
+    }
+
+    const birth = new Date(`${birth_date}T00:00:00`)
+    const turns18 = new Date(birth.getFullYear() + 18, birth.getMonth(), birth.getDate())
+    if (isNaN(birth.getTime()) || birth > new Date()) {
+      return res.status(400).json({ error: 'La fecha de nacimiento no es válida' })
+    }
+    if (turns18 > new Date()) {
+      return res.status(400).json({ error: 'Debes ser mayor de 18 años para registrarte' })
     }
 
     const normalizedPhone = (phone || '').trim()
@@ -186,7 +195,7 @@ app.post('/api/register', async (req, res) => {
 
     const { data: newUser, error: insertError } = await supabase
       .from('users')
-      .insert([{ username, phone: normalizedPhone || null, email: normalizedEmail, user_id: userId, password_hash: passwordHash, balance: 0.00 }])
+      .insert([{ username, phone: normalizedPhone || null, email: normalizedEmail, birth_date, user_id: userId, password_hash: passwordHash, balance: 0.00 }])
       .select()
       .single()
 
