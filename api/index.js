@@ -1595,22 +1595,25 @@ app.get('/api/admin/pending-deposits', async (req, res) => {
 
     const { data: deposits, error } = await supabase
       .from('payments')
-      .select('id, user_id, amount, status, created_at, external_reference, provider_metadata, users ( username )')
+      .select('id, user_id, amount, status, created_at, paid_at, external_reference, provider_metadata, users ( username )')
       .eq('provider', 'spei_manual')
       .eq('direction', 'deposit')
-      .eq('status', 'pending')
       .order('created_at', { ascending: false })
-      .limit(100)
+      .limit(200)
 
     if (error) throw error
 
-    const sorted = (deposits || []).sort((a, b) => {
-      const an = a.provider_metadata?.user_notified ? 0 : 1
-      const bn = b.provider_metadata?.user_notified ? 0 : 1
-      return an - bn
-    })
+    const pending = (deposits || [])
+      .filter(d => d.status === 'pending')
+      .sort((a, b) => {
+        const an = a.provider_metadata?.user_notified ? 0 : 1
+        const bn = b.provider_metadata?.user_notified ? 0 : 1
+        return an - bn
+      })
 
-    res.json({ deposits: sorted })
+    const history = (deposits || []).filter(d => d.status !== 'pending')
+
+    res.json({ deposits: pending, history })
   } catch (error) {
     res.status(500).json({ error: error.message })
   }

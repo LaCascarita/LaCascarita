@@ -29,6 +29,7 @@ const AdminDashboard = () => {
   const [withdrawals, setWithdrawals] = useState([])
   const [withdrawalsLoading, setWithdrawalsLoading] = useState(false)
   const [deposits, setDeposits] = useState([])
+  const [depositHistory, setDepositHistory] = useState([])
   const [depositsLoading, setDepositsLoading] = useState(false)
   const [depositActionId, setDepositActionId] = useState(null)
   const [simulatingId, setSimulatingId] = useState(null)
@@ -299,6 +300,7 @@ const AdminDashboard = () => {
       const response = await adminFetch('/api/admin/pending-deposits')
       const data = await response.json()
       setDeposits(data.deposits || [])
+      setDepositHistory(data.history || [])
     } catch (error) {
       console.error('Error fetching deposits:', error)
     } finally {
@@ -1037,6 +1039,45 @@ const AdminDashboard = () => {
                             {depositActionId === d.id ? '...' : '✗ Rechazar'}
                           </button>
                         </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <h2 style={{ marginTop: '2rem' }}>Historial de recargas</h2>
+
+            {depositHistory.length === 0 && !depositsLoading && (
+              <p className="no-results">Aún no hay recargas procesadas.</p>
+            )}
+
+            {depositHistory.length > 0 && (
+              <div className="participations-table-wrapper">
+                <table className="participations-table withdrawals-table">
+                  <thead>
+                    <tr>
+                      <th>Usuario</th>
+                      <th>Referencia</th>
+                      <th>Monto</th>
+                      <th>Estado</th>
+                      <th>Solicitada</th>
+                      <th>Confirmada</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {depositHistory.map((d) => (
+                      <tr key={d.id}>
+                        <td data-label="Usuario">{d.users?.username || '-'}</td>
+                        <td data-label="Referencia"><code>{d.provider_metadata?.spei_reference || '-'}</code></td>
+                        <td data-label="Monto">${Number(d.amount).toFixed(2)}</td>
+                        <td data-label="Estado">
+                          <span className={`status-badge ${d.status === 'paid' ? 'status-paid' : 'status-failed'}`}>
+                            {d.status === 'paid' ? 'confirmada' : 'rechazada'}
+                          </span>
+                        </td>
+                        <td data-label="Solicitada">{new Date(d.created_at).toLocaleString('es-MX')}</td>
+                        <td data-label="Confirmada">{d.paid_at ? new Date(d.paid_at).toLocaleString('es-MX') : '-'}</td>
                       </tr>
                     ))}
                   </tbody>
