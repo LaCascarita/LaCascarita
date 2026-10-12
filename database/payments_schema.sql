@@ -10,7 +10,7 @@
 CREATE TABLE IF NOT EXISTS payments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id),
-    provider VARCHAR(20) NOT NULL CHECK (provider IN ('mercadopago', 'spei')),
+    provider VARCHAR(20) NOT NULL CHECK (provider IN ('mercadopago', 'spei', 'spei_manual')),
     direction VARCHAR(10) NOT NULL CHECK (direction IN ('deposit', 'withdrawal')),
     amount DECIMAL(10,2) NOT NULL CHECK (amount > 0),
     currency VARCHAR(10) DEFAULT 'MXN',
