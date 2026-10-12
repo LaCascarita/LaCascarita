@@ -219,13 +219,13 @@ const Dashboard = () => {
     }
   }
 
-  const handleWithdraw = async ({ amount, bank_name, account_number, clabe, card_holder }) => {
+  const handleWithdraw = async ({ amount, bank_name, account_number, clabe, card_holder, rfc }) => {
     try {
       setWalletLoading(true)
       const response = await apiFetch('/api/withdrawals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, bank_name, account_number, clabe, card_holder })
+        body: JSON.stringify({ amount, bank_name, account_number, clabe, card_holder, rfc })
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Error al solicitar retiro')

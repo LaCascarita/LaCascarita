@@ -131,19 +131,14 @@ app.post('/api/register', async (req, res) => {
       return res.status(500).json({ error: 'Variables de entorno de Supabase no configuradas' })
     }
 
-    const { username, phone, email, password, rfc } = req.body
-    if (!username || !email || !password || !rfc) {
-      return res.status(400).json({ error: 'Usuario, correo, RFC y contraseña son requeridos' })
+    const { username, phone, email, password } = req.body
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: 'Usuario, correo y contraseña son requeridos' })
     }
 
     const normalizedPhone = (phone || '').trim()
     if (normalizedPhone && !/^\d{10}$/.test(normalizedPhone)) {
       return res.status(400).json({ error: 'El teléfono debe tener 10 dígitos' })
-    }
-
-    const rfcCheck = validateRfc(rfc)
-    if (!rfcCheck.valid) {
-      return res.status(400).json({ error: rfcCheck.error })
     }
 
     const normalizedEmail = email.trim().toLowerCase()
@@ -159,17 +154,6 @@ app.post('/api/register', async (req, res) => {
 
     if (existingUsername && existingUsername.length > 0) {
       return res.status(400).json({ error: 'El nombre de usuario ya está registrado' })
-    }
-
-    const { data: existingRfc } = await supabase
-      .from('users')
-      .select('rfc')
-      .eq('rfc', rfcCheck.rfc)
-      .eq('role', 'user')
-      .limit(1)
-
-    if (existingRfc && existingRfc.length > 0) {
-      return res.status(400).json({ error: 'El RFC ya está registrado para un usuario' })
     }
 
     if (normalizedPhone) {
@@ -202,7 +186,7 @@ app.post('/api/register', async (req, res) => {
 
     const { data: newUser, error: insertError } = await supabase
       .from('users')
-      .insert([{ username, phone: normalizedPhone || null, email: normalizedEmail, rfc: rfcCheck.rfc, user_id: userId, password_hash: passwordHash, balance: 0.00 }])
+      .insert([{ username, phone: normalizedPhone || null, email: normalizedEmail, user_id: userId, password_hash: passwordHash, balance: 0.00 }])
       .select()
       .single()
 
@@ -1558,15 +1542,18 @@ app.post('/api/withdrawals', async (req, res) => {
     const user = getUserFromToken(req)
     if (!user) return res.status(401).json({ error: 'No autorizado' })
 
-    const { amount, bank_name, account_number, clabe, card_holder } = req.body
+    const { amount, bank_name, account_number, clabe, card_holder, rfc } = req.body
     if (!amount || amount <= 0) return res.status(400).json({ error: 'Monto inválido' })
     if (amount < 200) return res.status(400).json({ error: 'El retiro mínimo es de $200 MXN' })
     if (!card_holder) return res.status(400).json({ error: 'Falta el titular de la cuenta' })
     if (!isValidClabe(clabe)) return res.status(400).json({ error: 'CLABE inválida, verifica los 18 dígitos' })
 
+    const rfcCheck = validateRfc(rfc)
+    if (!rfcCheck.valid) return res.status(400).json({ error: rfcCheck.error })
+
     const { data: userData, error: userError } = await supabase
       .from('users')
-      .select('balance, rfc')
+      .select('balance')
       .eq('id', user.id)
       .single()
 
@@ -1602,7 +1589,7 @@ app.post('/api/withdrawals', async (req, res) => {
         amount: amount,
         status: 'pending',
         external_reference: externalReference,
-        provider_metadata: { clabe, holder_name: card_holder, bank_name }
+        provider_metadata: { clabe, holder_name: card_holder, bank_name, beneficiary_rfc: rfcCheck.rfc }
       }])
       .select()
       .single()
@@ -1650,7 +1637,7 @@ app.post('/api/withdrawals', async (req, res) => {
           clabe,
           beneficiaryName: card_holder,
           amount: parseFloat(amount),
-          beneficiaryRfc: userData.rfc
+          beneficiaryRfc: rfcCheck.rfc
         })
 
         if (ok) {
@@ -1835,12 +1822,6 @@ app.post('/api/admin/process-withdrawal', async (req, res) => {
 
     if (!payment) return res.status(404).json({ error: 'Pago asociado no encontrado' })
 
-    const { data: withdrawalUser } = await supabase
-      .from('users')
-      .select('rfc')
-      .eq('id', withdrawal.user_id)
-      .single()
-
     // Sin BBVA configurado: modo simulación si está habilitado
     if (!bbvaConfigured()) {
       if (process.env.SIMULATE_PAYOUTS !== 'true') {
@@ -1858,7 +1839,7 @@ app.post('/api/admin/process-withdrawal', async (req, res) => {
       clabe: withdrawal.clabe,
       beneficiaryName: withdrawal.card_holder,
       amount: parseFloat(withdrawal.amount),
-      beneficiaryRfc: withdrawalUser?.rfc
+      beneficiaryRfc: payment.provider_metadata?.beneficiary_rfc
     })
 
     if (!ok) {

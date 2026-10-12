@@ -40,11 +40,13 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
   const [withdrawForm, setWithdrawForm] = useState({
     clabe: '',
     clabe_confirm: '',
-    card_holder: ''
+    card_holder: '',
+    rfc: ''
   })
   const detectedBank = CLABE_BANKS[withdrawForm.clabe.slice(0, 3)] || null
   const clabeInvalid = withdrawForm.clabe.length === 18 && !isValidClabe(withdrawForm.clabe)
   const clabeMismatch = withdrawForm.clabe_confirm.length > 0 && withdrawForm.clabe !== withdrawForm.clabe_confirm
+  const rfcInvalid = withdrawForm.rfc.length === 13 && !/^[A-ZÑ&]{4}\d{6}[A-Z0-9]{3}$/.test(withdrawForm.rfc.toUpperCase())
   const [selectedParticipation, setSelectedParticipation] = useState(null)
   const [detailData, setDetailData] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
@@ -59,6 +61,7 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
     e.preventDefault()
     if (!withdrawAmount || parseFloat(withdrawAmount) < 200) return
     if (withdrawForm.clabe !== withdrawForm.clabe_confirm || !isValidClabe(withdrawForm.clabe)) return
+    if (!/^[A-ZÑ&]{4}\d{6}[A-Z0-9]{3}$/.test(withdrawForm.rfc.trim().toUpperCase())) return
     const { clabe_confirm, ...form } = withdrawForm
     onWithdraw({ amount: parseFloat(withdrawAmount), ...form, bank_name: detectedBank || '' })
   }
@@ -271,6 +274,26 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
           </div>
 
           <div>
+            <label className="block text-slate-300 text-sm mb-2">RFC del titular</label>
+            <input
+              type="text"
+              minLength="13"
+              maxLength="13"
+              value={withdrawForm.rfc}
+              onChange={(e) => setWithdrawForm({ ...withdrawForm, rfc: e.target.value.toUpperCase().replace(/[^A-ZÑ&0-9]/g, '') })}
+              className={`w-full bg-white/5 border rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:outline-none uppercase ${
+                rfcInvalid ? 'border-red-500 focus:border-red-500' : 'border-white/20 focus:border-emerald-500'
+              }`}
+              placeholder="XXXX000000XXX"
+              required
+            />
+            {rfcInvalid && (
+              <p className="text-red-400 text-xs mt-1">RFC inválido — 4 letras, fecha (AAMMDD) y homoclave.</p>
+            )}
+            <p className="text-slate-500 text-xs mt-1">El RFC del titular de la cuenta destino (persona física, 13 caracteres).</p>
+          </div>
+
+          <div>
             <label className="block text-slate-300 text-sm mb-2">CLABE (18 dígitos)</label>
             <input
               type="text"
@@ -320,7 +343,7 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
 
           <button
             type="submit"
-            disabled={walletLoading || parseFloat(withdrawAmount) > balance || clabeMismatch || clabeInvalid}
+            disabled={walletLoading || parseFloat(withdrawAmount) > balance || clabeMismatch || clabeInvalid || rfcInvalid}
             className="w-full bg-red-500 hover:bg-red-600 disabled:bg-slate-600 text-white font-semibold py-2 rounded-lg transition-all"
           >
             {walletLoading ? 'Procesando...' : 'Solicitar retiro'}
