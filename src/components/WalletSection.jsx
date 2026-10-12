@@ -202,18 +202,13 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
             <p className="text-slate-500 text-xs mt-1">Mínimo $100.</p>
           </div>
 
-          <div className="bg-yellow-500/10 border border-yellow-500/40 rounded-lg px-4 py-3">
-            <p className="text-yellow-400 text-xs font-semibold">
-              ⚠️ Asegúrate de transferir la misma cantidad que escribas en "Monto a recargar"
-            </p>
-          </div>
-
           <div className="bg-slate-800/50 rounded-lg p-4 border border-white/10">
             <p className="text-slate-300 text-sm mb-2">Instrucciones SPEI:</p>
             <ul className="text-slate-400 text-xs space-y-1 list-disc list-inside">
               <li>Realiza tu transferencia desde tu banca en línea.</li>
-              <li>Usa la CLABE única que se generará al solicitar.</li>
-              <li>Tu recarga se acreditará automáticamente al recibir el pago.</li>
+              <li>Transfiere el monto exacto (con centavos) y la referencia que se generarán al solicitar.</li>
+              <li>Toca "Ya transferí" cuando hagas el pago.</li>
+              <li>Tu recarga se acreditará al confirmar la recepción en el banco.</li>
             </ul>
           </div>
 
@@ -226,12 +221,7 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
           </button>
 
           <div className="flex items-center gap-3 pt-1">
-            <p className="text-slate-500 text-xs">Pagos procesados por</p>
-            <img
-              src="/openpay-logo.jpg"
-              alt="Openpay by BBVA"
-              className="h-10 w-auto rounded-md"
-            />
+            <p className="text-slate-500 text-xs">Aceptamos</p>
             <div className="bg-white rounded-md px-2 py-1">
               <img
                 src="/spei-logo.png"

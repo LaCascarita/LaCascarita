@@ -28,6 +28,9 @@ const AdminDashboard = () => {
   const [distributionResult, setDistributionResult] = useState(null)
   const [withdrawals, setWithdrawals] = useState([])
   const [withdrawalsLoading, setWithdrawalsLoading] = useState(false)
+  const [deposits, setDeposits] = useState([])
+  const [depositsLoading, setDepositsLoading] = useState(false)
+  const [depositActionId, setDepositActionId] = useState(null)
   const [simulatingId, setSimulatingId] = useState(null)
   const [simulateEnabled, setSimulateEnabled] = useState(false)
   const [reconciliation, setReconciliation] = useState(null)
@@ -52,6 +55,9 @@ const AdminDashboard = () => {
     }
     if (activeView === 'retiros') {
       fetchWithdrawals()
+    }
+    if (activeView === 'depositos') {
+      fetchDeposits()
     }
     if (activeView === 'saldos') {
       fetchReconciliation()
@@ -287,6 +293,59 @@ const AdminDashboard = () => {
     }
   }
 
+  const fetchDeposits = async () => {
+    setDepositsLoading(true)
+    try {
+      const response = await adminFetch('/api/admin/pending-deposits')
+      const data = await response.json()
+      setDeposits(data.deposits || [])
+    } catch (error) {
+      console.error('Error fetching deposits:', error)
+    } finally {
+      setDepositsLoading(false)
+    }
+  }
+
+  const handleConfirmDeposit = async (deposit) => {
+    if (!window.confirm(`¿Confirmar recarga de $${Number(deposit.amount).toFixed(2)} de ${deposit.users?.username}? Asegúrate de que el abono ya está en el banco.`)) return
+    setDepositActionId(deposit.id)
+    try {
+      const response = await adminFetch('/api/admin/confirm-spei', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payment_id: deposit.id })
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Error al confirmar')
+      setMessage(data.message)
+      fetchDeposits()
+    } catch (error) {
+      setMessage(error.message)
+    } finally {
+      setDepositActionId(null)
+    }
+  }
+
+  const handleRejectDeposit = async (deposit) => {
+    if (!window.confirm(`¿Rechazar la recarga de $${Number(deposit.amount).toFixed(2)} de ${deposit.users?.username}?`)) return
+    setDepositActionId(deposit.id)
+    try {
+      const response = await adminFetch('/api/admin/reject-deposit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payment_id: deposit.id })
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Error al rechazar')
+      setMessage(data.message)
+      fetchDeposits()
+    } catch (error) {
+      setMessage(error.message)
+    } finally {
+      setDepositActionId(null)
+    }
+  }
+
   const handleSimulatePayout = async (withdrawal, result) => {
     setSimulatingId(withdrawal.id)
     try {
@@ -385,6 +444,12 @@ const AdminDashboard = () => {
             className={`admin-tab ${activeView === 'saldos' ? 'active' : ''}`}
           >
             Saldos de Usuarios
+          </button>
+          <button
+            onClick={() => setActiveView('depositos')}
+            className={`admin-tab ${activeView === 'depositos' ? 'active' : ''}`}
+          >
+            Recargas
           </button>
           <button
             onClick={() => setActiveView('retiros')}
@@ -911,6 +976,72 @@ const AdminDashboard = () => {
 
             {!usersLoading && users.length === 0 && (
               <p className="no-results">No hay usuarios con saldo registrado.</p>
+            )}
+          </div>
+        )}
+
+        {activeView === 'depositos' && (
+          <div className="admin-section">
+            <h2>Recargas SPEI pendientes</h2>
+            <p className="section-hint">
+              Verifica en tu banca que el abono llegó (monto y referencia) antes de confirmar. Los que dicen "avisó" ya presionaron "Ya transferí".
+            </p>
+
+            {depositsLoading && <p className="no-results">Cargando recargas...</p>}
+
+            {!depositsLoading && deposits.length === 0 && (
+              <p className="no-results">No hay recargas pendientes.</p>
+            )}
+
+            {deposits.length > 0 && (
+              <div className="participations-table-wrapper">
+                <table className="participations-table withdrawals-table">
+                  <thead>
+                    <tr>
+                      <th>Usuario</th>
+                      <th>Referencia</th>
+                      <th>Monto exacto</th>
+                      <th>Avisó</th>
+                      <th>Fecha</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {deposits.map((d) => (
+                      <tr key={d.id}>
+                        <td data-label="Usuario">{d.users?.username || '-'}</td>
+                        <td data-label="Referencia"><code>{d.provider_metadata?.spei_reference || '-'}</code></td>
+                        <td data-label="Monto exacto">
+                          ${Number(d.amount).toFixed(2)}
+                        </td>
+                        <td data-label="Avisó">
+                          {d.provider_metadata?.user_notified
+                            ? <span className="status-badge status-paid">avisó</span>
+                            : <span className="status-badge">sin aviso</span>}
+                        </td>
+                        <td data-label="Fecha">{new Date(d.created_at).toLocaleString('es-MX')}</td>
+                        <td data-label="Acciones">
+                          <button
+                            className="action-button simulate-btn"
+                            disabled={depositActionId === d.id}
+                            onClick={() => handleConfirmDeposit(d)}
+                          >
+                            {depositActionId === d.id ? '...' : '✓ Confirmar'}
+                          </button>
+                          {' '}
+                          <button
+                            className="action-button simulate-btn reject"
+                            disabled={depositActionId === d.id}
+                            onClick={() => handleRejectDeposit(d)}
+                          >
+                            {depositActionId === d.id ? '...' : '✗ Rechazar'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         )}

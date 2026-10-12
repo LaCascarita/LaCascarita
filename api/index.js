@@ -1277,6 +1277,147 @@ app.post('/api/payments/spei-request', async (req, res) => {
 })
 
 // ============================================================
+// SPEI MANUAL - DEPOSITO A CUENTA EMPRESARIAL
+// ============================================================
+const generateUniqueDepositAmount = async (baseAmount) => {
+  for (let i = 0; i < 15; i++) {
+    const cents = Math.floor(Math.random() * 99) + 1
+    const amount = Math.round((baseAmount + cents / 100) * 100) / 100
+    const { data } = await supabase
+      .from('payments')
+      .select('id')
+      .eq('provider', 'spei_manual')
+      .eq('status', 'pending')
+      .eq('amount', amount)
+      .limit(1)
+    if (!data || data.length === 0) return amount
+  }
+  return null
+}
+
+const generateUniqueSpeiReference = async () => {
+  for (let i = 0; i < 15; i++) {
+    const ref = String(Math.floor(1000000 + Math.random() * 9000000))
+    const { data } = await supabase
+      .from('payments')
+      .select('id')
+      .eq('provider', 'spei_manual')
+      .eq('status', 'pending')
+      .eq('provider_metadata->>spei_reference', ref)
+      .limit(1)
+    if (!data || data.length === 0) return ref
+  }
+  return null
+}
+
+app.post('/api/payments/spei-manual', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const user = getUserFromToken(req)
+    if (!user) return res.status(401).json({ error: 'No autorizado' })
+
+    const { amount } = req.body
+    if (!amount || amount <= 0) return res.status(400).json({ error: 'Monto inválido' })
+    if (amount < 100) return res.status(400).json({ error: 'La recarga mínima es de $100 MXN' })
+
+    const clabe = process.env.DEPOSIT_CLABE
+    if (!clabe) return res.status(500).json({ error: 'Cuenta de depósito no configurada' })
+
+    const depositAmount = await generateUniqueDepositAmount(Math.floor(amount))
+    const speiReference = await generateUniqueSpeiReference()
+    if (!depositAmount || !speiReference) {
+      return res.status(500).json({ error: 'No se pudo generar la referencia, intenta de nuevo' })
+    }
+
+    const externalReference = `LC-MAN-${user.id}-${Date.now()}`
+    const { data: payment, error: paymentError } = await supabase
+      .from('payments')
+      .insert([{
+        user_id: user.id,
+        provider: 'spei_manual',
+        direction: 'deposit',
+        amount: depositAmount,
+        status: 'pending',
+        external_reference: externalReference,
+        provider_metadata: {
+          requested_amount: parseFloat(amount),
+          spei_reference: speiReference,
+          user_notified: false
+        }
+      }])
+      .select()
+      .single()
+
+    if (paymentError) throw paymentError
+
+    res.json({
+      payment_id: payment.id,
+      external_reference: externalReference,
+      reference: speiReference,
+      amount: depositAmount,
+      bank_name: process.env.DEPOSIT_BANK_NAME || 'BBVA',
+      clabe,
+      beneficiary: process.env.DEPOSIT_BENEFICIARY || 'La Cascarita',
+      manual: true,
+      message: 'Realiza la transferencia con la referencia y el monto exacto indicados. Tu saldo se acreditará cuando confirmemos la recepción.'
+    })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+app.post('/api/payments/spei-notify', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const user = getUserFromToken(req)
+    if (!user) return res.status(401).json({ error: 'No autorizado' })
+
+    const { payment_id } = req.body
+    if (!payment_id) return res.status(400).json({ error: 'payment_id requerido' })
+
+    const { data: payment, error: findError } = await supabase
+      .from('payments')
+      .select('id, status, provider_metadata')
+      .eq('id', payment_id)
+      .eq('user_id', user.id)
+      .eq('provider', 'spei_manual')
+      .single()
+
+    if (findError || !payment) return res.status(404).json({ error: 'Depósito no encontrado' })
+    if (payment.status !== 'pending') return res.status(400).json({ error: 'Este depósito ya no está pendiente' })
+
+    const { error: updateError } = await supabase
+      .from('payments')
+      .update({
+        provider_metadata: {
+          ...payment.provider_metadata,
+          user_notified: true,
+          notified_at: new Date().toISOString()
+        }
+      })
+      .eq('id', payment_id)
+
+    if (updateError) throw updateError
+
+    res.json({ message: 'Aviso registrado. Confirmaremos tu pago en breve.' })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// ============================================================
 // WEBHOOK MERCADO PAGO
 // ============================================================
 app.post('/api/webhooks/mercadopago', async (req, res) => {
@@ -1440,6 +1581,80 @@ app.post('/api/webhooks/openpay', async (req, res) => {
 // ============================================================
 // ADMIN CONFIRMAR SPEI
 // ============================================================
+app.get('/api/admin/pending-deposits', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const admin = getAdminFromToken(req)
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' })
+
+    const { data: deposits, error } = await supabase
+      .from('payments')
+      .select('id, user_id, amount, status, created_at, external_reference, provider_metadata, users ( username )')
+      .eq('provider', 'spei_manual')
+      .eq('direction', 'deposit')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(100)
+
+    if (error) throw error
+
+    const sorted = (deposits || []).sort((a, b) => {
+      const an = a.provider_metadata?.user_notified ? 0 : 1
+      const bn = b.provider_metadata?.user_notified ? 0 : 1
+      return an - bn
+    })
+
+    res.json({ deposits: sorted })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+app.post('/api/admin/reject-deposit', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const admin = getAdminFromToken(req)
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' })
+
+    const { payment_id } = req.body
+    if (!payment_id) return res.status(400).json({ error: 'payment_id requerido' })
+
+    const { data: payment, error: findError } = await supabase
+      .from('payments')
+      .select('id, status')
+      .eq('id', payment_id)
+      .eq('provider', 'spei_manual')
+      .eq('direction', 'deposit')
+      .single()
+
+    if (findError || !payment) return res.status(404).json({ error: 'Depósito no encontrado' })
+    if (payment.status !== 'pending') return res.status(400).json({ error: 'Este depósito ya no está pendiente' })
+
+    const { error: updateError } = await supabase
+      .from('payments')
+      .update({ status: 'failed' })
+      .eq('id', payment_id)
+
+    if (updateError) throw updateError
+
+    res.json({ message: 'Depósito rechazado' })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
 app.post('/api/admin/confirm-spei', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
@@ -1459,7 +1674,7 @@ app.post('/api/admin/confirm-spei', async (req, res) => {
       .from('payments')
       .select('*')
       .eq('id', payment_id)
-      .eq('provider', 'spei')
+      .in('provider', ['spei', 'spei_manual'])
       .eq('direction', 'deposit')
       .single()
 

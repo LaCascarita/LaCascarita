@@ -25,6 +25,7 @@ const Dashboard = () => {
   const speiPollRef = useRef(null)
   const [speiInfo, setSpeiInfo] = useState(null)
   const [speiCredited, setSpeiCredited] = useState(false)
+  const [speiNotified, setSpeiNotified] = useState(false)
   const [copiedField, setCopiedField] = useState(null)
 
   const copyToClipboard = async (text, field) => {
@@ -175,7 +176,7 @@ const Dashboard = () => {
   const handleDeposit = async ({ amount, method }) => {
     try {
       setWalletLoading(true)
-      const endpoint = method === 'mercadopago' ? '/api/payments/deposit' : '/api/payments/spei-request'
+      const endpoint = method === 'mercadopago' ? '/api/payments/deposit' : '/api/payments/spei-manual'
       const response = await apiFetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -188,9 +189,10 @@ const Dashboard = () => {
         window.location.href = data.init_point
       } else {
         setSpeiCredited(false)
+        setSpeiNotified(false)
         setSpeiInfo(data)
 
-        // Polling: esperar la acreditacion sin refrescar la pagina (max 3 min)
+        // Polling: esperar la acreditacion sin refrescar la pagina (max 10 min)
         const balanceBefore = balance
         const startedAt = Date.now()
         clearInterval(speiPollRef.current)
@@ -200,7 +202,7 @@ const Dashboard = () => {
             if (!r.ok) return
             const d = await r.json()
             const credited = d.balance !== balanceBefore
-            if (credited || Date.now() - startedAt > 3 * 60 * 1000) {
+            if (credited || Date.now() - startedAt > 10 * 60 * 1000) {
               clearInterval(speiPollRef.current)
               setBalance(d.balance)
               setTransactions(d.transactions || [])
@@ -216,6 +218,22 @@ const Dashboard = () => {
       alert('Error: ' + error.message)
     } finally {
       setWalletLoading(false)
+    }
+  }
+
+  const handleSpeiNotify = async () => {
+    if (!speiInfo?.payment_id) return
+    try {
+      const response = await apiFetch('/api/payments/spei-notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payment_id: speiInfo.payment_id })
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Error al notificar')
+      setSpeiNotified(true)
+    } catch (error) {
+      alert('Error: ' + error.message)
     }
   }
 
@@ -783,12 +801,25 @@ const Dashboard = () => {
 
                 <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mb-4">
                   <p className="text-yellow-400 text-xs">
-                    ⚠️ Transfiere exactamente <span className="font-semibold">${parseFloat(speiInfo.amount).toFixed(2)} MXN</span> con la referencia mostrada, o el pago no se acreditará automáticamente.
+                    ⚠️ Transfiere exactamente <span className="font-semibold">${parseFloat(speiInfo.amount).toFixed(2)} MXN</span> con la referencia mostrada{speiInfo.manual ? ', así identificamos tu pago más rápido' : ', o el pago no se acreditará automáticamente'}.
                   </p>
                 </div>
 
                 <div className="flex items-center gap-3">
                   <p className="text-slate-500 text-xs flex-1">Te avisaremos aquí cuando el pago se acredite.</p>
+                  {speiInfo.manual && (
+                    <button
+                      onClick={handleSpeiNotify}
+                      disabled={speiNotified}
+                      className={`font-semibold px-4 py-2 rounded-lg transition-all text-sm ${
+                        speiNotified
+                          ? 'bg-emerald-500/20 text-emerald-400 cursor-default'
+                          : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                      }`}
+                    >
+                      {speiNotified ? '✓ Aviso enviado' : 'Ya transferí'}
+                    </button>
+                  )}
                   <button
                     onClick={() => setSpeiInfo(null)}
                     className="bg-white/10 hover:bg-white/20 text-slate-300 font-semibold px-4 py-2 rounded-lg transition-all text-sm"
