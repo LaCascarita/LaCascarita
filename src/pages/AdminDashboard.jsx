@@ -1138,7 +1138,21 @@ const AdminDashboard = () => {
                     {withdrawals.map((w) => (
                       <tr key={w.id}>
                         <td data-label="Titular">{w.card_holder}</td>
-                        <td data-label="CLABE">{w.clabe ? `****${w.clabe.slice(-6)}` : '-'}</td>
+                        <td data-label="CLABE">
+                          {w.clabe ? (
+                            <>
+                              <code>{w.clabe}</code>
+                              {' '}
+                              <button
+                                className="action-button simulate-btn"
+                                style={{ padding: '2px 8px', fontSize: '0.75rem' }}
+                                onClick={() => { navigator.clipboard.writeText(w.clabe); setMessage('CLABE copiada') }}
+                              >
+                                Copiar
+                              </button>
+                            </>
+                          ) : '-'}
+                        </td>
                         <td data-label="Monto">{formatMoney(w.amount)}</td>
                         <td data-label="Estado">
                           <span className={`status-badge status-${w.status}`}>{w.status}</span>
