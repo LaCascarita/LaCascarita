@@ -210,6 +210,9 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
               <li>Toca "Ya transferí" cuando hagas el pago.</li>
               <li>Tu recarga se acreditará al confirmar la recepción en el banco.</li>
             </ul>
+            <p className="text-slate-400 text-xs mt-3 border-t border-white/10 pt-3">
+              🕐 Horario de confirmación: todos los días de 10:00 a 23:00 hrs. Fuera de ese horario, tu recarga se acredita al siguiente horario hábil.
+            </p>
           </div>
 
           <button
@@ -329,6 +332,12 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
             {clabeMismatch && (
               <p className="text-red-400 text-xs mt-1">Las CLABE no coinciden, verifícala.</p>
             )}
+          </div>
+
+          <div className="bg-slate-800/50 rounded-lg p-4 border border-white/10">
+            <p className="text-slate-400 text-xs">
+              🕐 Los retiros se procesan todos los días de 10:00 a 23:00 hrs. Las solicitudes fuera de ese horario se procesan al siguiente horario hábil.
+            </p>
           </div>
 
           <button
