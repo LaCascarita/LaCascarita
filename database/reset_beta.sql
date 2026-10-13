@@ -16,12 +16,12 @@ DELETE FROM withdrawals;
 DELETE FROM prize_distributions;
 DELETE FROM prize_carryover;
 
--- 3. Pronosticos y participaciones (quinielas enviadas)
+-- 3. Historial de movimientos de saldo (referencia participations)
+DELETE FROM user_balance_transactions;
+
+-- 4. Pronosticos y participaciones (quinielas enviadas)
 DELETE FROM predictions;
 DELETE FROM participations;
-
--- 4. Historial de movimientos de saldo
-DELETE FROM user_balance_transactions;
 
 -- 5. Pagos (recargas y retiros registrados)
 DELETE FROM payments;
@@ -39,6 +39,7 @@ COMMIT;
 -- DELETE FROM prize_distributions;
 -- DELETE FROM prize_carryover;
 -- DELETE FROM predictions;
+-- DELETE FROM user_balance_transactions WHERE participation_id IS NOT NULL;
 -- DELETE FROM participations;
 -- DELETE FROM admin_jornada_partidos;
 -- DELETE FROM admin_jornadas;
