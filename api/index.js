@@ -1858,7 +1858,9 @@ app.post('/api/withdrawals', async (req, res) => {
 
     // Dispersión automática vía BBVA. Si falla por error técnico queda pendiente
     // para reintento manual desde el admin; si BBVA la rechaza, se reembolsa.
-    if (bbvaConfigured()) {
+    // Con MANUAL_PAYOUTS=true los retiros quedan pendientes y el admin los
+    // dispersa a mano desde su banca (modo beta sin API de pagos).
+    if (process.env.MANUAL_PAYOUTS !== 'true' && bbvaConfigured()) {
       try {
         const { ok, status, data } = await createSpeiTransfer({
           clabe,
@@ -1897,7 +1899,7 @@ app.post('/api/withdrawals', async (req, res) => {
       } catch (dispatchError) {
         console.error('BBVA auto-dispatch error:', dispatchError.message)
       }
-    } else if (process.env.SIMULATE_PAYOUTS === 'true') {
+    } else if (process.env.MANUAL_PAYOUTS !== 'true' && process.env.SIMULATE_PAYOUTS === 'true') {
       await supabase.from('payments').update({
         status: 'processing',
         provider_metadata: { ...payment.provider_metadata, simulated: true, payout_status: 'in_progress' }
