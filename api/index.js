@@ -57,6 +57,45 @@ const sendResetEmail = async (to, code) => {
   }
 }
 
+const adminNotifyEmails = (process.env.ADMIN_NOTIFY_EMAIL || '')
+  .split(',')
+  .map(e => e.trim())
+  .filter(Boolean)
+
+const sendAdminNotification = async (subject, lines) => {
+  if (!resendApiKey || adminNotifyEmails.length === 0) return
+  try {
+    const rows = lines.map(([label, value]) =>
+      `<tr><td style="padding: 6px 12px; color: #94a3b8; font-size: 13px;">${label}</td><td style="padding: 6px 12px; color: #ffffff; font-weight: bold;">${value}</td></tr>`
+    ).join('')
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: emailFrom,
+        to: adminNotifyEmails,
+        subject: `La Cascarita - ${subject}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; background: #0B0B0B; color: #e2e8f0; padding: 32px; border-radius: 12px;">
+            <h2 style="color: #34d399; margin: 0 0 16px;">LA CASCARITA</h2>
+            <p style="margin-bottom: 16px;">${subject}</p>
+            <table style="border-collapse: collapse; background: #1e293b; border-radius: 8px; width: 100%;">${rows}</table>
+            <p style="color: #94a3b8; font-size: 12px; margin-top: 16px;">Revisa el panel de administración para confirmar.</p>
+          </div>
+        `
+      })
+    })
+    if (!response.ok) {
+      console.error('Admin notification failed:', response.status)
+    }
+  } catch (e) {
+    console.error('Admin notification error:', e.message)
+  }
+}
+
 // Vercel rewrites /api/login -> /api/index?path=login
 app.use((req, res, next) => {
   if (req.query.path) {
@@ -1389,7 +1428,7 @@ app.post('/api/payments/spei-notify', async (req, res) => {
 
     const { data: payment, error: findError } = await supabase
       .from('payments')
-      .select('id, status, provider_metadata')
+      .select('id, status, amount, provider_metadata')
       .eq('id', payment_id)
       .eq('user_id', user.id)
       .eq('provider', 'spei_manual')
@@ -1410,6 +1449,13 @@ app.post('/api/payments/spei-notify', async (req, res) => {
       .eq('id', payment_id)
 
     if (updateError) throw updateError
+
+    await sendAdminNotification('Recarga por verificar', [
+      ['Usuario', user.username || user.id],
+      ['Monto', `$${Number(payment.amount).toFixed(2)} MXN`],
+      ['Referencia', payment.provider_metadata?.spei_reference || '-'],
+      ['Acción', 'Verifica el abono en la banca y confirma en el panel']
+    ])
 
     res.json({ message: 'Aviso registrado. Confirmaremos tu pago en breve.' })
   } catch (error) {
@@ -1907,6 +1953,14 @@ app.post('/api/withdrawals', async (req, res) => {
       await supabase.from('withdrawals').update({ status: 'processing' }).eq('id', withdrawal.id)
       return res.json({ message: 'Retiro en proceso (simulado)', withdrawal, payout_status: 'in_progress' })
     }
+
+    await sendAdminNotification('Retiro pendiente de dispersar', [
+      ['Usuario', user.username || user.id],
+      ['Titular', card_holder],
+      ['CLABE', `****${clabe.slice(-6)}`],
+      ['Monto', `$${Number(amount).toFixed(2)} MXN`],
+      ['Acción', 'Dispersa desde tu banca y marca "Pagado manual" en el panel']
+    ])
 
     res.json({ message: 'Retiro solicitado. Lo recibirás en tu banco una vez procesado.', withdrawal, payout_status: 'pending' })
   } catch (error) {
