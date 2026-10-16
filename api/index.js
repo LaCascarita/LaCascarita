@@ -554,6 +554,19 @@ app.post('/api/admin-login', async (req, res) => {
   }
 })
 
+// Ligas habilitadas para las quinielas (IDs de APIfootball)
+const ALLOWED_LEAGUES = [
+  153, 164, // Championship, Ligue 2 (actuales)
+  // Ligas locales y de América
+  235, 236, 332, 44, 99,
+  // Ligas de Europa
+  152, 302, 207, 175, 168,
+  // Torneos internacionales de clubes
+  3, 4, 5, 431, 18, 385,
+  // Selecciones nacionales
+  28, 23, 27, 633, 24, 17, 1, 664
+]
+
 app.get('/api/admin/leagues', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
@@ -574,10 +587,9 @@ app.get('/api/admin/leagues', async (req, res) => {
     if (!response.ok) throw new Error(`API request failed: ${response.statusText}`)
 
     const data = await response.json()
-    const allowedLeagues = [153, 164]
     const relevantLeagues = data.filter(league => {
       const leagueId = parseInt(league.league_id)
-      return allowedLeagues.includes(leagueId)
+      return ALLOWED_LEAGUES.includes(leagueId)
     })
 
     res.json({ leagues: relevantLeagues })
@@ -765,9 +777,9 @@ app.get('/api/football/fixtures', async (req, res) => {
 
     if (bagType) {
       const leagueMappings = {
-        'media-semana': [153, 164],
-        'fin-de-semana': [153, 164],
-        'dominical': [153, 164]
+        'media-semana': ALLOWED_LEAGUES,
+        'fin-de-semana': ALLOWED_LEAGUES,
+        'dominical': ALLOWED_LEAGUES
       }
 
       const leagueIds = leagueMappings[bagType]
