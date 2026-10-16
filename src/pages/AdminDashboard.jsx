@@ -558,15 +558,17 @@ const AdminDashboard = () => {
                 >
                   <div className="match-info">
                     <div className="match-date">
-                      {new Date(match.match_date).toLocaleDateString('es-ES', {
+                      {new Date(match.match_date).toLocaleDateString('es-MX', {
                         weekday: 'short',
                         day: 'numeric',
-                        month: 'short'
+                        month: 'short',
+                        timeZone: 'America/Mexico_City'
                       })}
                       {' '}
-                      {new Date(match.match_date).toLocaleTimeString('es-ES', {
+                      {new Date(match.match_date).toLocaleTimeString('es-MX', {
                         hour: '2-digit',
-                        minute: '2-digit'
+                        minute: '2-digit',
+                        timeZone: 'America/Mexico_City'
                       })}
                     </div>
                     <div className="match-teams">

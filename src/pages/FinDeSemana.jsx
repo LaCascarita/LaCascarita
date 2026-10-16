@@ -107,24 +107,21 @@ const FinDeSemana = () => {
 
   const formatMatchDate = (dateString) => {
     if (!dateString) return 'Fecha no disponible'
-    
-    const date = new Date(dateString)
-    
-    // Obtener fecha original sin conversión de timezone (usando UTC)
-    const dayOptions = { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
+
+    const hasTime = dateString.includes('T')
+    const date = new Date(hasTime ? dateString : `${dateString}T12:00:00Z`)
+    const mxZone = 'America/Mexico_City'
+
+    const dayString = date.toLocaleDateString('es-MX', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
       day: 'numeric',
-      timeZone: 'UTC'
-    }
-    const dayString = date.toLocaleDateString('es-MX', dayOptions)
-    
-    // Obtener hora convertida a México usando date-fns-tz
-    const timeString = format(date, "HH:mm", {
-      timeZone: 'America/Mexico_City'
+      timeZone: mxZone
     })
-    
+    if (!hasTime) return dayString
+
+    const timeString = format(date, "HH:mm", { timeZone: mxZone })
     return `${dayString} • ${timeString}`
   }
 
