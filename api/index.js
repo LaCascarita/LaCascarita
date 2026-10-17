@@ -628,7 +628,11 @@ app.get('/api/admin/fixtures', async (req, res) => {
       home_team_badge: match.team_home_badge,
       away_team_badge: match.team_away_badge,
       match_date: match.match_date && match.match_time
-        ? new Date(`${match.match_date}T${match.match_time}:00-04:00`).toISOString()
+        ? (() => {
+            const d = new Date(`${match.match_date}T${match.match_time}:00Z`)
+            d.setUTCHours(d.getUTCHours() - 2)
+            return d.toISOString().slice(0, 19)
+          })()
         : match.match_date
     }))
 
