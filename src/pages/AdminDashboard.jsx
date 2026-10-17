@@ -9,6 +9,8 @@ const AdminDashboard = () => {
   const [selectedLeague, setSelectedLeague] = useState(null)
   const [matches, setMatches] = useState([])
   const [selectedMatches, setSelectedMatches] = useState([])
+  const [editingMatchId, setEditingMatchId] = useState(null)
+  const [editDateTime, setEditDateTime] = useState('')
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -137,6 +139,29 @@ const AdminDashboard = () => {
       setSelectedMatches([...selectedMatches, match])
     }
     setMessage('')
+  }
+
+  const toMxInputValue = (dateString) => {
+    const parts = new Date(dateString).toLocaleString('sv-SE', {
+      timeZone: 'America/Mexico_City',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false
+    })
+    return parts.replace(' ', 'T')
+  }
+
+  const startEditTime = (match) => {
+    setEditingMatchId(match.match_id)
+    setEditDateTime(toMxInputValue(match.match_date))
+  }
+
+  const saveEditedTime = (match) => {
+    if (!editDateTime) return
+    const iso = new Date(`${editDateTime}:00-06:00`).toISOString()
+    const apply = m => m.match_id === match.match_id ? { ...m, match_date: iso, time_edited: true } : m
+    setMatches(matches.map(apply))
+    setSelectedMatches(selectedMatches.map(apply))
+    setEditingMatchId(null)
   }
 
   const handleSave = async () => {
@@ -558,18 +583,41 @@ const AdminDashboard = () => {
                 >
                   <div className="match-info">
                     <div className="match-date">
-                      {new Date(match.match_date).toLocaleDateString('es-MX', {
-                        weekday: 'short',
-                        day: 'numeric',
-                        month: 'short',
-                        timeZone: 'America/Mexico_City'
-                      })}
-                      {' '}
-                      {new Date(match.match_date).toLocaleTimeString('es-MX', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        timeZone: 'America/Mexico_City'
-                      })}
+                      {editingMatchId === match.match_id ? (
+                        <span className="edit-time-form" onClick={e => e.stopPropagation()}>
+                          <input
+                            type="datetime-local"
+                            value={editDateTime}
+                            onChange={e => setEditDateTime(e.target.value)}
+                          />
+                          <button type="button" className="edit-time-save" onClick={() => saveEditedTime(match)}>✓</button>
+                          <button type="button" className="edit-time-cancel" onClick={() => setEditingMatchId(null)}>×</button>
+                        </span>
+                      ) : (
+                        <>
+                          {new Date(match.match_date).toLocaleDateString('es-MX', {
+                            weekday: 'short',
+                            day: 'numeric',
+                            month: 'short',
+                            timeZone: 'America/Mexico_City'
+                          })}
+                          {' '}
+                          {new Date(match.match_date).toLocaleTimeString('es-MX', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            timeZone: 'America/Mexico_City'
+                          })}
+                          {match.time_edited && <span className="edited-mark" title="Hora editada manualmente">✏️</span>}
+                          <button
+                            type="button"
+                            className="edit-time-button"
+                            title="Editar hora"
+                            onClick={e => { e.stopPropagation(); startEditTime(match) }}
+                          >
+                            ✏️
+                          </button>
+                        </>
+                      )}
                     </div>
                     <div className="match-teams">
                       <div className="team">
