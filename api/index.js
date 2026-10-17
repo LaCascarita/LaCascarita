@@ -615,7 +615,7 @@ app.get('/api/admin/fixtures', async (req, res) => {
     if (!API_FOOTBALL_KEY) return res.status(500).json({ error: 'API_FOOTBALL_KEY not configured' })
     if (!league_id || !from || !to) return res.status(400).json({ error: 'Missing required parameters: league_id, from, to' })
 
-    const response = await fetch(`https://apiv3.apifootball.com/?action=get_events&from=${from}&to=${to}&league_id=${league_id}&APIkey=${API_FOOTBALL_KEY}`)
+    const response = await fetch(`https://apiv3.apifootball.com/?action=get_events&from=${from}&to=${to}&league_id=${league_id}&timezone=America/Mexico_City&APIkey=${API_FOOTBALL_KEY}`)
     if (!response.ok) throw new Error(`API request failed: ${response.statusText}`)
 
     const data = await response.json()
@@ -628,7 +628,7 @@ app.get('/api/admin/fixtures', async (req, res) => {
       home_team_badge: match.team_home_badge,
       away_team_badge: match.team_away_badge,
       match_date: match.match_date && match.match_time
-        ? `${match.match_date}T${match.match_time}:00Z`
+        ? `${match.match_date}T${match.match_time}:00-06:00`
         : match.match_date
     }))
 
@@ -763,7 +763,7 @@ app.get('/api/football/fixtures', async (req, res) => {
     if (!API_KEY) return res.status(500).json({ error: 'API key not configured' })
 
     const BASE_URL = 'https://apiv3.apifootball.com/'
-    let url = `${BASE_URL}?action=get_events&APIkey=${API_KEY}&from=${date}&to=${date}&match_status=FT`
+    let url = `${BASE_URL}?action=get_events&APIkey=${API_KEY}&from=${date}&to=${date}&match_status=FT&timezone=America/Mexico_City`
 
     if (leagueId) url += `&league_id=${leagueId}`
 
