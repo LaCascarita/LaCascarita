@@ -491,7 +491,7 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
                               <span className="font-semibold">{match.home_team_name}</span>
                               <span className="text-slate-400 mx-1">vs</span>
                               <span className="font-semibold">{match.away_team_name}</span>
-                              <p className="text-slate-400 text-xs">{match.match_date ? new Date(match.match_date).toLocaleString('es-MX', { timeZone: 'America/Mexico_City' }) : '-'}</p>
+                              <p className="text-slate-400 text-xs">{match.match_date ? new Date(new Date(match.match_date).getTime() - 2 * 60 * 60 * 1000).toLocaleString('es-MX', { timeZone: 'America/Mexico_City' }) : '-'}</p>
                             </td>
                             <td className="py-2 px-3">
                               {hasResult ? (

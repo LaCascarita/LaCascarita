@@ -109,7 +109,7 @@ const MediaSemana = () => {
     if (!dateString) return 'Fecha no disponible'
 
     const hasTime = dateString.includes('T')
-    const date = new Date(hasTime ? dateString : `${dateString}T12:00:00Z`)
+    const date = new Date(new Date(hasTime ? dateString : `${dateString}T12:00:00Z`).getTime() - 2 * 60 * 60 * 1000)
     const mxZone = 'America/Mexico_City'
 
     const dayString = date.toLocaleDateString('es-MX', {
