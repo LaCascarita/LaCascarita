@@ -628,7 +628,7 @@ app.get('/api/admin/fixtures', async (req, res) => {
       home_team_badge: match.team_home_badge,
       away_team_badge: match.team_away_badge,
       match_date: match.match_date && match.match_time
-        ? `${match.match_date}T${match.match_time}:00Z`
+        ? new Date(`${match.match_date}T${match.match_time}:00-04:00`).toISOString()
         : match.match_date
     }))
 
