@@ -5,6 +5,7 @@ import { format } from 'date-fns-tz'
 import { apiFetch } from '../utils/api'
 import Footer from '../components/Footer'
 import JornadaLeaderboard from '../components/JornadaLeaderboard'
+import PurchaseSuccessModal from '../components/PurchaseSuccessModal'
 
 const MediaSemana = () => {
   const navigate = useNavigate()
@@ -17,6 +18,7 @@ const MediaSemana = () => {
   const [totalQuinielas, setTotalQuinielas] = useState(0)
   const [totalAmount, setTotalAmount] = useState(0)
   const [bag, setBag] = useState(null)
+  const [purchaseResult, setPurchaseResult] = useState(null)
 
   useEffect(() => {
     const getUser = async () => {
@@ -202,9 +204,14 @@ const MediaSemana = () => {
       const data = contentType.includes('application/json') ? await response.json() : { error: await response.text() }
       if (!response.ok) throw new Error(data.error || `Error ${response.status}`)
 
-      alert(`Quinielas enviadas: ${data.totalQuinielas} por $${data.totalAmount} MXN`)
+      setPurchaseResult({
+        folio: data.participations?.[0]?.folio,
+        jornadaName: jornada?.name,
+        totalQuinielas: data.totalQuinielas,
+        totalAmount: data.totalAmount,
+        newBalance: (user?.balance || 0) - data.totalAmount
+      })
       setSelections({})
-      navigate('/dashboard')
     } catch (error) {
       alert('Error al enviar quiniela: ' + error.message)
     }
@@ -408,6 +415,7 @@ const MediaSemana = () => {
           </Link>
         </div>
       </div>
+      <PurchaseSuccessModal data={purchaseResult} onClose={() => { setPurchaseResult(null); navigate('/dashboard') }} />
       <Footer />
     </div>
   )
