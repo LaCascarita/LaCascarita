@@ -664,11 +664,21 @@ app.post('/api/admin/save-jornada', async (req, res) => {
     if (!['media_semana', 'fin_de_semana', 'dominical'].includes(type)) return res.status(400).json({ error: 'Invalid jornada type' })
 
     // Solo puede haber una jornada activa por tipo
-    await supabase
+    const { data: prevJornada } = await supabase
       .from('admin_jornadas')
-      .update({ status: 'inactive' })
+      .select('id')
       .eq('type', type)
       .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (prevJornada) {
+      await supabase
+        .from('admin_jornadas')
+        .update({ status: 'inactive' })
+        .eq('id', prevJornada.id)
+    }
 
     const { data: jornada, error: jornadaError } = await supabase
       .from('admin_jornadas')
@@ -699,6 +709,81 @@ app.post('/api/admin/save-jornada', async (req, res) => {
       .insert(partidosToInsert)
 
     if (partidosError) throw partidosError
+
+    // Al reemplazar una jornada del mismo tipo que ya tenia participaciones:
+    // si los partidos son los mismos (mismo match_id) se migran conservando
+    // las selecciones; si cambiaron, se reembolsa el pago al saldo del usuario.
+    if (prevJornada) {
+      try {
+        const { data: prevParts } = await supabase
+          .from('participations')
+          .select('id, user_id, payment_amount')
+          .eq('jornada_id', prevJornada.id)
+          .eq('participation_status', 'confirmed')
+
+        if (prevParts && prevParts.length > 0) {
+          const { data: prevPartidos } = await supabase
+            .from('admin_jornada_partidos')
+            .select('id, match_id')
+            .eq('jornada_id', prevJornada.id)
+
+          const { data: newPartidos } = await supabase
+            .from('admin_jornada_partidos')
+            .select('id, match_id')
+            .eq('jornada_id', jornada.id)
+
+          const sameMatches = (prevPartidos || []).length > 0 &&
+            prevPartidos.length === (newPartidos || []).length &&
+            prevPartidos.every(pp => newPartidos.some(np => String(np.match_id) === String(pp.match_id)))
+
+          if (sameMatches) {
+            const idMap = new Map()
+            for (const pp of prevPartidos) {
+              const np = newPartidos.find(n => String(n.match_id) === String(pp.match_id))
+              idMap.set(pp.id, np.id)
+            }
+
+            const partIds = prevParts.map(p => p.id)
+            await supabase
+              .from('participations')
+              .update({ jornada_id: jornada.id })
+              .in('id', partIds)
+
+            const { data: preds } = await supabase
+              .from('predictions')
+              .select('id, match_id')
+              .in('participation_id', partIds)
+
+            for (const pred of preds || []) {
+              const newPartidoId = idMap.get(pred.match_id)
+              if (newPartidoId) {
+                await supabase
+                  .from('predictions')
+                  .update({ match_id: newPartidoId })
+                  .eq('id', pred.id)
+              }
+            }
+            console.log(`[save-jornada] Migradas ${partIds.length} participaciones a la nueva jornada ${jornada.id}`)
+          } else {
+            for (const p of prevParts) {
+              await creditUserBalance(
+                p.user_id,
+                parseFloat(p.payment_amount) || 0,
+                p.id,
+                'Reembolso por jornada reemplazada con partidos distintos'
+              )
+              await supabase
+                .from('participations')
+                .update({ participation_status: 'cancelled', payment_status: 'refunded' })
+                .eq('id', p.id)
+            }
+            console.log(`[save-jornada] Reembolsadas ${prevParts.length} participaciones de la jornada ${prevJornada.id}`)
+          }
+        }
+      } catch (migrationError) {
+        console.error('[save-jornada] Error migrando participaciones:', migrationError)
+      }
+    }
 
     res.json({ success: true, jornada })
   } catch (error) {
