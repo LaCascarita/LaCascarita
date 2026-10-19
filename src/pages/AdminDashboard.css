@@ -328,6 +328,11 @@
   background: #dc2626;
 }
 
+.totals-row {
+  background: rgba(16, 185, 129, 0.1);
+  border-top: 2px solid #10b981;
+}
+
 .current-jornada {
   background: #0f172a;
   border: 1px solid #334155;

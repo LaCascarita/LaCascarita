@@ -38,6 +38,10 @@ const AdminDashboard = () => {
   const [simulateEnabled, setSimulateEnabled] = useState(false)
   const [reconciliation, setReconciliation] = useState(null)
   const [reconLoading, setReconLoading] = useState(false)
+  const [earningsRange, setEarningsRange] = useState({ from: '', to: '' })
+  const [earningsType, setEarningsType] = useState('')
+  const [earningsData, setEarningsData] = useState(null)
+  const [earningsLoading, setEarningsLoading] = useState(false)
 
   useEffect(() => {
     fetchLeagues()
@@ -64,6 +68,9 @@ const AdminDashboard = () => {
     }
     if (activeView === 'saldos') {
       fetchReconciliation()
+    }
+    if (activeView === 'earnings') {
+      fetchEarnings()
     }
   }, [activeView, participationsType])
 
@@ -250,6 +257,40 @@ const AdminDashboard = () => {
     } finally {
       setParticipationsLoading(false)
     }
+  }
+
+  const fetchEarnings = async () => {
+    setEarningsLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (earningsRange.from) params.set('from', earningsRange.from)
+      if (earningsRange.to) params.set('to', earningsRange.to)
+      if (earningsType) params.set('type', earningsType)
+      const response = await adminFetch(`/api/admin/earnings?${params.toString()}`)
+      const data = await response.json()
+      setEarningsData(data)
+    } catch (error) {
+      console.error('Error fetching earnings:', error)
+    } finally {
+      setEarningsLoading(false)
+    }
+  }
+
+  const exportEarningsCSV = () => {
+    if (!earningsData?.rows?.length) return
+    const header = 'Jornada,Tipo,Fecha inicio,Quinielas,Participantes,Recaudado,Casa 30%,Premios pagados,Estatus\n'
+    const lines = earningsData.rows.map(r =>
+      `"${r.name}",${r.type},${r.start_date},${r.quinielas},${r.participantes},${r.collected},${r.house},${r.prizes_paid},${r.status}`
+    ).join('\n')
+    const t = earningsData.totals
+    const totalsLine = `"TOTAL","","",${t.quinielas},"",${t.collected},${t.house},${t.prizes_paid},""`
+    const blob = new Blob([header + lines + '\n' + totalsLine], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `ganancias_${earningsRange.from || 'inicio'}_a_${earningsRange.to || 'hoy'}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const handleJornadaSelect = (jornadaId) => {
@@ -504,6 +545,12 @@ const AdminDashboard = () => {
             className={`admin-tab ${activeView === 'retiros' ? 'active' : ''}`}
           >
             Retiros (prueba)
+          </button>
+          <button
+            onClick={() => setActiveView('earnings')}
+            className={`admin-tab ${activeView === 'earnings' ? 'active' : ''}`}
+          >
+            Ganancias
           </button>
         </div>
 
@@ -1266,6 +1313,106 @@ const AdminDashboard = () => {
           </div>
         )}
 
+        {activeView === 'earnings' && (
+          <div className="admin-section">
+            <h2>Ganancias de la casa</h2>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>Desde</label>
+                <input
+                  type="date"
+                  value={earningsRange.from}
+                  onChange={(e) => setEarningsRange({ ...earningsRange, from: e.target.value })}
+                  className="form-select"
+                />
+              </div>
+              <div className="form-group">
+                <label>Hasta</label>
+                <input
+                  type="date"
+                  value={earningsRange.to}
+                  onChange={(e) => setEarningsRange({ ...earningsRange, to: e.target.value })}
+                  className="form-select"
+                />
+              </div>
+              <div className="form-group">
+                <label>Tipo de Jornada</label>
+                <select
+                  value={earningsType}
+                  onChange={(e) => setEarningsType(e.target.value)}
+                  className="form-select"
+                >
+                  <option value="">Todas</option>
+                  {jornadaTypes.map(t => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={fetchEarnings} className="action-button" disabled={earningsLoading}>
+                {earningsLoading ? 'Cargando...' : 'Consultar'}
+              </button>
+              {earningsData?.rows?.length > 0 && (
+                <button onClick={exportEarningsCSV} className="action-button">
+                  Exportar CSV
+                </button>
+              )}
+            </div>
+
+            {earningsData && earningsData.rows.length === 0 && (
+              <p className="no-results">No hay jornadas en ese rango de fechas.</p>
+            )}
+
+            {earningsData?.rows?.length > 0 && (
+              <div className="table-wrapper">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Jornada</th>
+                      <th>Tipo</th>
+                      <th>Inicio</th>
+                      <th>Quinielas</th>
+                      <th>Participantes</th>
+                      <th>Recaudado</th>
+                      <th>Casa (30%)</th>
+                      <th>Premios pagados</th>
+                      <th>Estatus</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {earningsData.rows.map(r => (
+                      <tr key={r.jornada_id}>
+                        <td data-label="Jornada">{r.name}</td>
+                        <td data-label="Tipo">{jornadaTypes.find(t => t.value === r.type)?.label || r.type}</td>
+                        <td data-label="Inicio">{r.start_date}</td>
+                        <td data-label="Quinielas">{r.quinielas}</td>
+                        <td data-label="Participantes">{r.participantes}</td>
+                        <td data-label="Recaudado">{formatMoney(r.collected)}</td>
+                        <td data-label="Casa">{formatMoney(r.house)}</td>
+                        <td data-label="Premios">{formatMoney(r.prizes_paid)}</td>
+                        <td data-label="Estatus">{r.status === 'completed' ? 'Finalizada' : r.status === 'inactive' ? 'Cerrada' : 'Activa'}</td>
+                      </tr>
+                    ))}
+                    <tr className="totals-row">
+                      <td data-label="Jornada"><strong>TOTAL</strong></td>
+                      <td></td>
+                      <td></td>
+                      <td data-label="Quinielas"><strong>{earningsData.totals.quinielas}</strong></td>
+                      <td></td>
+                      <td data-label="Recaudado"><strong>{formatMoney(earningsData.totals.collected)}</strong></td>
+                      <td data-label="Casa"><strong>{formatMoney(earningsData.totals.house)}</strong></td>
+                      <td data-label="Premios"><strong>{formatMoney(earningsData.totals.prizes_paid)}</strong></td>
+                      <td></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
 
       </div>
     </div>

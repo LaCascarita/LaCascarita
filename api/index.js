@@ -3196,6 +3196,79 @@ app.get('/api/admin/jornada-participations', async (req, res) => {
 })
 
 // ============================================================
+// GANANCIAS DE LA CASA POR RANGO DE FECHAS
+// ============================================================
+app.get('/api/admin/earnings', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const admin = getAdminFromToken(req)
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' })
+
+    const { from, to, type } = req.query
+
+    let jornadaQuery = supabase
+      .from('admin_jornadas')
+      .select('id, name, type, start_date, end_date, status')
+      .order('start_date', { ascending: false })
+
+    if (from) jornadaQuery = jornadaQuery.gte('start_date', from)
+    if (to) jornadaQuery = jornadaQuery.lte('start_date', to)
+    if (type) jornadaQuery = jornadaQuery.eq('type', type)
+
+    const { data: jornadas, error: jornadaError } = await jornadaQuery
+    if (jornadaError) throw jornadaError
+
+    const jornadaIds = (jornadas || []).map(j => j.id)
+    let participations = []
+    if (jornadaIds.length > 0) {
+      const { data: parts, error: partError } = await supabase
+        .from('participations')
+        .select('jornada_id, user_id, payment_amount, prize_amount, prize_status')
+        .in('jornada_id', jornadaIds)
+        .eq('participation_status', 'confirmed')
+      if (partError) throw partError
+      participations = parts || []
+    }
+
+    const rows = (jornadas || []).map(j => {
+      const parts = participations.filter(p => p.jornada_id === j.id)
+      const collected = parts.reduce((s, p) => s + (parseFloat(p.payment_amount) || 0), 0)
+      const prizesPaid = parts.reduce((s, p) => s + (p.prize_status === 'paid' ? (parseFloat(p.prize_amount) || 0) : 0), 0)
+      return {
+        jornada_id: j.id,
+        name: j.name,
+        type: j.type,
+        status: j.status,
+        start_date: j.start_date,
+        quinielas: parts.length,
+        participantes: new Set(parts.map(p => p.user_id)).size,
+        collected: round2(collected),
+        house: round2(collected * 0.3),
+        prizes_paid: round2(prizesPaid)
+      }
+    })
+
+    const totals = rows.reduce((acc, r) => ({
+      quinielas: acc.quinielas + r.quinielas,
+      collected: round2(acc.collected + r.collected),
+      house: round2(acc.house + r.house),
+      prizes_paid: round2(acc.prizes_paid + r.prizes_paid)
+    }), { quinielas: 0, collected: 0, house: 0, prizes_paid: 0 })
+
+    res.json({ rows, totals })
+  } catch (error) {
+    console.error('Error fetching earnings:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// ============================================================
 // HISTORIAL DE JORNADAS (LISTA CON RESUMEN)
 // ============================================================
 app.get('/api/admin/jornada-history', async (req, res) => {
