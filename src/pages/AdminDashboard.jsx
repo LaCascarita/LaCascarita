@@ -1367,44 +1367,66 @@ const AdminDashboard = () => {
             )}
 
             {earningsData?.rows?.length > 0 && (
-              <div className="table-wrapper">
-                <table className="admin-table">
+              <div className="participations-table-wrapper">
+                <table className="participations-table earnings-table">
                   <thead>
                     <tr>
-                      <th>Jornada</th>
-                      <th>Tipo</th>
-                      <th>Inicio</th>
-                      <th>Quinielas</th>
-                      <th>Participantes</th>
-                      <th>Recaudado</th>
-                      <th>Casa (30%)</th>
-                      <th>Premios pagados</th>
-                      <th>Estatus</th>
+                      <th>
+                        Jornada
+                        <span className="th-sub">nombre y fechas</span>
+                      </th>
+                      <th>
+                        Quinielas
+                        <span className="th-sub">vendidas</span>
+                      </th>
+                      <th>
+                        Participantes
+                        <span className="th-sub">usuarios únicos</span>
+                      </th>
+                      <th>
+                        Recaudado
+                        <span className="th-sub">total cobrado</span>
+                      </th>
+                      <th className="col-house">
+                        Ganancia casa
+                        <span className="th-sub">30% de lo recaudado</span>
+                      </th>
+                      <th>
+                        Premios pagados
+                        <span className="th-sub">70% repartido</span>
+                      </th>
+                      <th>
+                        Estatus
+                        <span className="th-sub">de la jornada</span>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {earningsData.rows.map(r => (
                       <tr key={r.jornada_id}>
-                        <td data-label="Jornada">{r.name}</td>
-                        <td data-label="Tipo">{jornadaTypes.find(t => t.value === r.type)?.label || r.type}</td>
-                        <td data-label="Inicio">{r.start_date}</td>
-                        <td data-label="Quinielas">{r.quinielas}</td>
-                        <td data-label="Participantes">{r.participantes}</td>
-                        <td data-label="Recaudado">{formatMoney(r.collected)}</td>
-                        <td data-label="Casa">{formatMoney(r.house)}</td>
-                        <td data-label="Premios">{formatMoney(r.prizes_paid)}</td>
-                        <td data-label="Estatus">{r.status === 'completed' ? 'Finalizada' : r.status === 'inactive' ? 'Cerrada' : 'Activa'}</td>
+                        <td data-label="Jornada" className="jornada-cell">
+                          <span className="jornada-name">{r.name}</span>
+                          <span className="jornada-meta">{jornadaTypes.find(t => t.value === r.type)?.label || r.type} · inicia {r.start_date}</span>
+                        </td>
+                        <td data-label="Quinielas" className="num">{r.quinielas}</td>
+                        <td data-label="Participantes" className="num">{r.participantes}</td>
+                        <td data-label="Recaudado" className="num">{formatMoney(r.collected)}</td>
+                        <td data-label="Ganancia casa" className="num house">{formatMoney(r.house)}</td>
+                        <td data-label="Premios pagados" className="num">{formatMoney(r.prizes_paid)}</td>
+                        <td data-label="Estatus">
+                          <span className={`status-badge ${r.status === 'active' ? 'status-paid' : 'status-pending'}`}>
+                            {r.status === 'completed' ? 'Finalizada' : r.status === 'inactive' ? 'Cerrada' : 'Activa'}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                     <tr className="totals-row">
-                      <td data-label="Jornada"><strong>TOTAL</strong></td>
-                      <td></td>
-                      <td></td>
-                      <td data-label="Quinielas"><strong>{earningsData.totals.quinielas}</strong></td>
-                      <td></td>
-                      <td data-label="Recaudado"><strong>{formatMoney(earningsData.totals.collected)}</strong></td>
-                      <td data-label="Casa"><strong>{formatMoney(earningsData.totals.house)}</strong></td>
-                      <td data-label="Premios"><strong>{formatMoney(earningsData.totals.prizes_paid)}</strong></td>
+                      <td data-label="Jornada"><strong>TOTAL del rango</strong></td>
+                      <td data-label="Quinielas" className="num"><strong>{earningsData.totals.quinielas}</strong></td>
+                      <td data-label="Participantes"></td>
+                      <td data-label="Recaudado" className="num"><strong>{formatMoney(earningsData.totals.collected)}</strong></td>
+                      <td data-label="Ganancia casa" className="num house"><strong>{formatMoney(earningsData.totals.house)}</strong></td>
+                      <td data-label="Premios pagados" className="num"><strong>{formatMoney(earningsData.totals.prizes_paid)}</strong></td>
                       <td></td>
                     </tr>
                   </tbody>

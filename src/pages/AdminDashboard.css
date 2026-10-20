@@ -333,6 +333,48 @@
   border-top: 2px solid #10b981;
 }
 
+.earnings-table th {
+  text-align: left;
+}
+
+.earnings-table th .th-sub {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  color: #64748b;
+  text-transform: none;
+  margin-top: 2px;
+}
+
+.earnings-table td.num,
+.earnings-table th:nth-child(n+2):nth-child(-n+6) {
+  text-align: right;
+}
+
+.earnings-table th.col-house {
+  color: #34d399;
+}
+
+.earnings-table td.house {
+  color: #34d399;
+  font-weight: 700;
+}
+
+.earnings-table .jornada-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.earnings-table .jornada-name {
+  font-weight: 600;
+}
+
+.earnings-table .jornada-meta {
+  font-size: 11px;
+  color: #64748b;
+}
+
 .current-jornada {
   background: #0f172a;
   border: 1px solid #334155;
