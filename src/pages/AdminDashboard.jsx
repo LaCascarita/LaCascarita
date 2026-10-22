@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import './AdminDashboard.css'
 
 const AdminDashboard = () => {
@@ -274,6 +276,117 @@ const AdminDashboard = () => {
     } finally {
       setEarningsLoading(false)
     }
+  }
+
+  const exportJornadaPDF = () => {
+    if (!participationsData?.jornada) return
+    const j = participationsData.jornada
+    const matches = participationsData.matches || []
+    const parts = [...(participationsData.participations || [])]
+      .sort((a, b) => (b.correct_predictions || 0) - (a.correct_predictions || 0))
+    const d = participationsData.distribution
+    const typeLabel = jornadaTypes.find(t => t.value === j.type)?.label || j.type
+    const statusLabel = j.status === 'completed' ? 'Finalizada' : j.status === 'inactive' ? 'Cerrada' : 'Activa'
+    const isDom = j.type === 'dominical'
+    const collected = parts.reduce((s, p) => s + (parseFloat(p.payment_amount) || 0), 0)
+    const basePool = collected * 0.7
+    const carry = participationsData.carryover || 0
+
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+
+    doc.setFontSize(18)
+    doc.setTextColor(16, 185, 129)
+    doc.text('LA CASCARITA', 14, 15)
+    doc.setFontSize(10)
+    doc.setTextColor(80)
+    doc.text('Resultados de quiniela', 14, 21)
+
+    doc.setFontSize(12)
+    doc.setTextColor(20)
+    doc.text(j.name, 14, 29)
+    doc.setFontSize(9)
+    doc.setTextColor(90)
+    doc.text(`Tipo: ${typeLabel}   |   Periodo: ${j.start_date || ''} - ${j.end_date || ''}   |   Estado: ${statusLabel}`, 14, 35)
+
+    doc.setFontSize(10)
+    doc.setTextColor(20)
+    let y = 43
+    doc.text('Premios', 14, y)
+    doc.setFontSize(9)
+    doc.setTextColor(60)
+    y += 5
+    const prizeLines = []
+    if (d) {
+      prizeLines.push(`Bolsa total: ${formatMoney(d.prize_pool)}${d.carryover_in > 0 ? ` (incluye ${formatMoney(d.carryover_in)} acumulado)` : ''}`)
+      prizeLines.push(`1er lugar: ${formatMoney(d.first_place_pool)} - ${d.first_place_winners} quiniela(s) x ${formatMoney(d.first_place_share)}`)
+      if (!isDom) {
+        prizeLines.push(d.second_place_winners > 0
+          ? `2do lugar: ${formatMoney(d.second_place_pool)} - ${d.second_place_winners} quiniela(s) x ${formatMoney(d.second_place_share)}`
+          : '2do lugar: sin repartir - acumulado para la proxima jornada')
+      }
+    } else {
+      prizeLines.push(`Bolsa total: ${formatMoney(basePool + carry)}${carry > 0 ? ` (incluye ${formatMoney(carry)} acumulado)` : ''}`)
+      prizeLines.push(`1er lugar: ${formatMoney(isDom ? basePool : basePool * 0.8)}`)
+      if (!isDom) prizeLines.push(`2do lugar: ${formatMoney(basePool * 0.2 + carry)}`)
+    }
+    prizeLines.forEach(line => { doc.text(line, 16, y); y += 5 })
+
+    doc.setFontSize(8)
+    doc.setTextColor(110)
+    doc.text('L = Local   E = Empate   V = Visitante   |   Verde = acertada   Rojo = fallada   Naranja = mixta', 14, y)
+
+    const head = [
+      'Usuario / Folio',
+      ...matches.map(m => `${m.home_team_name} vs ${m.away_team_name}${m.home_score != null && m.away_score != null ? `\n${m.home_score} - ${m.away_score}` : ''}`),
+      'Aciertos',
+      'Premio'
+    ]
+
+    const body = parts.map(p => {
+      const medal = p.position === 1 ? '1o ' : p.position === 2 ? '2o ' : ''
+      return [
+        `${medal}${p.users?.username || p.user_id}\n${p.folio}`,
+        ...matches.map(m => {
+          const preds = p.predictions.filter(pred => pred.match_id === m.id)
+          return preds.length > 0 ? preds.map(pred => predictionLabel(pred.prediction)).join(' / ') : '-'
+        }),
+        `${p.correct_predictions ?? 0}`,
+        parseFloat(p.prize_amount) > 0 ? formatMoney(p.prize_amount) : '-'
+      ]
+    })
+
+    autoTable(doc, {
+      head: [head],
+      body,
+      startY: y + 4,
+      styles: { fontSize: 7, cellPadding: 1.5, halign: 'center', valign: 'middle' },
+      headStyles: { fillColor: [15, 23, 42], textColor: 230, fontSize: 7 },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      columnStyles: {
+        0: { halign: 'left', cellWidth: 40 },
+        [head.length - 2]: { cellWidth: 14 },
+        [head.length - 1]: { cellWidth: 20 }
+      },
+      didParseCell: (data) => {
+        if (data.section !== 'body' || data.column.index === 0 || data.column.index >= head.length - 2) return
+        const participation = parts[data.row.index]
+        const match = matches[data.column.index - 1]
+        const preds = participation?.predictions?.filter(pred => pred.match_id === match.id) || []
+        if (preds.length === 0) { data.cell.styles.textColor = [150, 150, 150]; return }
+        const correct = preds.filter(p => p.is_correct === true).length
+        const wrong = preds.filter(p => p.is_correct === false).length
+        if (correct === preds.length) data.cell.styles.textColor = [16, 185, 129]
+        else if (wrong === preds.length) data.cell.styles.textColor = [239, 68, 68]
+        else if (correct > 0 || wrong > 0) data.cell.styles.textColor = [234, 138, 0]
+      },
+      didDrawPage: () => {
+        doc.setFontSize(8)
+        doc.setTextColor(150)
+        doc.text(`La Cascarita - generado ${new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}`, 14, doc.internal.pageSize.getHeight() - 8)
+      }
+    })
+
+    doc.save(`${j.name.replace(/\s+/g, '_')}_resultados.pdf`)
   }
 
   const exportEarningsCSV = () => {
@@ -788,13 +901,20 @@ const AdminDashboard = () => {
               </select>
             </div>
 
-            <button
-              onClick={() => fetchParticipations()}
-              className="action-button"
-              disabled={participationsLoading}
-            >
-              {participationsLoading ? 'Cargando...' : 'Cargar Participaciones'}
-            </button>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => fetchParticipations()}
+                className="action-button"
+                disabled={participationsLoading}
+              >
+                {participationsLoading ? 'Cargando...' : 'Cargar Participaciones'}
+              </button>
+              {participationsData?.jornada && participationsData.participations?.length > 0 && (
+                <button onClick={exportJornadaPDF} className="action-button">
+                  📄 Exportar PDF
+                </button>
+              )}
+            </div>
 
             {message && <div className={`message ${message.includes('rror') ? 'error' : 'success'}`}>{message}</div>}
 
