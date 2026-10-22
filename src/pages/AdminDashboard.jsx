@@ -294,17 +294,6 @@ const AdminDashboard = () => {
 
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
 
-    const paintBackground = () => {
-      const w = doc.internal.pageSize.getWidth()
-      const h = doc.internal.pageSize.getHeight()
-      doc.setFillColor(11, 11, 11)
-      doc.rect(0, 0, w, h, 'F')
-    }
-    paintBackground()
-
-    doc.setFillColor(255, 255, 255)
-    doc.rect(0, 0, doc.internal.pageSize.getWidth(), 66, 'F')
-
     doc.setFontSize(18)
     doc.setTextColor(16, 185, 129)
     doc.text('LA CASCARITA', 14, 15)
@@ -375,13 +364,13 @@ const AdminDashboard = () => {
         cellPadding: 1.5,
         halign: 'center',
         valign: 'middle',
-        fillColor: [15, 23, 42],
-        textColor: [226, 232, 240],
-        lineColor: [51, 65, 85],
+        fillColor: [255, 255, 255],
+        textColor: [30, 41, 59],
+        lineColor: [203, 213, 225],
         lineWidth: 0.1
       },
-      headStyles: { fillColor: [30, 41, 59], textColor: [148, 163, 184], fontSize: 7, fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [22, 33, 58] },
+      headStyles: { fillColor: [15, 23, 42], textColor: [226, 232, 240], fontSize: 7, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [241, 245, 249] },
       columnStyles: {
         0: { halign: 'left', cellWidth: 40 },
         [head.length - 2]: { cellWidth: 14, fontStyle: 'bold' },
@@ -397,14 +386,11 @@ const AdminDashboard = () => {
         const wrong = preds.filter(p => p.is_correct === false).length
         if (correct === preds.length) data.cell.styles.textColor = [16, 185, 129]
         else if (wrong === preds.length) data.cell.styles.textColor = [239, 68, 68]
-        else if (correct > 0 || wrong > 0) data.cell.styles.textColor = [250, 204, 21]
-      },
-      willDrawPage: () => {
-        if (doc.internal.getCurrentPageInfo().pageNumber > 1) paintBackground()
+        else if (correct > 0 || wrong > 0) data.cell.styles.textColor = [234, 138, 0]
       },
       didDrawPage: () => {
         doc.setFontSize(8)
-        doc.setTextColor(100, 116, 139)
+        doc.setTextColor(148, 163, 184)
         doc.text(`La Cascarita - generado ${new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}`, 14, doc.internal.pageSize.getHeight() - 8)
       }
     })
