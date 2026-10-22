@@ -278,7 +278,7 @@ const AdminDashboard = () => {
     }
   }
 
-  const exportJornadaPDF = () => {
+  const exportJornadaPDF = async () => {
     if (!participationsData?.jornada) return
     const j = participationsData.jornada
     const matches = participationsData.matches || []
@@ -292,110 +292,177 @@ const AdminDashboard = () => {
     const basePool = collected * 0.7
     const carry = participationsData.carryover || 0
 
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
-
-    doc.setFontSize(18)
-    doc.setTextColor(16, 185, 129)
-    doc.text('LA CASCARITA', 14, 15)
-    doc.setFontSize(10)
-    doc.setTextColor(80)
-    doc.text('Resultados de quiniela', 14, 21)
-
-    doc.setFontSize(12)
-    doc.setTextColor(20)
-    doc.text(j.name, 14, 29)
-    doc.setFontSize(9)
-    doc.setTextColor(90)
-    doc.text(`Tipo: ${typeLabel}   |   Periodo: ${j.start_date || ''} - ${j.end_date || ''}   |   Estado: ${statusLabel}`, 14, 35)
-
-    doc.setFontSize(10)
-    doc.setTextColor(16, 185, 129)
-    let y = 43
-    doc.text('Premios', 14, y)
-    doc.setFontSize(9)
-    doc.setTextColor(60)
-    y += 5
-    const prizeLines = []
-    if (d) {
-      prizeLines.push(`Bolsa total: ${formatMoney(d.prize_pool)}${d.carryover_in > 0 ? ` (incluye ${formatMoney(d.carryover_in)} acumulado)` : ''}`)
-      prizeLines.push(`1er lugar: ${formatMoney(d.first_place_pool)} - ${d.first_place_winners} quiniela(s) x ${formatMoney(d.first_place_share)}`)
-      if (!isDom) {
-        prizeLines.push(d.second_place_winners > 0
-          ? `2do lugar: ${formatMoney(d.second_place_pool)} - ${d.second_place_winners} quiniela(s) x ${formatMoney(d.second_place_share)}`
-          : '2do lugar: sin repartir - acumulado para la proxima jornada')
+    setMessage('Generando PDF...')
+    try {
+      const getBadge = async (url) => {
+        if (!url) return null
+        try {
+          const r = await adminFetch(`/api/badge-proxy?url=${encodeURIComponent(url)}`)
+          if (!r.ok) return null
+          const blob = await r.blob()
+          return await new Promise(res => {
+            const fr = new FileReader()
+            fr.onload = () => res(fr.result)
+            fr.readAsDataURL(blob)
+          })
+        } catch { return null }
       }
-    } else {
-      prizeLines.push(`Bolsa total: ${formatMoney(basePool + carry)}${carry > 0 ? ` (incluye ${formatMoney(carry)} acumulado)` : ''}`)
-      prizeLines.push(`1er lugar: ${formatMoney(isDom ? basePool : basePool * 0.8)}`)
-      if (!isDom) prizeLines.push(`2do lugar: ${formatMoney(basePool * 0.2 + carry)}`)
-    }
-    prizeLines.forEach(line => { doc.text(line, 16, y); y += 5 })
 
-    doc.setFontSize(8)
-    doc.setTextColor(110)
-    doc.text('L = Local   E = Empate   V = Visitante   |   Verde = acertada   Rojo = fallada   Naranja = mixta', 14, y)
+      const badges = {}
+      for (const m of matches) {
+        badges[m.id] = { home: await getBadge(m.home_team_badge), away: await getBadge(m.away_team_badge) }
+      }
 
-    const head = [
-      'Usuario / Folio',
-      ...matches.map(m => `${m.home_team_name} vs ${m.away_team_name}${m.home_score != null && m.away_score != null ? `\n${m.home_score} - ${m.away_score}` : ''}`),
-      'Aciertos',
-      'Premio'
-    ]
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
 
-    const body = parts.map(p => {
-      const medal = p.position === 1 ? '1o ' : p.position === 2 ? '2o ' : ''
-      return [
-        `${medal}${p.users?.username || p.user_id}\n${p.folio}`,
-        ...matches.map(m => {
-          const preds = p.predictions.filter(pred => pred.match_id === m.id)
-          return preds.length > 0 ? preds.map(pred => predictionLabel(pred.prediction)).join(' / ') : '-'
-        }),
-        `${p.correct_predictions ?? 0}`,
-        parseFloat(p.prize_amount) > 0 ? formatMoney(p.prize_amount) : '-'
+      doc.setFontSize(18)
+      doc.setTextColor(16, 185, 129)
+      doc.text('LA CASCARITA', 14, 15)
+      doc.setFontSize(10)
+      doc.setTextColor(80)
+      doc.text('Resultados de quiniela', 14, 21)
+
+      doc.setFontSize(12)
+      doc.setTextColor(20)
+      doc.text(j.name, 14, 29)
+      doc.setFontSize(9)
+      doc.setTextColor(90)
+      doc.text(`Tipo: ${typeLabel}   |   Periodo: ${j.start_date || ''} - ${j.end_date || ''}`, 14, 35)
+      doc.text(`Estado: ${statusLabel}`, 14, 40)
+
+      doc.setFontSize(10)
+      doc.setTextColor(16, 185, 129)
+      let y = 48
+      doc.text('Premios', 14, y)
+      doc.setFontSize(9)
+      doc.setTextColor(60)
+      y += 5
+      const prizeLines = []
+      if (d) {
+        prizeLines.push(`Bolsa total: ${formatMoney(d.prize_pool)}${d.carryover_in > 0 ? ` (incluye ${formatMoney(d.carryover_in)} acumulado)` : ''}`)
+        prizeLines.push(`1er lugar: ${formatMoney(d.first_place_pool)} - ${d.first_place_winners} quiniela(s) x ${formatMoney(d.first_place_share)}`)
+        if (!isDom) {
+          prizeLines.push(d.second_place_winners > 0
+            ? `2do lugar: ${formatMoney(d.second_place_pool)} - ${d.second_place_winners} quiniela(s) x ${formatMoney(d.second_place_share)}`
+            : '2do lugar: sin repartir - acumulado para la proxima jornada')
+        }
+      } else {
+        prizeLines.push(`Bolsa total: ${formatMoney(basePool + carry)}${carry > 0 ? ` (incluye ${formatMoney(carry)} acumulado)` : ''}`)
+        prizeLines.push(`1er lugar: ${formatMoney(isDom ? basePool : basePool * 0.8)}`)
+        if (!isDom) prizeLines.push(`2do lugar: ${formatMoney(basePool * 0.2 + carry)}`)
+      }
+      prizeLines.forEach(line => { doc.text(line, 16, y); y += 5 })
+
+      // Tabla de partidos con escudos y marcadores
+      doc.setFontSize(10)
+      doc.setTextColor(16, 185, 129)
+      y += 2
+      doc.text('Partidos', 14, y)
+
+      doc.autoTable({
+        head: [['#', 'Escudos', 'Partido', 'Resultado']],
+        body: matches.map((m, i) => [
+          `${i + 1}`,
+          '',
+          `${m.home_team_name} vs ${m.away_team_name}`,
+          m.home_score != null && m.away_score != null ? `${m.home_score} - ${m.away_score}` : '-'
+        ]),
+        startY: y + 3,
+        margin: { left: 14, right: 14 },
+        styles: { fontSize: 8, cellPadding: 1.6, valign: 'middle', textColor: [30, 41, 59], lineColor: [203, 213, 225], lineWidth: 0.1, minCellHeight: 7 },
+        headStyles: { fillColor: [15, 23, 42], textColor: [226, 232, 240], fontSize: 8, fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [241, 245, 249] },
+        columnStyles: {
+          0: { cellWidth: 10, halign: 'center' },
+          1: { cellWidth: 16 },
+          3: { cellWidth: 20, halign: 'center', fontStyle: 'bold' }
+        },
+        didDrawCell: (data) => {
+          if (data.section !== 'body' || data.column.index !== 1) return
+          const match = matches[data.row.index]
+          const b = badges[match.id]
+          const size = 4.5
+          const cy = data.cell.y + (data.cell.height - size) / 2
+          if (b?.home) doc.addImage(b.home, 'PNG', data.cell.x + 2, cy, size, size)
+          if (b?.away) doc.addImage(b.away, 'PNG', data.cell.x + 9, cy, size, size)
+        }
+      })
+
+      y = doc.lastAutoTable.finalY + 6
+      doc.setFontSize(10)
+      doc.setTextColor(16, 185, 129)
+      doc.text('Selecciones', 14, y)
+      doc.setFontSize(8)
+      doc.setTextColor(110)
+      doc.text('L = Local   E = Empate   V = Visitante   |   Verde = acertada   Rojo = fallada   Naranja = mixta', 14, y + 4)
+
+      const head = [
+        'Usuario',
+        ...matches.map((m, i) => `${i + 1}`),
+        'Ac.',
+        'Premio'
       ]
-    })
 
-    doc.autoTable({
-      head: [head],
-      body,
-      startY: y + 4,
-      styles: {
-        fontSize: 7,
-        cellPadding: 1.5,
-        halign: 'center',
-        valign: 'middle',
-        fillColor: [255, 255, 255],
-        textColor: [30, 41, 59],
-        lineColor: [203, 213, 225],
-        lineWidth: 0.1
-      },
-      headStyles: { fillColor: [15, 23, 42], textColor: [226, 232, 240], fontSize: 7, fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [241, 245, 249] },
-      columnStyles: {
-        0: { halign: 'left', cellWidth: 40 },
-        [head.length - 2]: { cellWidth: 14, fontStyle: 'bold' },
-        [head.length - 1]: { cellWidth: 20, textColor: [52, 211, 153], fontStyle: 'bold' }
-      },
-      didParseCell: (data) => {
-        if (data.section !== 'body' || data.column.index === 0 || data.column.index >= head.length - 2) return
-        const participation = parts[data.row.index]
-        const match = matches[data.column.index - 1]
-        const preds = participation?.predictions?.filter(pred => pred.match_id === match.id) || []
-        if (preds.length === 0) { data.cell.styles.textColor = [100, 116, 139]; return }
-        const correct = preds.filter(p => p.is_correct === true).length
-        const wrong = preds.filter(p => p.is_correct === false).length
-        if (correct === preds.length) data.cell.styles.textColor = [16, 185, 129]
-        else if (wrong === preds.length) data.cell.styles.textColor = [239, 68, 68]
-        else if (correct > 0 || wrong > 0) data.cell.styles.textColor = [234, 138, 0]
-      },
-      didDrawPage: () => {
-        doc.setFontSize(8)
-        doc.setTextColor(148, 163, 184)
-        doc.text(`La Cascarita - generado ${new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}`, 14, doc.internal.pageSize.getHeight() - 8)
-      }
-    })
+      const body = parts.map(p => {
+        const medal = p.position === 1 ? '1o ' : p.position === 2 ? '2o ' : ''
+        return [
+          `${medal}${p.users?.username || 'Usuario'}`,
+          ...matches.map(m => {
+            const preds = p.predictions.filter(pred => pred.match_id === m.id)
+            return preds.length > 0 ? preds.map(pred => predictionLabel(pred.prediction)).join(' / ') : '-'
+          }),
+          `${p.correct_predictions ?? 0}`,
+          parseFloat(p.prize_amount) > 0 ? formatMoney(p.prize_amount) : '-'
+        ]
+      })
 
-    doc.save(`${j.name.replace(/\s+/g, '_')}_resultados.pdf`)
+      doc.autoTable({
+        head: [head],
+        body,
+        startY: y + 8,
+        margin: { left: 14, right: 14 },
+        styles: {
+          fontSize: 8,
+          cellPadding: 1.6,
+          halign: 'center',
+          valign: 'middle',
+          fillColor: [255, 255, 255],
+          textColor: [30, 41, 59],
+          lineColor: [203, 213, 225],
+          lineWidth: 0.1
+        },
+        headStyles: { fillColor: [15, 23, 42], textColor: [226, 232, 240], fontSize: 8, fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [241, 245, 249] },
+        columnStyles: {
+          0: { halign: 'left', cellWidth: 48 },
+          [head.length - 2]: { cellWidth: 11, fontStyle: 'bold' },
+          [head.length - 1]: { cellWidth: 20, textColor: [5, 150, 105], fontStyle: 'bold' }
+        },
+        didParseCell: (data) => {
+          if (data.section !== 'body' || data.column.index === 0 || data.column.index >= head.length - 2) return
+          const participation = parts[data.row.index]
+          const match = matches[data.column.index - 1]
+          const preds = participation?.predictions?.filter(pred => pred.match_id === match.id) || []
+          if (preds.length === 0) { data.cell.styles.textColor = [148, 163, 184]; return }
+          const correct = preds.filter(p => p.is_correct === true).length
+          const wrong = preds.filter(p => p.is_correct === false).length
+          if (correct === preds.length) data.cell.styles.textColor = [16, 185, 129]
+          else if (wrong === preds.length) data.cell.styles.textColor = [239, 68, 68]
+          else if (correct > 0 || wrong > 0) data.cell.styles.textColor = [234, 138, 0]
+        },
+        didDrawPage: () => {
+          doc.setFontSize(8)
+          doc.setTextColor(148, 163, 184)
+          doc.text(`La Cascarita - generado ${new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}`, 14, doc.internal.pageSize.getHeight() - 8)
+        }
+      })
+
+      doc.save(`${j.name.replace(/\s+/g, '_')}_resultados.pdf`)
+      setMessage('')
+    } catch (error) {
+      console.error('Error generando PDF:', error)
+      setMessage('Error al generar el PDF')
+    }
   }
 
   const exportEarningsCSV = () => {

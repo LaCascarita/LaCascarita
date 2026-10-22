@@ -985,6 +985,27 @@ app.get('/api/football/upcoming-matches', async (req, res) => {
   }
 })
 
+// Proxy de escudos de API-Football para el PDF (evita CORS en el navegador)
+app.get('/api/badge-proxy', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const { url } = req.query
+    let u
+    try { u = new URL(url) } catch { return res.status(400).end() }
+    if (!u.hostname.endsWith('apifootball.com')) return res.status(400).json({ error: 'Host no permitido' })
+
+    const r = await fetch(url)
+    if (!r.ok) return res.status(502).end()
+    res.setHeader('Content-Type', r.headers.get('content-type') || 'image/png')
+    res.setHeader('Cache-Control', 'public, max-age=86400')
+    res.send(Buffer.from(await r.arrayBuffer()))
+  } catch (e) {
+    res.status(500).end()
+  }
+})
+
 // ============================================================
 // HELPERS DE AUTENTICACION Y SALDO
 // ============================================================
