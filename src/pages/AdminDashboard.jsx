@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { jsPDF } from 'jspdf'
-import autoTable from 'jspdf-autotable'
+import 'jspdf-autotable'
 import './AdminDashboard.css'
 
 const AdminDashboard = () => {
@@ -355,7 +355,7 @@ const AdminDashboard = () => {
       ]
     })
 
-    autoTable(doc, {
+    doc.autoTable({
       head: [head],
       body,
       startY: y + 4,
