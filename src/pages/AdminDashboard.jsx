@@ -302,18 +302,21 @@ const AdminDashboard = () => {
     }
     paintBackground()
 
+    doc.setFillColor(255, 255, 255)
+    doc.rect(0, 0, doc.internal.pageSize.getWidth(), 66, 'F')
+
     doc.setFontSize(18)
     doc.setTextColor(16, 185, 129)
     doc.text('LA CASCARITA', 14, 15)
     doc.setFontSize(10)
-    doc.setTextColor(148, 163, 184)
+    doc.setTextColor(80)
     doc.text('Resultados de quiniela', 14, 21)
 
     doc.setFontSize(12)
-    doc.setTextColor(241, 245, 249)
+    doc.setTextColor(20)
     doc.text(j.name, 14, 29)
     doc.setFontSize(9)
-    doc.setTextColor(148, 163, 184)
+    doc.setTextColor(90)
     doc.text(`Tipo: ${typeLabel}   |   Periodo: ${j.start_date || ''} - ${j.end_date || ''}   |   Estado: ${statusLabel}`, 14, 35)
 
     doc.setFontSize(10)
@@ -321,7 +324,7 @@ const AdminDashboard = () => {
     let y = 43
     doc.text('Premios', 14, y)
     doc.setFontSize(9)
-    doc.setTextColor(203, 213, 225)
+    doc.setTextColor(60)
     y += 5
     const prizeLines = []
     if (d) {
@@ -340,7 +343,7 @@ const AdminDashboard = () => {
     prizeLines.forEach(line => { doc.text(line, 16, y); y += 5 })
 
     doc.setFontSize(8)
-    doc.setTextColor(100, 116, 139)
+    doc.setTextColor(110)
     doc.text('L = Local   E = Empate   V = Visitante   |   Verde = acertada   Rojo = fallada   Naranja = mixta', 14, y)
 
     const head = [
@@ -396,7 +399,9 @@ const AdminDashboard = () => {
         else if (wrong === preds.length) data.cell.styles.textColor = [239, 68, 68]
         else if (correct > 0 || wrong > 0) data.cell.styles.textColor = [250, 204, 21]
       },
-      willDrawPage: () => paintBackground(),
+      willDrawPage: () => {
+        if (doc.internal.getCurrentPageInfo().pageNumber > 1) paintBackground()
+      },
       didDrawPage: () => {
         doc.setFontSize(8)
         doc.setTextColor(100, 116, 139)
