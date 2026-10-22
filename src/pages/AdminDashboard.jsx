@@ -360,31 +360,20 @@ const AdminDashboard = () => {
       doc.text('Partidos', 14, y)
 
       doc.autoTable({
-        head: [['#', 'Escudos', 'Partido', 'Resultado']],
+        head: [['#', 'Partido', 'Resultado']],
         body: matches.map((m, i) => [
           `${i + 1}`,
-          '',
           `${m.home_team_name} vs ${m.away_team_name}`,
           m.home_score != null && m.away_score != null ? `${m.home_score} - ${m.away_score}` : '-'
         ]),
         startY: y + 3,
         margin: { left: 14, right: 14 },
-        styles: { fontSize: 8, cellPadding: 1.6, valign: 'middle', textColor: [30, 41, 59], lineColor: [203, 213, 225], lineWidth: 0.1, minCellHeight: 7 },
+        styles: { fontSize: 8, cellPadding: 1.6, valign: 'middle', textColor: [30, 41, 59], lineColor: [203, 213, 225], lineWidth: 0.1, minCellHeight: 6 },
         headStyles: { fillColor: [15, 23, 42], textColor: [226, 232, 240], fontSize: 8, fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [241, 245, 249] },
         columnStyles: {
           0: { cellWidth: 10, halign: 'center' },
-          1: { cellWidth: 16 },
-          3: { cellWidth: 20, halign: 'center', fontStyle: 'bold' }
-        },
-        didDrawCell: (data) => {
-          if (data.section !== 'body' || data.column.index !== 1) return
-          const match = matches[data.row.index]
-          const b = badges[match.id]
-          const size = 4.5
-          const cy = data.cell.y + (data.cell.height - size) / 2
-          if (b?.home) doc.addImage(b.home, 'PNG', data.cell.x + 2, cy, size, size)
-          if (b?.away) doc.addImage(b.away, 'PNG', data.cell.x + 9, cy, size, size)
+          2: { cellWidth: 20, halign: 'center', fontStyle: 'bold' }
         }
       })
 
@@ -397,10 +386,13 @@ const AdminDashboard = () => {
       doc.text('L = Local   E = Empate   V = Visitante   |   Verde = acertada   Rojo = fallada   Naranja = mixta', 14, y + 4)
 
       const head = [
-        'Usuario',
-        ...matches.map((m, i) => `${i + 1}`),
-        'Ac.',
-        'Premio'
+        [
+          { content: 'Usuario', rowSpan: 2 },
+          ...matches.map((m, i) => `${i + 1}`),
+          { content: 'Ac.', rowSpan: 2 },
+          { content: 'Premio', rowSpan: 2 }
+        ],
+        matches.map(() => '')
       ]
 
       const body = parts.map(p => {
@@ -416,8 +408,9 @@ const AdminDashboard = () => {
         ]
       })
 
+      const lastCol = head[0].length - 1
       doc.autoTable({
-        head: [head],
+        head,
         body,
         startY: y + 8,
         margin: { left: 14, right: 14 },
@@ -431,15 +424,19 @@ const AdminDashboard = () => {
           lineColor: [203, 213, 225],
           lineWidth: 0.1
         },
-        headStyles: { fillColor: [15, 23, 42], textColor: [226, 232, 240], fontSize: 8, fontStyle: 'bold' },
+        headStyles: { fillColor: [15, 23, 42], textColor: [226, 232, 240], fontSize: 8, fontStyle: 'bold', minCellHeight: 7 },
         alternateRowStyles: { fillColor: [241, 245, 249] },
         columnStyles: {
           0: { halign: 'left', cellWidth: 48 },
-          [head.length - 2]: { cellWidth: 11, fontStyle: 'bold' },
-          [head.length - 1]: { cellWidth: 20, textColor: [5, 150, 105], fontStyle: 'bold' }
+          [lastCol - 1]: { cellWidth: 11, fontStyle: 'bold' },
+          [lastCol]: { cellWidth: 20, textColor: [5, 150, 105], fontStyle: 'bold' }
         },
         didParseCell: (data) => {
-          if (data.section !== 'body' || data.column.index === 0 || data.column.index >= head.length - 2) return
+          if (data.section === 'head' && data.row.index === 1) {
+            data.cell.styles.fillColor = [241, 245, 249]
+            return
+          }
+          if (data.section !== 'body' || data.column.index === 0 || data.column.index >= lastCol - 1) return
           const participation = parts[data.row.index]
           const match = matches[data.column.index - 1]
           const preds = participation?.predictions?.filter(pred => pred.match_id === match.id) || []
@@ -449,6 +446,16 @@ const AdminDashboard = () => {
           if (correct === preds.length) data.cell.styles.textColor = [16, 185, 129]
           else if (wrong === preds.length) data.cell.styles.textColor = [239, 68, 68]
           else if (correct > 0 || wrong > 0) data.cell.styles.textColor = [234, 138, 0]
+        },
+        didDrawCell: (data) => {
+          if (data.section !== 'head' || data.row.index !== 1) return
+          if (data.column.index === 0 || data.column.index > matches.length) return
+          const match = matches[data.column.index - 1]
+          const b = badges[match.id]
+          const size = 4.5
+          const cy = data.cell.y + (data.cell.height - size) / 2
+          if (b?.home) doc.addImage(b.home, 'PNG', data.cell.x + 1.5, cy, size, size)
+          if (b?.away) doc.addImage(b.away, 'PNG', data.cell.x + 7, cy, size, size)
         },
         didDrawPage: () => {
           doc.setFontSize(8)
