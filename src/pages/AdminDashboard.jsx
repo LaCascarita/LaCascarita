@@ -294,26 +294,34 @@ const AdminDashboard = () => {
 
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
 
+    const paintBackground = () => {
+      const w = doc.internal.pageSize.getWidth()
+      const h = doc.internal.pageSize.getHeight()
+      doc.setFillColor(11, 11, 11)
+      doc.rect(0, 0, w, h, 'F')
+    }
+    paintBackground()
+
     doc.setFontSize(18)
     doc.setTextColor(16, 185, 129)
     doc.text('LA CASCARITA', 14, 15)
     doc.setFontSize(10)
-    doc.setTextColor(80)
+    doc.setTextColor(148, 163, 184)
     doc.text('Resultados de quiniela', 14, 21)
 
     doc.setFontSize(12)
-    doc.setTextColor(20)
+    doc.setTextColor(241, 245, 249)
     doc.text(j.name, 14, 29)
     doc.setFontSize(9)
-    doc.setTextColor(90)
+    doc.setTextColor(148, 163, 184)
     doc.text(`Tipo: ${typeLabel}   |   Periodo: ${j.start_date || ''} - ${j.end_date || ''}   |   Estado: ${statusLabel}`, 14, 35)
 
     doc.setFontSize(10)
-    doc.setTextColor(20)
+    doc.setTextColor(16, 185, 129)
     let y = 43
     doc.text('Premios', 14, y)
     doc.setFontSize(9)
-    doc.setTextColor(60)
+    doc.setTextColor(203, 213, 225)
     y += 5
     const prizeLines = []
     if (d) {
@@ -332,7 +340,7 @@ const AdminDashboard = () => {
     prizeLines.forEach(line => { doc.text(line, 16, y); y += 5 })
 
     doc.setFontSize(8)
-    doc.setTextColor(110)
+    doc.setTextColor(100, 116, 139)
     doc.text('L = Local   E = Empate   V = Visitante   |   Verde = acertada   Rojo = fallada   Naranja = mixta', 14, y)
 
     const head = [
@@ -359,29 +367,39 @@ const AdminDashboard = () => {
       head: [head],
       body,
       startY: y + 4,
-      styles: { fontSize: 7, cellPadding: 1.5, halign: 'center', valign: 'middle' },
-      headStyles: { fillColor: [15, 23, 42], textColor: 230, fontSize: 7 },
-      alternateRowStyles: { fillColor: [248, 250, 252] },
+      styles: {
+        fontSize: 7,
+        cellPadding: 1.5,
+        halign: 'center',
+        valign: 'middle',
+        fillColor: [15, 23, 42],
+        textColor: [226, 232, 240],
+        lineColor: [51, 65, 85],
+        lineWidth: 0.1
+      },
+      headStyles: { fillColor: [30, 41, 59], textColor: [148, 163, 184], fontSize: 7, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [22, 33, 58] },
       columnStyles: {
         0: { halign: 'left', cellWidth: 40 },
-        [head.length - 2]: { cellWidth: 14 },
-        [head.length - 1]: { cellWidth: 20 }
+        [head.length - 2]: { cellWidth: 14, fontStyle: 'bold' },
+        [head.length - 1]: { cellWidth: 20, textColor: [52, 211, 153], fontStyle: 'bold' }
       },
       didParseCell: (data) => {
         if (data.section !== 'body' || data.column.index === 0 || data.column.index >= head.length - 2) return
         const participation = parts[data.row.index]
         const match = matches[data.column.index - 1]
         const preds = participation?.predictions?.filter(pred => pred.match_id === match.id) || []
-        if (preds.length === 0) { data.cell.styles.textColor = [150, 150, 150]; return }
+        if (preds.length === 0) { data.cell.styles.textColor = [100, 116, 139]; return }
         const correct = preds.filter(p => p.is_correct === true).length
         const wrong = preds.filter(p => p.is_correct === false).length
         if (correct === preds.length) data.cell.styles.textColor = [16, 185, 129]
         else if (wrong === preds.length) data.cell.styles.textColor = [239, 68, 68]
-        else if (correct > 0 || wrong > 0) data.cell.styles.textColor = [234, 138, 0]
+        else if (correct > 0 || wrong > 0) data.cell.styles.textColor = [250, 204, 21]
       },
+      willDrawPage: () => paintBackground(),
       didDrawPage: () => {
         doc.setFontSize(8)
-        doc.setTextColor(150)
+        doc.setTextColor(100, 116, 139)
         doc.text(`La Cascarita - generado ${new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}`, 14, doc.internal.pageSize.getHeight() - 8)
       }
     })
