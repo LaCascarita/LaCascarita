@@ -40,8 +40,9 @@ const AdminDashboard = () => {
   const [simulateEnabled, setSimulateEnabled] = useState(false)
   const [reconciliation, setReconciliation] = useState(null)
   const [reconLoading, setReconLoading] = useState(false)
-  const [earningsRange, setEarningsRange] = useState({ from: '', to: '' })
   const [earningsType, setEarningsType] = useState('')
+  const [earningsPeriod, setEarningsPeriod] = useState(0)
+  const [earningsSelected, setEarningsSelected] = useState(new Set())
   const [earningsData, setEarningsData] = useState(null)
   const [earningsLoading, setEarningsLoading] = useState(false)
 
@@ -74,7 +75,7 @@ const AdminDashboard = () => {
     if (activeView === 'earnings') {
       fetchEarnings()
     }
-  }, [activeView, participationsType])
+  }, [activeView, participationsType, earningsType])
 
   const setDefaultDateRange = () => {
     const today = new Date()
@@ -261,22 +262,53 @@ const AdminDashboard = () => {
     }
   }
 
+  const applyEarningsPeriod = (rows, days) => {
+    if (!days) return new Set(rows.map(r => r.jornada_id))
+    const cutoff = new Date()
+    cutoff.setDate(cutoff.getDate() - days)
+    const c = cutoff.toISOString().split('T')[0]
+    return new Set(rows.filter(r => r.start_date >= c).map(r => r.jornada_id))
+  }
+
   const fetchEarnings = async () => {
     setEarningsLoading(true)
     try {
       const params = new URLSearchParams()
-      if (earningsRange.from) params.set('from', earningsRange.from)
-      if (earningsRange.to) params.set('to', earningsRange.to)
       if (earningsType) params.set('type', earningsType)
       const response = await adminFetch(`/api/admin/earnings?${params.toString()}`)
       const data = await response.json()
       setEarningsData(data)
+      setEarningsSelected(applyEarningsPeriod(data.rows || [], earningsPeriod))
     } catch (error) {
       console.error('Error fetching earnings:', error)
     } finally {
       setEarningsLoading(false)
     }
   }
+
+  const handleEarningsPeriod = (days) => {
+    const next = earningsPeriod === days ? 0 : days
+    setEarningsPeriod(next)
+    setEarningsSelected(applyEarningsPeriod(earningsData?.rows || [], next))
+  }
+
+  const toggleEarningsJornada = (id) => {
+    setEarningsPeriod(0)
+    setEarningsSelected(prev => {
+      const s = new Set(prev)
+      if (s.has(id)) s.delete(id)
+      else s.add(id)
+      return s
+    })
+  }
+
+  const earningsRows = (earningsData?.rows || []).filter(r => earningsSelected.has(r.jornada_id))
+  const earningsTotals = earningsRows.reduce((acc, r) => ({
+    quinielas: acc.quinielas + r.quinielas,
+    collected: Math.round((acc.collected + r.collected) * 100) / 100,
+    house: Math.round((acc.house + r.house) * 100) / 100,
+    prizes_paid: Math.round((acc.prizes_paid + r.prizes_paid) * 100) / 100
+  }), { quinielas: 0, collected: 0, house: 0, prizes_paid: 0 })
 
   const exportJornadaPDF = async () => {
     if (!participationsData?.jornada) return
@@ -401,18 +433,18 @@ const AdminDashboard = () => {
   }
 
   const exportEarningsCSV = () => {
-    if (!earningsData?.rows?.length) return
+    if (!earningsRows.length) return
     const header = 'Jornada,Tipo,Fecha inicio,Quinielas,Participantes,Recaudado,Casa 30%,Premios pagados,Estatus\n'
-    const lines = earningsData.rows.map(r =>
+    const lines = earningsRows.map(r =>
       `"${r.name}",${r.type},${r.start_date},${r.quinielas},${r.participantes},${r.collected},${r.house},${r.prizes_paid},${r.status}`
     ).join('\n')
-    const t = earningsData.totals
+    const t = earningsTotals
     const totalsLine = `"TOTAL","","",${t.quinielas},"",${t.collected},${t.house},${t.prizes_paid},""`
     const blob = new Blob([header + lines + '\n' + totalsLine], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `ganancias_${earningsRange.from || 'inicio'}_a_${earningsRange.to || 'hoy'}.csv`
+    a.download = `ganancias_${earningsType || 'todas'}_${earningsRows.length}_jornadas.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -1450,24 +1482,6 @@ const AdminDashboard = () => {
 
             <div className="form-row">
               <div className="form-group">
-                <label>Desde</label>
-                <input
-                  type="date"
-                  value={earningsRange.from}
-                  onChange={(e) => setEarningsRange({ ...earningsRange, from: e.target.value })}
-                  className="form-select"
-                />
-              </div>
-              <div className="form-group">
-                <label>Hasta</label>
-                <input
-                  type="date"
-                  value={earningsRange.to}
-                  onChange={(e) => setEarningsRange({ ...earningsRange, to: e.target.value })}
-                  className="form-select"
-                />
-              </div>
-              <div className="form-group">
                 <label>Tipo de Jornada</label>
                 <select
                   value={earningsType}
@@ -1480,24 +1494,77 @@ const AdminDashboard = () => {
                   ))}
                 </select>
               </div>
+              <div className="form-group">
+                <label>Periodo</label>
+                <div className="period-checks">
+                  <label className="period-check">
+                    <input
+                      type="checkbox"
+                      checked={earningsPeriod === 7}
+                      onChange={() => handleEarningsPeriod(7)}
+                    />
+                    1 semana
+                  </label>
+                  <label className="period-check">
+                    <input
+                      type="checkbox"
+                      checked={earningsPeriod === 14}
+                      onChange={() => handleEarningsPeriod(14)}
+                    />
+                    15 días
+                  </label>
+                  <label className="period-check">
+                    <input
+                      type="checkbox"
+                      checked={earningsPeriod === 30}
+                      onChange={() => handleEarningsPeriod(30)}
+                    />
+                    1 mes
+                  </label>
+                </div>
+              </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={fetchEarnings} className="action-button" disabled={earningsLoading}>
-                {earningsLoading ? 'Cargando...' : 'Consultar'}
-              </button>
-              {earningsData?.rows?.length > 0 && (
-                <button onClick={exportEarningsCSV} className="action-button">
-                  Exportar CSV
-                </button>
-              )}
-            </div>
+            {earningsLoading && <p className="no-results">Cargando jornadas...</p>}
 
             {earningsData && earningsData.rows.length === 0 && (
-              <p className="no-results">No hay jornadas en ese rango de fechas.</p>
+              <p className="no-results">No hay jornadas de ese tipo.</p>
             )}
 
             {earningsData?.rows?.length > 0 && (
+              <div className="form-group">
+                <label>Jornadas ({earningsSelected.size} de {earningsData.rows.length} seleccionadas)</label>
+                <div className="jornada-checklist">
+                  {earningsData.rows.map(r => (
+                    <label key={r.jornada_id} className="jornada-check-item">
+                      <input
+                        type="checkbox"
+                        checked={earningsSelected.has(r.jornada_id)}
+                        onChange={() => toggleEarningsJornada(r.jornada_id)}
+                      />
+                      <span className="jornada-check-name">{r.name}</span>
+                      <span className="jornada-check-meta">
+                        {jornadaTypes.find(t => t.value === r.type)?.label || r.type} · inicia {r.start_date}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {earningsData && earningsRows.length === 0 && earningsData.rows.length > 0 && (
+              <p className="no-results">Selecciona al menos una jornada para ver los datos.</p>
+            )}
+
+            {earningsRows.length > 0 && (
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+                <button onClick={exportEarningsCSV} className="action-button">
+                  Exportar CSV
+                </button>
+              </div>
+            )}
+
+            {earningsRows.length > 0 && (
               <div className="participations-table-wrapper">
                 <table className="participations-table earnings-table">
                   <thead>
@@ -1533,7 +1600,7 @@ const AdminDashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {earningsData.rows.map(r => (
+                    {earningsRows.map(r => (
                       <tr key={r.jornada_id}>
                         <td data-label="Jornada" className="jornada-cell">
                           <span className="jornada-name">{r.name}</span>
@@ -1552,12 +1619,12 @@ const AdminDashboard = () => {
                       </tr>
                     ))}
                     <tr className="totals-row">
-                      <td data-label="Jornada"><strong>TOTAL del rango</strong></td>
-                      <td data-label="Quinielas" className="num"><strong>{earningsData.totals.quinielas}</strong></td>
+                      <td data-label="Jornada"><strong>TOTAL seleccionado</strong></td>
+                      <td data-label="Quinielas" className="num"><strong>{earningsTotals.quinielas}</strong></td>
                       <td data-label="Participantes"></td>
-                      <td data-label="Recaudado" className="num"><strong>{formatMoney(earningsData.totals.collected)}</strong></td>
-                      <td data-label="Ganancia casa" className="num house"><strong>{formatMoney(earningsData.totals.house)}</strong></td>
-                      <td data-label="Premios pagados" className="num"><strong>{formatMoney(earningsData.totals.prizes_paid)}</strong></td>
+                      <td data-label="Recaudado" className="num"><strong>{formatMoney(earningsTotals.collected)}</strong></td>
+                      <td data-label="Ganancia casa" className="num house"><strong>{formatMoney(earningsTotals.house)}</strong></td>
+                      <td data-label="Premios pagados" className="num"><strong>{formatMoney(earningsTotals.prizes_paid)}</strong></td>
                       <td></td>
                     </tr>
                   </tbody>

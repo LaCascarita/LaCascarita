@@ -375,6 +375,77 @@
   color: #64748b;
 }
 
+.period-checks {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 10px 0 4px;
+}
+
+.period-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #cbd5e1;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.period-check input {
+  accent-color: #10b981;
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+.jornada-checklist {
+  max-height: 220px;
+  overflow-y: auto;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+}
+
+.jornada-check-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid #1e293b;
+  cursor: pointer;
+}
+
+.jornada-check-item:last-child {
+  border-bottom: none;
+}
+
+.jornada-check-item:hover {
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.jornada-check-item input {
+  accent-color: #10b981;
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.jornada-check-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.jornada-check-meta {
+  font-size: 11px;
+  color: #64748b;
+  margin-left: auto;
+  text-align: right;
+}
+
 .current-jornada {
   background: #0f172a;
   border: 1px solid #334155;
