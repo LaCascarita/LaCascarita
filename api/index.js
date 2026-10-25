@@ -2757,71 +2757,74 @@ const syncJornadaResults = async (jornada_id) => {
       } else {
         console.log('[syncJornadaResults] API_FOOTBALL_KEY present')
 
+        // Agrupar partidos pendientes por fecha + liga: 1 llamada a la API por
+        // grupo en vez de 1 por partido (ahorra cuota de API-Football)
+        const groups = new Map()
         for (const match of pendingMatches) {
-          console.log('[syncJornadaResults] checking match:', match.id, 'api match_id:', match.match_id, 'league_id:', match.league_id, 'match_date:', match.match_date)
           if (!match.league_id || !match.match_date) {
             console.log('[syncJornadaResults] missing league_id or match_date for match:', match.id)
             continue
           }
-          const matchDate = match.match_date.split('T')[0]
-          const response = await fetch(`https://apiv3.apifootball.com/?action=get_events&from=${matchDate}&to=${matchDate}&league_id=${match.league_id}&APIkey=${API_FOOTBALL_KEY}`)
-          console.log('[syncJornadaResults] response status:', response.status, 'ok:', response.ok)
+          const key = `${match.match_date.split('T')[0]}|${match.league_id}`
+          if (!groups.has(key)) groups.set(key, { date: match.match_date.split('T')[0], league: match.league_id, matches: [] })
+          groups.get(key).matches.push(match)
+        }
+        console.log('[syncJornadaResults] API calls needed (date|league groups):', groups.size)
+
+        for (const group of groups.values()) {
+          const response = await fetch(`https://apiv3.apifootball.com/?action=get_events&from=${group.date}&to=${group.date}&league_id=${group.league}&APIkey=${API_FOOTBALL_KEY}`)
+          console.log('[syncJornadaResults] events fetch', group.date, 'league', group.league, '->', response.status)
           if (!response.ok) continue
           const data = await response.json()
-          console.log('[syncJornadaResults] response data is array:', Array.isArray(data), 'length:', (data || []).length)
           if (!Array.isArray(data) || data.length === 0) {
-            console.log('[syncJornadaResults] no data for match:', match.match_id, 'on', matchDate)
-            continue
-          }
-          const event = data.find(e => String(e.match_id) === String(match.match_id))
-          console.log('[syncJornadaResults] found event:', event ? {
-            match_id: event.match_id,
-            match_status: event.match_status,
-            home: event.match_hometeam_score,
-            away: event.match_awayteam_score
-          } : null)
-          if (!event) {
-            console.log('[syncJornadaResults] match not found in events list:', match.match_id)
-            continue
-          }
-          const finishedStatuses = ['FT', 'AET', 'PEN', 'Finished', 'FINISHED']
-          if (!finishedStatuses.includes(event.match_status)) {
-            console.log('[syncJornadaResults] match not finished, status:', event.match_status)
+            console.log('[syncJornadaResults] no events for', group.date, 'league', group.league)
             continue
           }
 
-          const homeScore = parseInt(event.match_hometeam_score, 10)
-          const awayScore = parseInt(event.match_awayteam_score, 10)
-          console.log('[syncJornadaResults] parsed scores:', homeScore, awayScore)
-          if (isNaN(homeScore) || isNaN(awayScore)) {
-            console.log('[syncJornadaResults] invalid scores, skip')
-            continue
-          }
+          for (const match of group.matches) {
+            const event = data.find(e => String(e.match_id) === String(match.match_id))
+            if (!event) {
+              console.log('[syncJornadaResults] match not found in events list:', match.match_id)
+              continue
+            }
+            const finishedStatuses = ['FT', 'AET', 'PEN', 'Finished', 'FINISHED']
+            if (!finishedStatuses.includes(event.match_status)) {
+              console.log('[syncJornadaResults] match not finished:', match.match_id, 'status:', event.match_status)
+              continue
+            }
 
-          const { error } = await supabase
-            .from('admin_jornada_partidos')
-            .update({ home_score: homeScore, away_score: awayScore, match_status: event.match_status })
-            .eq('id', match.id)
-          console.log('[syncJornadaResults] update match error:', error ? error.message : 'none')
-          if (error) continue
+            const homeScore = parseInt(event.match_hometeam_score, 10)
+            const awayScore = parseInt(event.match_awayteam_score, 10)
+            if (isNaN(homeScore) || isNaN(awayScore)) {
+              console.log('[syncJornadaResults] invalid scores, skip:', match.match_id)
+              continue
+            }
 
-          const result = getWinner(homeScore, awayScore)
-          console.log('[syncJornadaResults] calculated result:', result)
+            const { error } = await supabase
+              .from('admin_jornada_partidos')
+              .update({ home_score: homeScore, away_score: awayScore, match_status: event.match_status })
+              .eq('id', match.id)
+            if (error) {
+              console.log('[syncJornadaResults] update match error:', error.message)
+              continue
+            }
 
-          const { data: predictions } = await supabase
-            .from('predictions')
-            .select('id, participation_id, prediction')
-            .eq('match_id', match.id)
-          console.log('[syncJornadaResults] predictions for match:', match.id, 'count:', (predictions || []).length)
+            const result = getWinner(homeScore, awayScore)
+            console.log('[syncJornadaResults] scored match:', match.match_id, homeScore, '-', awayScore, '->', result)
 
-          for (const pred of (predictions || [])) {
-            const isCorrect = pred.prediction === result
-            console.log('[syncJornadaResults] pred:', pred.id, 'prediction:', pred.prediction, 'is_correct:', isCorrect)
-            await supabase
+            const { data: predictions } = await supabase
               .from('predictions')
-              .update({ is_correct: isCorrect, points: isCorrect ? 1 : 0 })
-              .eq('id', pred.id)
-            participationIds.add(pred.participation_id)
+              .select('id, participation_id, prediction')
+              .eq('match_id', match.id)
+
+            for (const pred of (predictions || [])) {
+              const isCorrect = pred.prediction === result
+              await supabase
+                .from('predictions')
+                .update({ is_correct: isCorrect, points: isCorrect ? 1 : 0 })
+                .eq('id', pred.id)
+              participationIds.add(pred.participation_id)
+            }
           }
         }
       }
@@ -3424,6 +3427,96 @@ app.post('/api/admin/jornada-status', async (req, res) => {
     res.json({ message: 'Quiniela reabierta', jornada: { ...jornada, status: 'active' } })
   } catch (error) {
     console.error('Error updating jornada status:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// ============================================================
+// ADMIN: RESULTADO MANUAL DE PARTIDO
+// Para cuando API-Football no trae el marcador de un fixture
+// ============================================================
+app.post('/api/admin/set-match-result', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const admin = getAdminFromToken(req)
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' })
+
+    const { matchId, home_score, away_score } = req.body
+    const h = parseInt(home_score, 10)
+    const a = parseInt(away_score, 10)
+    if (!matchId || isNaN(h) || isNaN(a) || h < 0 || a < 0) {
+      return res.status(400).json({ error: 'Marcador inválido' })
+    }
+
+    const { data: match, error: matchError } = await supabase
+      .from('admin_jornada_partidos')
+      .select('id, jornada_id')
+      .eq('id', matchId)
+      .single()
+    if (matchError || !match) return res.status(404).json({ error: 'Partido no encontrado' })
+
+    const { error } = await supabase
+      .from('admin_jornada_partidos')
+      .update({ home_score: h, away_score: a, match_status: 'FT' })
+      .eq('id', matchId)
+    if (error) throw error
+
+    const result = h === a ? 'draw' : h > a ? 'home' : 'away'
+    const { data: predictions } = await supabase
+      .from('predictions')
+      .select('id, participation_id, prediction')
+      .eq('match_id', matchId)
+    for (const pred of (predictions || [])) {
+      const isCorrect = pred.prediction === result
+      await supabase
+        .from('predictions')
+        .update({ is_correct: isCorrect, points: isCorrect ? 1 : 0 })
+        .eq('id', pred.id)
+    }
+
+    // Recalcular aciertos de todas las participaciones de la jornada
+    const { data: allParts } = await supabase
+      .from('participations')
+      .select('id')
+      .eq('jornada_id', match.jornada_id)
+    const pids = (allParts || []).map(p => p.id)
+    const { data: jornadaMatches } = await supabase
+      .from('admin_jornada_partidos')
+      .select('id')
+      .eq('jornada_id', match.jornada_id)
+    const totalMatches = (jornadaMatches || []).length
+
+    if (pids.length > 0) {
+      const { data: allPreds } = await supabase
+        .from('predictions')
+        .select('participation_id, match_id, is_correct')
+        .in('participation_id', pids)
+      const byPart = new Map()
+      for (const p of (allPreds || [])) {
+        if (!byPart.has(p.participation_id)) byPart.set(p.participation_id, new Map())
+        const matchesMap = byPart.get(p.participation_id)
+        matchesMap.set(p.match_id, (matchesMap.get(p.match_id) || false) || p.is_correct === true)
+      }
+      for (const pid of pids) {
+        const correct = [...(byPart.get(pid) || new Map()).values()].filter(Boolean).length
+        await supabase
+          .from('participations')
+          .update({ correct_predictions: correct, predictions_count: totalMatches })
+          .eq('id', pid)
+      }
+    }
+
+    await maybeAutoDistributePrizes(match.jornada_id)
+
+    res.json({ message: 'Resultado guardado', result })
+  } catch (error) {
+    console.error('Error setting manual match result:', error)
     res.status(500).json({ error: error.message })
   }
 })

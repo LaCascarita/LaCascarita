@@ -446,6 +446,65 @@
   text-align: right;
 }
 
+.match-score-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.score-edit-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 2px;
+  opacity: 0.6;
+}
+
+.score-edit-btn:hover {
+  opacity: 1;
+}
+
+.score-edit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.score-edit input {
+  width: 34px;
+  padding: 3px 4px;
+  background: #1e293b;
+  border: 1px solid #475569;
+  border-radius: 4px;
+  color: #e2e8f0;
+  font-size: 12px;
+  text-align: center;
+}
+
+.score-edit-save,
+.score-edit-cancel {
+  background: #10b981;
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 7px;
+  cursor: pointer;
+}
+
+.score-edit-cancel {
+  background: #475569;
+}
+
+.score-edit-save:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .current-jornada {
   background: #0f172a;
   border: 1px solid #334155;

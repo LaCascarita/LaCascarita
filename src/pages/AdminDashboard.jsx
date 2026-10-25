@@ -40,6 +40,9 @@ const AdminDashboard = () => {
   const [simulateEnabled, setSimulateEnabled] = useState(false)
   const [reconciliation, setReconciliation] = useState(null)
   const [reconLoading, setReconLoading] = useState(false)
+  const [editingScoreMatch, setEditingScoreMatch] = useState(null)
+  const [editScore, setEditScore] = useState({ home: '', away: '' })
+  const [savingScore, setSavingScore] = useState(false)
   const [earningsType, setEarningsType] = useState('')
   const [earningsPeriod, setEarningsPeriod] = useState(0)
   const [earningsSelected, setEarningsSelected] = useState(new Set())
@@ -283,6 +286,29 @@ const AdminDashboard = () => {
       console.error('Error fetching earnings:', error)
     } finally {
       setEarningsLoading(false)
+    }
+  }
+
+  const saveMatchScore = async (matchId) => {
+    setSavingScore(true)
+    try {
+      const response = await adminFetch('/api/admin/set-match-result', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matchId, home_score: editScore.home, away_score: editScore.away })
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        setMessage(data.error || 'Error al guardar el resultado')
+        return
+      }
+      setEditingScoreMatch(null)
+      setMessage('Resultado guardado')
+      fetchParticipations()
+    } catch (error) {
+      setMessage('Error al guardar el resultado')
+    } finally {
+      setSavingScore(false)
     }
   }
 
@@ -1058,8 +1084,56 @@ const AdminDashboard = () => {
                             <span>{match.home_team_name}</span>
                             <span className="vs-small">vs</span>
                             <span>{match.away_team_name}</span>
-                            {match.home_score != null && match.away_score != null && (
-                              <span className="match-score">{match.home_score} - {match.away_score}</span>
+                            {editingScoreMatch === match.id ? (
+                              <span className="score-edit">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={editScore.home}
+                                  onChange={(e) => setEditScore({ ...editScore, home: e.target.value })}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                <span>-</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={editScore.away}
+                                  onChange={(e) => setEditScore({ ...editScore, away: e.target.value })}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                <button
+                                  className="score-edit-save"
+                                  disabled={savingScore || editScore.home === '' || editScore.away === ''}
+                                  onClick={() => saveMatchScore(match.id)}
+                                >
+                                  ✓
+                                </button>
+                                <button
+                                  className="score-edit-cancel"
+                                  onClick={() => setEditingScoreMatch(null)}
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ) : (
+                              <span className="match-score-row">
+                                {match.home_score != null && match.away_score != null && (
+                                  <span className="match-score">{match.home_score} - {match.away_score}</span>
+                                )}
+                                <button
+                                  className="score-edit-btn"
+                                  title="Capturar resultado manualmente"
+                                  onClick={() => {
+                                    setEditingScoreMatch(match.id)
+                                    setEditScore({
+                                      home: match.home_score ?? '',
+                                      away: match.away_score ?? ''
+                                    })
+                                  }}
+                                >
+                                  ✏️
+                                </button>
+                              </span>
                             )}
                           </div>
                         </th>
