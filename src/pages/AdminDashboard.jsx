@@ -1280,8 +1280,12 @@ const AdminDashboard = () => {
                     <span className="recon-label">Acumulado pendiente (2° lugar)</span>
                     <span className="recon-value">{formatMoney(reconciliation.carryover_pending)}</span>
                   </div>
+                  <div className="recon-item">
+                    <span className="recon-label">Premios por repartir</span>
+                    <span className="recon-value">{formatMoney(reconciliation.prizes_pending)}</span>
+                  </div>
                   <div className="recon-item recon-highlight">
-                    <span className="recon-label">Margen bruto casa (antes de comisiones)</span>
+                    <span className="recon-label">Ganancia casa (30% de lo jugado)</span>
                     <span className="recon-value">{formatMoney(reconciliation.house_margin_gross)}</span>
                   </div>
                   {(reconciliation.deposits_pending > 0 || reconciliation.withdrawals_processing > 0) && (

@@ -3655,8 +3655,9 @@ app.get('/api/admin/reconciliation', async (req, res) => {
       expected_cash: r2(depositsPaid - withdrawalsPaid),
       quiniela_spend: r2(quinielaSpend),
       prizes_paid: r2(prizesPaid),
+      prizes_pending: r2(Math.max(0, quinielaSpend * 0.7 - prizesPaid - carryoverPending)),
       carryover_pending: r2(carryoverPending),
-      house_margin_gross: r2(quinielaSpend - prizesPaid - carryoverPending)
+      house_margin_gross: r2(quinielaSpend * 0.3)
     })
   } catch (error) {
     console.error('Error fetching reconciliation:', error)
