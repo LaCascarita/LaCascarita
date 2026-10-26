@@ -3621,18 +3621,21 @@ app.get('/api/admin/reconciliation', async (req, res) => {
       { data: balances, error: balErr },
       { data: payments, error: payErr },
       { data: participations, error: partErr },
-      { data: carryovers, error: carrErr }
+      { data: carryovers, error: carrErr },
+      { data: houseWithdrawals, error: hwErr }
     ] = await Promise.all([
       supabase.from('users').select('balance').eq('role', 'user'),
       supabase.from('payments').select('direction, amount, status'),
       supabase.from('participations').select('payment_amount, prize_amount, prize_status').eq('payment_status', 'paid'),
-      supabase.from('prize_carryover').select('amount')
+      supabase.from('prize_carryover').select('amount'),
+      supabase.from('house_withdrawals').select('amount')
     ])
 
     if (balErr) throw balErr
     if (payErr) throw payErr
     if (partErr) throw partErr
     if (carrErr) throw carrErr
+    if (hwErr) throw hwErr
 
     const sum = (rows, fn) => (rows || []).reduce((acc, r) => acc + fn(r), 0)
     const r2 = n => Math.round(n * 100) / 100
@@ -3645,6 +3648,7 @@ app.get('/api/admin/reconciliation', async (req, res) => {
     const quinielaSpend = sum(participations, p => Number(p.payment_amount) || 0)
     const prizesPaid = sum(participations, p => p.prize_status === 'paid' ? Number(p.prize_amount) || 0 : 0)
     const carryoverPending = sum(carryovers, c => Number(c.amount) || 0)
+    const houseWithdrawn = sum(houseWithdrawals, w => Number(w.amount) || 0)
 
     res.json({
       user_balances: r2(userBalances),
@@ -3652,16 +3656,94 @@ app.get('/api/admin/reconciliation', async (req, res) => {
       deposits_pending: r2(depositsPending),
       withdrawals_paid: r2(withdrawalsPaid),
       withdrawals_processing: r2(withdrawalsProcessing),
-      expected_cash: r2(depositsPaid - withdrawalsPaid),
+      expected_cash: r2(depositsPaid - withdrawalsPaid - houseWithdrawn),
       quiniela_spend: r2(quinielaSpend),
       prizes_paid: r2(prizesPaid),
       prizes_pending: r2(Math.max(0, quinielaSpend * 0.7 - prizesPaid - carryoverPending)),
       carryover_pending: r2(carryoverPending),
-      house_margin_gross: r2(quinielaSpend * 0.3)
+      house_margin_gross: r2(quinielaSpend * 0.3),
+      house_withdrawn: r2(houseWithdrawn),
+      house_available: r2(quinielaSpend * 0.3 - houseWithdrawn)
     })
   } catch (error) {
     console.error('Error fetching reconciliation:', error)
     res.status(500).json({ error: 'Error al obtener conciliación' })
+  }
+})
+
+// ============================================================
+// ADMIN: RETIROS DE GANANCIA DE LA CASA (registro manual)
+// ============================================================
+app.get('/api/admin/house-withdrawals', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const admin = getAdminFromToken(req)
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' })
+
+    const { data, error } = await supabase
+      .from('house_withdrawals')
+      .select('id, amount, note, created_at')
+      .order('created_at', { ascending: false })
+      .limit(50)
+    if (error) throw error
+    res.json({ entries: data || [] })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+app.post('/api/admin/house-withdrawals', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const admin = getAdminFromToken(req)
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' })
+
+    const amount = parseFloat(req.body.amount)
+    const note = (req.body.note || '').toString().slice(0, 200) || null
+    if (isNaN(amount) || amount <= 0) return res.status(400).json({ error: 'Monto inválido' })
+
+    const { error } = await supabase
+      .from('house_withdrawals')
+      .insert({ amount, note })
+    if (error) throw error
+    res.json({ message: 'Retiro registrado' })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+app.delete('/api/admin/house-withdrawals/:id', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'DELETE, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
+
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    const admin = getAdminFromToken(req)
+    if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' })
+
+    const { error } = await supabase
+      .from('house_withdrawals')
+      .delete()
+      .eq('id', req.params.id)
+    if (error) throw error
+    res.json({ message: 'Retiro eliminado' })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
   }
 })
 

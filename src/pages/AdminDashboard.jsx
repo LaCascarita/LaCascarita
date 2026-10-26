@@ -40,6 +40,9 @@ const AdminDashboard = () => {
   const [simulateEnabled, setSimulateEnabled] = useState(false)
   const [reconciliation, setReconciliation] = useState(null)
   const [reconLoading, setReconLoading] = useState(false)
+  const [houseWithdrawals, setHouseWithdrawals] = useState([])
+  const [newWithdrawal, setNewWithdrawal] = useState({ amount: '', note: '' })
+  const [savingWithdrawal, setSavingWithdrawal] = useState(false)
   const [editingScoreMatch, setEditingScoreMatch] = useState(null)
   const [editScore, setEditScore] = useState({ home: '', away: '' })
   const [savingScore, setSavingScore] = useState(false)
@@ -74,6 +77,7 @@ const AdminDashboard = () => {
     }
     if (activeView === 'saldos') {
       fetchReconciliation()
+      fetchHouseWithdrawals()
     }
     if (activeView === 'earnings') {
       fetchEarnings()
@@ -682,6 +686,56 @@ const AdminDashboard = () => {
     }
   }
 
+  const fetchHouseWithdrawals = async () => {
+    try {
+      const response = await adminFetch('/api/admin/house-withdrawals')
+      const data = await response.json()
+      setHouseWithdrawals(data.entries || [])
+    } catch (error) {
+      console.error('Error fetching house withdrawals:', error)
+    }
+  }
+
+  const registerHouseWithdrawal = async () => {
+    const amount = parseFloat(newWithdrawal.amount)
+    if (isNaN(amount) || amount <= 0) {
+      setMessage('Ingresa un monto válido')
+      return
+    }
+    setSavingWithdrawal(true)
+    try {
+      const response = await adminFetch('/api/admin/house-withdrawals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, note: newWithdrawal.note })
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        setMessage(data.error || 'Error al registrar el retiro')
+        return
+      }
+      setNewWithdrawal({ amount: '', note: '' })
+      setMessage('Retiro registrado')
+      fetchHouseWithdrawals()
+      fetchReconciliation()
+    } catch (error) {
+      setMessage('Error al registrar el retiro')
+    } finally {
+      setSavingWithdrawal(false)
+    }
+  }
+
+  const deleteHouseWithdrawal = async (id) => {
+    if (!window.confirm('¿Eliminar este registro de retiro?')) return
+    try {
+      await adminFetch(`/api/admin/house-withdrawals/${id}`, { method: 'DELETE' })
+      fetchHouseWithdrawals()
+      fetchReconciliation()
+    } catch (error) {
+      console.error('Error deleting withdrawal:', error)
+    }
+  }
+
   return (
     <div className="admin-dashboard">
       <header className="admin-header">
@@ -1284,9 +1338,17 @@ const AdminDashboard = () => {
                     <span className="recon-label">Premios por repartir</span>
                     <span className="recon-value">{formatMoney(reconciliation.prizes_pending)}</span>
                   </div>
-                  <div className="recon-item recon-highlight">
+                  <div className="recon-item">
                     <span className="recon-label">Ganancia casa (30% de lo jugado)</span>
                     <span className="recon-value">{formatMoney(reconciliation.house_margin_gross)}</span>
+                  </div>
+                  <div className="recon-item">
+                    <span className="recon-label">Ganancias retiradas</span>
+                    <span className="recon-value">-{formatMoney(reconciliation.house_withdrawn || 0)}</span>
+                  </div>
+                  <div className="recon-item recon-highlight">
+                    <span className="recon-label">Ganancia casa disponible</span>
+                    <span className="recon-value">{formatMoney(reconciliation.house_available)}</span>
                   </div>
                   {(reconciliation.deposits_pending > 0 || reconciliation.withdrawals_processing > 0) && (
                     <div className="recon-item recon-note">
@@ -1299,10 +1361,57 @@ const AdminDashboard = () => {
                   )}
                 </div>
                 <p className="section-hint">
-                  "Efectivo esperado" = depósitos cobrados - retiros pagados. Es lo que debería haber
-                  entre Openpay y tu banco <strong>antes de comisiones</strong>. Debe ser ≥ al pasivo
+                  "Efectivo esperado" = depósitos cobrados - retiros pagados - ganancias retiradas.
+                  Es lo que debería haber en el banco <strong>antes de comisiones</strong>. Debe ser ≥ al pasivo
                   de usuarios; la diferencia es el margen de la casa.
                 </p>
+
+                <div className="house-withdrawal-form">
+                  <h4>Registrar retiro de ganancias</h4>
+                  <div className="house-withdrawal-inputs">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="Monto"
+                      value={newWithdrawal.amount}
+                      onChange={(e) => setNewWithdrawal({ ...newWithdrawal, amount: e.target.value })}
+                      className="form-select"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Nota (opcional)"
+                      value={newWithdrawal.note}
+                      onChange={(e) => setNewWithdrawal({ ...newWithdrawal, note: e.target.value })}
+                      className="form-select"
+                    />
+                    <button
+                      onClick={registerHouseWithdrawal}
+                      className="action-button"
+                      disabled={savingWithdrawal || !newWithdrawal.amount}
+                    >
+                      {savingWithdrawal ? 'Guardando...' : 'Registrar'}
+                    </button>
+                  </div>
+                  {houseWithdrawals.length > 0 && (
+                    <div className="house-withdrawal-list">
+                      {houseWithdrawals.map(w => (
+                        <div key={w.id} className="house-withdrawal-item">
+                          <span>{new Date(w.created_at).toLocaleDateString('es-MX', { timeZone: 'America/Mexico_City' })}</span>
+                          <strong>{formatMoney(w.amount)}</strong>
+                          {w.note && <span className="house-withdrawal-note">{w.note}</span>}
+                          <button
+                            className="house-withdrawal-delete"
+                            title="Eliminar registro"
+                            onClick={() => deleteHouseWithdrawal(w.id)}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
