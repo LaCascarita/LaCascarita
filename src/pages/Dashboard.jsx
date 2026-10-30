@@ -770,10 +770,10 @@ const Dashboard = () => {
                 <div className="space-y-3 mb-4">
                   {[
                     { label: 'CLABE', value: speiInfo.clabe, field: 'clabe', mono: true },
-                    { label: 'Referencia', value: speiInfo.reference, field: 'reference', mono: true },
+                    { label: 'Referencia (campo "Referencia" del SPEI)', value: speiInfo.reference, field: 'reference', mono: true },
                     { label: 'Monto exacto', value: `$${parseFloat(speiInfo.amount).toFixed(2)} MXN`, field: 'amount', mono: false, green: true },
                     ...(speiInfo.manual && user?.username
-                      ? [{ label: 'Concepto (tu usuario)', value: user.username, field: 'concept', mono: true }]
+                      ? [{ label: 'Concepto / Motivo (tu usuario)', value: user.username, field: 'concept', mono: true }]
                       : []),
                   ].map((row) => (
                     <div key={row.field} className="bg-slate-900/60 border border-slate-700 rounded-lg p-3 flex items-center justify-between gap-2">
@@ -804,7 +804,7 @@ const Dashboard = () => {
 
                 <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mb-4">
                   <p className="text-yellow-400 text-xs">
-                    ⚠️ Transfiere exactamente <span className="font-semibold">${parseFloat(speiInfo.amount).toFixed(2)} MXN</span> con la referencia mostrada{speiInfo.manual ? ', y en el concepto escribe tu nombre de usuario — así identificamos tu pago más rápido' : ', o el pago no se acreditará automáticamente'}.
+                    ⚠️ En tu app bancaria coloca la <span className="font-semibold">referencia</span> en el campo "Referencia" (o "Concepto/Motivo" si tu banco no tiene ese campo) y transfiere exactamente <span className="font-semibold">${parseFloat(speiInfo.amount).toFixed(2)} MXN</span>{speiInfo.manual ? ' — en el concepto escribe tu nombre de usuario para identificar tu pago más rápido. Si la referencia llega diferente o vacía, la acreditación puede tardar porque la identificamos por el monto' : ', o el pago no se acreditará automáticamente'}.
                   </p>
                 </div>
 

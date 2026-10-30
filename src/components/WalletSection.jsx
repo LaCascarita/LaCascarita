@@ -205,8 +205,9 @@ const WalletSection = ({ balance, transactions, participations, walletLoading, o
           <div className="bg-slate-800/50 rounded-lg p-4 border border-white/10">
             <p className="text-slate-300 text-sm mb-2">Instrucciones SPEI:</p>
             <ul className="text-slate-400 text-xs space-y-1 list-disc list-inside">
-              <li>Realiza tu transferencia desde tu banca en línea.</li>
-              <li>Transfiere el monto exacto (con centavos) y la referencia que se generarán al solicitar.</li>
+              <li>Realiza tu transferencia desde tu banca en línea con los datos que se generarán al solicitar.</li>
+              <li>Transfiere el monto exacto (con centavos) — con eso identificamos tu pago.</li>
+              <li>Coloca la referencia en el campo <strong>"Referencia"</strong> de tu app bancaria (o "Concepto/Motivo" si no lo tiene) y tu usuario en el concepto.</li>
               <li>Toca "Ya transferí" cuando hagas el pago.</li>
               <li>Tu recarga se acreditará al confirmar la recepción en el banco.</li>
             </ul>
