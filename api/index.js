@@ -1513,6 +1513,13 @@ app.post('/api/payments/spei-manual', async (req, res) => {
 
     if (paymentError) throw paymentError
 
+    await sendAdminNotification('Nueva solicitud de recarga', [
+      ['Usuario', user.username || user.id],
+      ['Monto a depositar', `$${Number(depositAmount).toFixed(2)} MXN`],
+      ['Referencia', speiReference],
+      ['Acción', 'Esperando transferencia SPEI del usuario']
+    ])
+
     res.json({
       payment_id: payment.id,
       external_reference: externalReference,
