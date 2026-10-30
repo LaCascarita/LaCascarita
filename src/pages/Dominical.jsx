@@ -127,6 +127,15 @@ const Dominical = () => {
     return `${dayString} • ${timeString}`
   }
 
+  const closeLabel = (() => {
+    const dates = matches.map(m => new Date(m.match_date)).filter(d => !isNaN(d))
+    if (dates.length === 0) return null
+    const close = new Date(Math.min(...dates) - 30 * 60 * 1000)
+    const day = close.toLocaleDateString('es-MX', { weekday: 'long', timeZone: 'America/Mexico_City' })
+    const time = close.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Mexico_City' })
+    return `${day.charAt(0).toUpperCase() + day.slice(1)} ${time}`
+  })()
+
   const getLeagueName = (match) => {
     return match.league_name || 'Liga'
   }
@@ -233,7 +242,7 @@ const Dominical = () => {
             <h1 className="text-xl sm:text-2xl font-semibold text-white mt-4">
               Bolsa Dominical
             </h1>
-            <p className="text-slate-400 mt-2">{matches.length} partidos • Cierre: Sábado 20:00</p>
+            <p className="text-slate-400 mt-2">{matches.length} partidos • Cierre: {closeLabel || 'Sábado 20:00'}</p>
           </div>
           <div className="flex items-center gap-4">
             <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-lg px-4 py-2">
