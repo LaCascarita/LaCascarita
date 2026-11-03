@@ -894,7 +894,7 @@ app.get('/api/football/jornada-matches', async (req, res) => {
 
     // Devuelve la jornada mas reciente del tipo, sea cual sea su status.
     // El frontend usa jornada.status para mostrarla como cerrada.
-    const { data: jornada, error: jornadaError } = await supabase
+    let { data: jornada, error: jornadaError } = await supabase
       .from('admin_jornadas')
       .select('*')
       .eq('type', type)
@@ -912,6 +912,8 @@ app.get('/api/football/jornada-matches', async (req, res) => {
       .order('position')
 
     if (matchesError) throw matchesError
+
+    jornada = await autoCloseJornadaIfNeeded(jornada, matches)
 
     res.json({ jornada, matches })
   } catch (error) {
@@ -2396,6 +2398,11 @@ app.post('/api/quinielas', async (req, res) => {
     if (partidosError) throw partidosError
     if (!partidos || partidos.length === 0) return res.status(404).json({ error: 'La jornada no tiene partidos' })
 
+    const closedJornada = await autoCloseJornadaIfNeeded(jornada, partidos)
+    if (closedJornada.status !== 'active') {
+      return res.status(400).json({ error: 'La quiniela está cerrada, ya no se aceptan pronósticos' })
+    }
+
     const missing = partidos.some(p => !selections[p.match_id] || selections[p.match_id].length === 0)
     if (missing) return res.status(400).json({ error: 'Debes seleccionar al menos un resultado en cada partido' })
 
@@ -2741,6 +2748,32 @@ app.get('/api/football/bag-prizes', async (req, res) => {
     res.status(500).json({ error: error.message })
   }
 })
+
+// Cierre automatico de bolsas: 30 minutos antes del primer partido
+// la jornada pasa de 'active' a 'inactive' sin intervencion del admin.
+// El cierre manual del admin sigue funcionando como opcion.
+const autoCloseJornadaIfNeeded = async (jornada, partidos) => {
+  try {
+    if (!jornada || jornada.status !== 'active' || !partidos || partidos.length === 0) return jornada
+    const firstTs = Math.min(...partidos.map(p => new Date(p.match_date).getTime()).filter(t => !isNaN(t)))
+    if (!isFinite(firstTs)) return jornada
+    const closesAt = firstTs - 30 * 60 * 1000
+    // Si el admin reabrio la quiniela despues de su hora de cierre, se respeta
+    // ese override manual y ya no se vuelve a cerrar automaticamente.
+    if (jornada.updated_at && new Date(jornada.updated_at).getTime() > closesAt) return jornada
+    if (Date.now() < closesAt) return jornada
+    await supabase
+      .from('admin_jornadas')
+      .update({ status: 'inactive' })
+      .eq('id', jornada.id)
+      .eq('status', 'active')
+    console.log('[autoClose] Jornada cerrada automaticamente:', jornada.id)
+    return { ...jornada, status: 'inactive' }
+  } catch (e) {
+    console.error('[autoClose] error:', e.message)
+    return jornada
+  }
+}
 
 const syncJornadaResults = async (jornada_id) => {
   try {
