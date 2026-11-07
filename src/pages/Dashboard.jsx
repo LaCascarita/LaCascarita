@@ -40,6 +40,26 @@ const Dashboard = () => {
 
   useEffect(() => () => clearInterval(speiPollRef.current), [])
 
+  // Intercepta el boton "atras" del navegador: empuja una entrada guardia al
+  // historial y al detectar el retroceso pregunta si quiere cerrar sesion.
+  useEffect(() => {
+    window.history.pushState({ lcBackGuard: true }, '')
+    const onPopState = async () => {
+      if (window.confirm('¿Quieres cerrar sesión y salir de tu cuenta?')) {
+        try {
+          const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
+          await fetch(`${apiUrl}/api/logout`, { method: 'POST', credentials: 'include' })
+        } catch (e) { /* continuar al login de todos modos */ }
+        navigate('/login')
+      } else {
+        window.history.pushState({ lcBackGuard: true }, '')
+        navigate('/dashboard', { replace: true })
+      }
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
+
 
   const totalPrizes = participations
     .filter(p => parseFloat(p.prize_amount) > 0 && p.prize_status !== 'none')

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 const Login = () => {
@@ -9,6 +9,16 @@ const Login = () => {
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Si ya hay sesion activa, no mostrar el formulario: regresar al dashboard
+  useEffect(() => {
+    const apiUrl = import.meta.env.VITE_API_URL || window.location.origin
+    fetch(`${apiUrl}/api/me`, { credentials: 'include' })
+      .then(r => {
+        if (r.ok) navigate('/dashboard', { replace: true })
+      })
+      .catch(() => {})
+  }, [])
 
   const handleChange = (e) => {
     const { name, value } = e.target
