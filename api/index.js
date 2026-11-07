@@ -567,6 +567,48 @@ const ALLOWED_LEAGUES = [
   28, 23, 27, 633, 24, 17, 1, 664
 ]
 
+// ============================================================
+// PROVEEDOR DE FUTBOL: 'apifootball' (actual) | 'apisports' (nuevo)
+// Se cambia con la variable FOOTBALL_PROVIDER; las jornadas guardan
+// el proveedor con el que se crearon para sincronizar contra el correcto.
+// ============================================================
+const FOOTBALL_PROVIDER = process.env.FOOTBALL_PROVIDER || 'apifootball'
+const APISPORTS_BASE = 'https://v3.football.api-sports.io'
+
+// IDs de ligas equivalentes en API-Sports (api-football.com)
+const APISPORTS_LEAGUES = [
+  262, 263, 253, 128, // Liga MX, Expansion MX, MLS, Liga Profesional Argentina
+  39, 40, 140, 135, 78, 71, 61, 62, 88, 94, // Europa
+  2, 3, 848, 13, 11, // Copas internacionales de clubes
+  1, 4, 9, 5, 16, 22, 31, 32, 34 // Selecciones
+]
+
+const sportsFetch = async (path) => {
+  const key = process.env.FOOTBALL_API_SPORTS_KEY
+  if (!key) throw new Error('FOOTBALL_API_SPORTS_KEY not configured')
+  const r = await fetch(`${APISPORTS_BASE}${path}`, {
+    headers: { 'x-apisports-key': key }
+  })
+  if (!r.ok) throw new Error(`API-Sports request failed: ${r.status}`)
+  const data = await r.json()
+  return data.response || []
+}
+
+// Normaliza un evento de API-Sports al formato interno de la app
+const normSportsFixture = (f) => ({
+  match_id: f.fixture?.id,
+  league_id: f.league?.id,
+  league_name: f.league?.name,
+  home_team_name: f.teams?.home?.name,
+  away_team_name: f.teams?.away?.name,
+  home_team_badge: f.teams?.home?.logo,
+  away_team_badge: f.teams?.away?.logo,
+  match_date: f.fixture?.date,
+  match_status: f.fixture?.status?.short,
+  home_score: f.goals?.home,
+  away_score: f.goals?.away
+})
+
 app.get('/api/admin/leagues', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
@@ -577,6 +619,20 @@ app.get('/api/admin/leagues', async (req, res) => {
   try {
     const admin = getAdminFromToken(req)
     if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' })
+
+    if (FOOTBALL_PROVIDER === 'apisports') {
+      const data = await sportsFetch('/leagues?current=true')
+      const relevantLeagues = (data || [])
+        .filter(l => APISPORTS_LEAGUES.includes(l.league?.id))
+        .map(l => ({
+          league_id: l.league.id,
+          league_name: l.league.name,
+          country_name: l.country?.name,
+          league_logo: l.league.logo,
+          provider: 'apisports'
+        }))
+      return res.json({ leagues: relevantLeagues })
+    }
 
     const API_FOOTBALL_KEY = process.env.API_FOOTBALL_KEY
     if (!API_FOOTBALL_KEY) {
@@ -610,10 +666,18 @@ app.get('/api/admin/fixtures', async (req, res) => {
     if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' })
 
     const { league_id, from, to } = req.query
+    if (!league_id || !from || !to) return res.status(400).json({ error: 'Missing required parameters: league_id, from, to' })
+
+    if (FOOTBALL_PROVIDER === 'apisports') {
+      const season = String(from).split('-')[0]
+      const data = await sportsFetch(`/fixtures?league=${league_id}&season=${season}&from=${from}&to=${to}&timezone=America/Mexico_City`)
+      const matches = (data || []).map(normSportsFixture)
+      return res.json({ matches })
+    }
+
     const API_FOOTBALL_KEY = process.env.API_FOOTBALL_KEY
 
     if (!API_FOOTBALL_KEY) return res.status(500).json({ error: 'API_FOOTBALL_KEY not configured' })
-    if (!league_id || !from || !to) return res.status(400).json({ error: 'Missing required parameters: league_id, from, to' })
 
     const response = await fetch(`https://apiv3.apifootball.com/?action=get_events&from=${from}&to=${to}&league_id=${league_id}&timezone=America/Mexico_City&APIkey=${API_FOOTBALL_KEY}`)
     if (!response.ok) throw new Error(`API request failed: ${response.statusText}`)
@@ -701,6 +765,7 @@ app.post('/api/admin/save-jornada', async (req, res) => {
       match_status: match.match_status || 'NS',
       home_score: match.home_score || null,
       away_score: match.away_score || null,
+      provider: match.provider || FOOTBALL_PROVIDER,
       position: index + 1
     }))
 
@@ -996,7 +1061,7 @@ app.get('/api/badge-proxy', async (req, res) => {
     const { url } = req.query
     let u
     try { u = new URL(url) } catch { return res.status(400).end() }
-    if (!u.hostname.endsWith('apifootball.com')) return res.status(400).json({ error: 'Host no permitido' })
+    if (!u.hostname.endsWith('apifootball.com') && !u.hostname.endsWith('api-sports.io')) return res.status(400).json({ error: 'Host no permitido' })
 
     const r = await fetch(url)
     if (!r.ok) return res.status(502).end()
@@ -2780,7 +2845,7 @@ const syncJornadaResults = async (jornada_id) => {
     console.log('[syncJornadaResults] start jornada_id:', jornada_id)
     const { data: matches } = await supabase
       .from('admin_jornada_partidos')
-      .select('id, match_id, home_score, away_score, match_status, league_id, match_date')
+      .select('id, match_id, home_score, away_score, match_status, league_id, match_date, provider')
       .eq('jornada_id', jornada_id)
 
     console.log('[syncJornadaResults] matches found:', (matches || []).length)
@@ -2792,49 +2857,77 @@ const syncJornadaResults = async (jornada_id) => {
 
     if (pendingMatches.length > 0) {
       const API_FOOTBALL_KEY = process.env.API_FOOTBALL_KEY
-      if (!API_FOOTBALL_KEY) {
-        console.warn('API_FOOTBALL_KEY not configured')
+      const API_SPORTS_KEY = process.env.FOOTBALL_API_SPORTS_KEY
+      if (!API_FOOTBALL_KEY && !API_SPORTS_KEY) {
+        console.warn('No football API key configured')
       } else {
-        console.log('[syncJornadaResults] API_FOOTBALL_KEY present')
 
-        // Agrupar partidos pendientes por fecha + liga: 1 llamada a la API por
-        // grupo en vez de 1 por partido (ahorra cuota de API-Football)
+        // Agrupar partidos pendientes por proveedor + fecha + liga: 1 llamada
+        // a la API por grupo en vez de 1 por partido (ahorra cuota)
         const groups = new Map()
         for (const match of pendingMatches) {
           if (!match.league_id || !match.match_date) {
             console.log('[syncJornadaResults] missing league_id or match_date for match:', match.id)
             continue
           }
-          const key = `${match.match_date.split('T')[0]}|${match.league_id}`
-          if (!groups.has(key)) groups.set(key, { date: match.match_date.split('T')[0], league: match.league_id, matches: [] })
+          const provider = match.provider || 'apifootball'
+          const date = match.match_date.split('T')[0]
+          const key = `${provider}|${date}|${match.league_id}`
+          if (!groups.has(key)) groups.set(key, { provider, date, league: match.league_id, matches: [] })
           groups.get(key).matches.push(match)
         }
-        console.log('[syncJornadaResults] API calls needed (date|league groups):', groups.size)
+        console.log('[syncJornadaResults] API calls needed (provider|date|league groups):', groups.size)
 
         for (const group of groups.values()) {
-          const response = await fetch(`https://apiv3.apifootball.com/?action=get_events&from=${group.date}&to=${group.date}&league_id=${group.league}&APIkey=${API_FOOTBALL_KEY}`)
-          console.log('[syncJornadaResults] events fetch', group.date, 'league', group.league, '->', response.status)
-          if (!response.ok) continue
-          const data = await response.json()
-          if (!Array.isArray(data) || data.length === 0) {
-            console.log('[syncJornadaResults] no events for', group.date, 'league', group.league)
+          let events = []
+          try {
+            if (group.provider === 'apisports') {
+              if (!API_SPORTS_KEY) { console.warn('FOOTBALL_API_SPORTS_KEY not configured'); continue }
+              const season = group.date.split('-')[0]
+              const data = await sportsFetch(`/fixtures?league=${group.league}&season=${season}&date=${group.date}&timezone=America/Mexico_City`)
+              events = (data || []).map(f => ({
+                id: f.fixture?.id,
+                status: f.fixture?.status?.short,
+                home: f.goals?.home,
+                away: f.goals?.away
+              }))
+            } else {
+              if (!API_FOOTBALL_KEY) { console.warn('API_FOOTBALL_KEY not configured'); continue }
+              const response = await fetch(`https://apiv3.apifootball.com/?action=get_events&from=${group.date}&to=${group.date}&league_id=${group.league}&APIkey=${API_FOOTBALL_KEY}`)
+              console.log('[syncJornadaResults] events fetch', group.date, 'league', group.league, '->', response.status)
+              if (!response.ok) continue
+              const data = await response.json()
+              events = (Array.isArray(data) ? data : []).map(e => ({
+                id: e.match_id,
+                status: e.match_status,
+                home: parseInt(e.match_hometeam_score, 10),
+                away: parseInt(e.match_awayteam_score, 10)
+              }))
+            }
+          } catch (e) {
+            console.log('[syncJornadaResults] fetch error', group.provider, group.date, 'league', group.league, ':', e.message)
+            continue
+          }
+
+          if (events.length === 0) {
+            console.log('[syncJornadaResults] no events for', group.provider, group.date, 'league', group.league)
             continue
           }
 
           for (const match of group.matches) {
-            const event = data.find(e => String(e.match_id) === String(match.match_id))
+            const event = events.find(e => String(e.id) === String(match.match_id))
             if (!event) {
               console.log('[syncJornadaResults] match not found in events list:', match.match_id)
               continue
             }
             const finishedStatuses = ['FT', 'AET', 'PEN', 'Finished', 'FINISHED']
-            if (!finishedStatuses.includes(event.match_status)) {
-              console.log('[syncJornadaResults] match not finished:', match.match_id, 'status:', event.match_status)
+            if (!finishedStatuses.includes(event.status)) {
+              console.log('[syncJornadaResults] match not finished:', match.match_id, 'status:', event.status)
               continue
             }
 
-            const homeScore = parseInt(event.match_hometeam_score, 10)
-            const awayScore = parseInt(event.match_awayteam_score, 10)
+            const homeScore = parseInt(event.home, 10)
+            const awayScore = parseInt(event.away, 10)
             if (isNaN(homeScore) || isNaN(awayScore)) {
               console.log('[syncJornadaResults] invalid scores, skip:', match.match_id)
               continue
@@ -2842,7 +2935,7 @@ const syncJornadaResults = async (jornada_id) => {
 
             const { error } = await supabase
               .from('admin_jornada_partidos')
-              .update({ home_score: homeScore, away_score: awayScore, match_status: event.match_status })
+              .update({ home_score: homeScore, away_score: awayScore, match_status: event.status })
               .eq('id', match.id)
             if (error) {
               console.log('[syncJornadaResults] update match error:', error.message)
