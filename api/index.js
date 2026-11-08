@@ -2876,7 +2876,9 @@ const syncJornadaResults = async (jornada_id) => {
             continue
           }
           const provider = match.provider || 'apifootball'
-          const date = match.match_date.split('T')[0]
+          // Agrupar por fecha en hora de Mexico (la API devuelve los eventos
+          // fechados en su propia zona y puede diferir un dia del UTC)
+          const date = new Date(match.match_date).toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' })
           const key = `${provider}|${date}|${match.league_id}`
           if (!groups.has(key)) groups.set(key, { provider, date, league: match.league_id, matches: [] })
           groups.get(key).matches.push(match)
@@ -2898,7 +2900,7 @@ const syncJornadaResults = async (jornada_id) => {
               }))
             } else {
               if (!API_FOOTBALL_KEY) { console.warn('API_FOOTBALL_KEY not configured'); continue }
-              const response = await fetch(`https://apiv3.apifootball.com/?action=get_events&from=${group.date}&to=${group.date}&league_id=${group.league}&APIkey=${API_FOOTBALL_KEY}`)
+              const response = await fetch(`https://apiv3.apifootball.com/?action=get_events&from=${group.date}&to=${group.date}&league_id=${group.league}&timezone=America/Mexico_City&APIkey=${API_FOOTBALL_KEY}`)
               console.log('[syncJornadaResults] events fetch', group.date, 'league', group.league, '->', response.status)
               if (!response.ok) continue
               const data = await response.json()
