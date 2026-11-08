@@ -2928,7 +2928,12 @@ const syncJornadaResults = async (jornada_id) => {
               continue
             }
             const finishedStatuses = ['FT', 'AET', 'PEN', 'Finished', 'FINISHED']
-            if (!finishedStatuses.includes(event.status)) {
+            // APIfootball a veces deja el status atorado en "90+" aunque el
+            // partido ya termino: si pasaron mas de 3h del inicio y hay
+            // marcador, se toma como finalizado.
+            const staleStoppage = /^90/.test(event.status || '') &&
+              Date.now() - new Date(match.match_date).getTime() > 3 * 60 * 60 * 1000
+            if (!finishedStatuses.includes(event.status) && !staleStoppage) {
               console.log('[syncJornadaResults] match not finished:', match.match_id, 'status:', event.status)
               continue
             }
@@ -2942,7 +2947,7 @@ const syncJornadaResults = async (jornada_id) => {
 
             const { error } = await supabase
               .from('admin_jornada_partidos')
-              .update({ home_score: homeScore, away_score: awayScore, match_status: event.status })
+              .update({ home_score: homeScore, away_score: awayScore, match_status: finishedStatuses.includes(event.status) ? event.status : 'FT' })
               .eq('id', match.id)
             if (error) {
               console.log('[syncJornadaResults] update match error:', error.message)
