@@ -583,6 +583,12 @@ const APISPORTS_LEAGUES = [
   1, 4, 9, 5, 16, 22, 31, 32, 34 // Selecciones
 ]
 
+// Nombres de liga que se repiten entre ligas habilitadas (ej. "Serie A" existe
+// en Brasil y en Italia): se les agrega el pais para diferenciarlas
+const AMBIGUOUS_LEAGUE_NAMES = new Set(['Serie A'])
+const leagueDisplayName = (name, country) =>
+  name && AMBIGUOUS_LEAGUE_NAMES.has(name) && country ? `${name} (${country})` : name
+
 const sportsFetch = async (path) => {
   const key = process.env.FOOTBALL_API_SPORTS_KEY
   if (!key) throw new Error('FOOTBALL_API_SPORTS_KEY not configured')
@@ -598,7 +604,7 @@ const sportsFetch = async (path) => {
 const normSportsFixture = (f) => ({
   match_id: f.fixture?.id,
   league_id: f.league?.id,
-  league_name: f.league?.name,
+  league_name: leagueDisplayName(f.league?.name, f.league?.country),
   home_team_name: f.teams?.home?.name,
   away_team_name: f.teams?.away?.name,
   home_team_badge: f.teams?.home?.logo,
@@ -626,7 +632,7 @@ app.get('/api/admin/leagues', async (req, res) => {
         .filter(l => APISPORTS_LEAGUES.includes(l.league?.id))
         .map(l => ({
           league_id: l.league.id,
-          league_name: l.league.name,
+          league_name: leagueDisplayName(l.league.name, l.country?.name),
           country_name: l.country?.name,
           league_logo: l.league.logo,
           provider: 'apisports'
@@ -643,10 +649,9 @@ app.get('/api/admin/leagues', async (req, res) => {
     if (!response.ok) throw new Error(`API request failed: ${response.statusText}`)
 
     const data = await response.json()
-    const relevantLeagues = data.filter(league => {
-      const leagueId = parseInt(league.league_id)
-      return ALLOWED_LEAGUES.includes(leagueId)
-    })
+    const relevantLeagues = data
+      .filter(league => ALLOWED_LEAGUES.includes(parseInt(league.league_id)))
+      .map(league => ({ ...league, league_name: leagueDisplayName(league.league_name, league.country_name) }))
 
     res.json({ leagues: relevantLeagues })
   } catch (error) {
@@ -686,7 +691,7 @@ app.get('/api/admin/fixtures', async (req, res) => {
     const matches = data.map(match => ({
       match_id: match.match_id,
       league_id: match.league_id,
-      league_name: match.league_name,
+      league_name: leagueDisplayName(match.league_name, match.country_name),
       home_team_name: match.match_hometeam_name,
       away_team_name: match.match_awayteam_name,
       home_team_badge: match.team_home_badge,
