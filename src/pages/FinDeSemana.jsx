@@ -136,6 +136,13 @@ const FinDeSemana = () => {
     return `${day.charAt(0).toUpperCase() + day.slice(1)} ${time}`
   })()
 
+  // Orden de presentacion: liga alfabetica, luego horario de menor a mayor
+  const sortedMatches = [...matches].sort((a, b) => {
+    const la = (a.league_name || '').localeCompare(b.league_name || '', 'es')
+    if (la !== 0) return la
+    return new Date(a.match_date) - new Date(b.match_date)
+  })
+
   const getLeagueName = (match) => {
     return match.league_name || 'Liga'
   }
@@ -314,7 +321,7 @@ const FinDeSemana = () => {
             <div className="text-center text-slate-400 py-8">No hay partidos disponibles para esta fecha</div>
           ) : (
             <div className="space-y-3">
-              {matches.map((match) => (
+              {sortedMatches.map((match) => (
                 <div key={match.match_id} className={`bg-white/5 rounded-lg p-4 border ${getMatchResult(match).status === 'finished' ? 'border-yellow-500/30' : 'border-white/10'}`}>
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-3 sm:gap-4">
