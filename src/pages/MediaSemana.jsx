@@ -142,7 +142,7 @@ const MediaSemana = () => {
 
   const getMatchResult = (match) => {
     // Verificar si el partido ya terminó
-    if (match.match_status === 'FT' || match.match_status === 'AET' || match.match_status === 'PEN') {
+    if (['FT', 'AET', 'PEN', 'Finished', 'FINISHED'].includes(match.match_status)) {
       const homeScore = parseInt(match.home_score) || 0
       const awayScore = parseInt(match.away_score) || 0
       

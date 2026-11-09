@@ -2947,7 +2947,7 @@ const syncJornadaResults = async (jornada_id) => {
 
             const { error } = await supabase
               .from('admin_jornada_partidos')
-              .update({ home_score: homeScore, away_score: awayScore, match_status: finishedStatuses.includes(event.status) ? event.status : 'FT' })
+              .update({ home_score: homeScore, away_score: awayScore, match_status: ['Finished', 'FINISHED'].includes(event.status) || staleStoppage ? 'FT' : event.status })
               .eq('id', match.id)
             if (error) {
               console.log('[syncJornadaResults] update match error:', error.message)
