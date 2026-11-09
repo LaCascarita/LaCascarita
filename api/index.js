@@ -3090,13 +3090,15 @@ const distributeJornadaPrizes = async (jornada) => {
   const totalCollected = participations.reduce((sum, p) => sum + (parseFloat(p.payment_amount) || 0), 0)
 
   let carryoverIn = 0
+  let consecutiveCarryovers = 0
   if (!isDominical) {
     const { data: carry } = await supabase
       .from('prize_carryover')
-      .select('amount')
+      .select('amount, consecutive_count')
       .eq('type', jornada.type)
       .maybeSingle()
     carryoverIn = parseFloat(carry?.amount) || 0
+    consecutiveCarryovers = parseInt(carry?.consecutive_count, 10) || 0
   }
 
   // El acumulado va directo a la bolsa del 2do lugar; el 1er lugar siempre se reparte (no acumula)
@@ -3115,10 +3117,14 @@ const distributeJornadaPrizes = async (jornada) => {
     : []
 
   // El 2do lugar exige al menos 1 acierto y maximo 20 folios empatados;
-  // de lo contrario su bolsa (incluido el acumulado previo) pasa a la siguiente jornada
+  // de lo contrario su bolsa (incluido el acumulado previo) pasa a la siguiente jornada.
+  // Excepcion del reglamento: si la bolsa ya se acumulo 2 jornadas seguidas,
+  // esta tercera se reparte obligatoriamente sin importar el numero de empatados.
+  const forcePayout = consecutiveCarryovers >= 2
   const paySecondPlace = !isDominical && secondScore != null && secondScore > 0
-    && secondWinners.length > 0 && secondWinners.length <= 20
+    && secondWinners.length > 0 && (secondWinners.length <= 20 || forcePayout)
   const carryoverOut = isDominical ? 0 : (paySecondPlace ? 0 : secondPlacePool)
+  const newConsecutiveCount = isDominical ? 0 : (paySecondPlace ? 0 : consecutiveCarryovers + 1)
 
   const firstPlaceShare = firstWinners.length > 0 ? round2(firstPlacePool / firstWinners.length) : 0
   const secondPlaceShare = paySecondPlace ? round2(secondPlacePool / secondWinners.length) : 0
@@ -3179,7 +3185,7 @@ const distributeJornadaPrizes = async (jornada) => {
     if (!isDominical) {
       await supabase
         .from('prize_carryover')
-        .upsert({ type: jornada.type, amount: carryoverOut, updated_at: new Date().toISOString() }, { onConflict: 'type' })
+        .upsert({ type: jornada.type, amount: carryoverOut, consecutive_count: newConsecutiveCount, updated_at: new Date().toISOString() }, { onConflict: 'type' })
     }
 
     await supabase
