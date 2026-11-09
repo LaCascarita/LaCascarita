@@ -136,12 +136,8 @@ const Dominical = () => {
     return `${day.charAt(0).toUpperCase() + day.slice(1)} ${time}`
   })()
 
-  // Orden de presentacion: liga alfabetica, luego horario de menor a mayor
-  const sortedMatches = [...matches].sort((a, b) => {
-    const la = (a.league_name || '').localeCompare(b.league_name || '', 'es')
-    if (la !== 0) return la
-    return new Date(a.match_date) - new Date(b.match_date)
-  })
+  // Orden de presentacion: cronologico, del primer al ultimo partido
+  const sortedMatches = [...matches].sort((a, b) => new Date(a.match_date) - new Date(b.match_date))
 
   const getLeagueName = (match) => {
     return match.league_name || 'Liga'
