@@ -3,8 +3,11 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 import express from 'express'
-import webpush from 'web-push'
+import { createRequire } from 'module'
 import { bbvaConfigured, createSpeiTransfer, getSpeiStatus, bbvaErrorMessage } from './_lib/bbva.js'
+
+const require = createRequire(import.meta.url)
+const webpush = require('web-push')
 
 const app = express()
 app.use(express.json())
