@@ -455,6 +455,31 @@ const Dashboard = () => {
         {/* Content based on active section */}
         {activeSection === 'overview' && (
           <>
+            {(pushState === 'unsubscribed' || pushState === 'subscribed' || pushState === 'denied') && (
+              <div className="bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2.5 mb-4 sm:mb-6 flex items-center justify-between gap-3">
+                <p className="text-slate-300 text-xs sm:text-sm truncate">
+                  🔔 {pushState === 'denied'
+                    ? 'Notificaciones bloqueadas en tu navegador'
+                    : pushState === 'subscribed'
+                      ? 'Notificaciones activas'
+                      : 'Activa avisos de quinielas y premios'}
+                </p>
+                {pushState !== 'denied' && (
+                  <button
+                    onClick={handleTogglePush}
+                    disabled={pushLoading}
+                    className={`shrink-0 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                      pushState === 'subscribed'
+                        ? 'bg-slate-700 hover:bg-slate-600 text-slate-200'
+                        : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                    } disabled:opacity-50`}
+                  >
+                    {pushLoading ? '...' : pushState === 'subscribed' ? 'Desactivar' : 'Activar'}
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Stats Overview */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
               <DashboardCard
@@ -490,36 +515,6 @@ const Dashboard = () => {
                 onClick={() => setActiveSection('stats')}
               />
             </div>
-
-            {(pushState === 'unsubscribed' || pushState === 'subscribed' || pushState === 'denied') && (
-              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-5 mb-6 sm:mb-8 flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-white font-semibold text-sm sm:text-base">
-                    🔔 Notificaciones {pushState === 'subscribed' ? 'activas' : ''}
-                  </p>
-                  <p className="text-slate-400 text-xs sm:text-sm mt-1">
-                    {pushState === 'denied'
-                      ? 'Las notificaciones están bloqueadas en la configuración de tu navegador'
-                      : pushState === 'subscribed'
-                        ? 'Recibes avisos de quinielas nuevas, cierres y premios'
-                        : 'Activa avisos de quinielas nuevas, cierres y premios'}
-                  </p>
-                </div>
-                {pushState !== 'denied' && (
-                  <button
-                    onClick={handleTogglePush}
-                    disabled={pushLoading}
-                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                      pushState === 'subscribed'
-                        ? 'bg-slate-700 hover:bg-slate-600 text-slate-200'
-                        : 'bg-emerald-500 hover:bg-emerald-600 text-white'
-                    } disabled:opacity-50`}
-                  >
-                    {pushLoading ? '...' : pushState === 'subscribed' ? 'Desactivar' : 'Activar'}
-                  </button>
-                )}
-              </div>
-            )}
 
           </>
         )}
