@@ -4,6 +4,7 @@ import DashboardCard from '../components/DashboardCard'
 import StatCard from '../components/StatCard'
 import WalletSection from '../components/WalletSection'
 import { apiFetch } from '../utils/api'
+import { getPushState, subscribeToPush, unsubscribeFromPush } from '../utils/push'
 import Footer from '../components/Footer'
 
 const Dashboard = () => {
@@ -27,6 +28,26 @@ const Dashboard = () => {
   const [speiCredited, setSpeiCredited] = useState(false)
   const [speiNotified, setSpeiNotified] = useState(false)
   const [copiedField, setCopiedField] = useState(null)
+  const [pushState, setPushState] = useState(null)
+  const [pushLoading, setPushLoading] = useState(false)
+
+  useEffect(() => {
+    getPushState().then(setPushState).catch(() => setPushState('unsubscribed'))
+  }, [])
+
+  const handleTogglePush = async () => {
+    setPushLoading(true)
+    try {
+      const next = pushState === 'subscribed'
+        ? await unsubscribeFromPush()
+        : await subscribeToPush()
+      setPushState(next)
+    } catch (e) {
+      console.error('push toggle error:', e)
+    } finally {
+      setPushLoading(false)
+    }
+  }
 
   const copyToClipboard = async (text, field) => {
     try {
@@ -469,6 +490,36 @@ const Dashboard = () => {
                 onClick={() => setActiveSection('stats')}
               />
             </div>
+
+            {(pushState === 'unsubscribed' || pushState === 'subscribed' || pushState === 'denied') && (
+              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-5 mb-6 sm:mb-8 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-white font-semibold text-sm sm:text-base">
+                    🔔 Notificaciones {pushState === 'subscribed' ? 'activas' : ''}
+                  </p>
+                  <p className="text-slate-400 text-xs sm:text-sm mt-1">
+                    {pushState === 'denied'
+                      ? 'Las notificaciones están bloqueadas en la configuración de tu navegador'
+                      : pushState === 'subscribed'
+                        ? 'Recibes avisos de quinielas nuevas, cierres y premios'
+                        : 'Activa avisos de quinielas nuevas, cierres y premios'}
+                  </p>
+                </div>
+                {pushState !== 'denied' && (
+                  <button
+                    onClick={handleTogglePush}
+                    disabled={pushLoading}
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                      pushState === 'subscribed'
+                        ? 'bg-slate-700 hover:bg-slate-600 text-slate-200'
+                        : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                    } disabled:opacity-50`}
+                  >
+                    {pushLoading ? '...' : pushState === 'subscribed' ? 'Desactivar' : 'Activar'}
+                  </button>
+                )}
+              </div>
+            )}
 
           </>
         )}

@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 import express from 'express'
+import webpush from 'web-push'
 import { bbvaConfigured, createSpeiTransfer, getSpeiStatus, bbvaErrorMessage } from './_lib/bbva.js'
 
 const app = express()
@@ -93,6 +94,74 @@ const sendAdminNotification = async (subject, lines) => {
     }
   } catch (e) {
     console.error('Admin notification error:', e.message)
+  }
+}
+
+// ============================================================
+// WEB PUSH (notificaciones PWA)
+// ============================================================
+const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY || ''
+const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || ''
+const pushEnabled = !!(VAPID_PUBLIC && VAPID_PRIVATE)
+if (pushEnabled) {
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT || 'mailto:noreply@quinielacascarita.com.mx',
+    VAPID_PUBLIC,
+    VAPID_PRIVATE
+  )
+}
+
+const sendPushToSub = async (sub, payload) => {
+  try {
+    await webpush.sendNotification(
+      { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+      JSON.stringify(payload),
+      { TTL: 3600 }
+    )
+  } catch (e) {
+    if (e.statusCode === 404 || e.statusCode === 410) {
+      await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint)
+    } else {
+      console.error('[push] send error:', e.statusCode, e.message)
+    }
+  }
+}
+
+const sendPushToUsers = async (userIds, payload) => {
+  if (!pushEnabled || !userIds || userIds.length === 0) return
+  try {
+    const { data: subs } = await supabase
+      .from('push_subscriptions')
+      .select('endpoint, p256dh, auth')
+      .in('user_id', [...new Set(userIds)])
+    for (const sub of subs || []) await sendPushToSub(sub, payload)
+  } catch (e) {
+    console.error('[push] toUsers error:', e.message)
+  }
+}
+
+const sendPushToAll = async (payload) => {
+  if (!pushEnabled) return
+  try {
+    const { data: subs } = await supabase
+      .from('push_subscriptions')
+      .select('endpoint, p256dh, auth')
+    for (const sub of subs || []) await sendPushToSub(sub, payload)
+  } catch (e) {
+    console.error('[push] toAll error:', e.message)
+  }
+}
+
+const notifyJornadaParticipants = async (jornada, payload) => {
+  try {
+    const { data: parts } = await supabase
+      .from('participations')
+      .select('user_id')
+      .eq('jornada_id', jornada.id)
+      .eq('participation_status', 'confirmed')
+    await sendPushToUsers((parts || []).map(p => p.user_id), payload)
+  } catch (e) {
+    console.error('[push] notifyParticipants error:', e.message)
   }
 }
 
@@ -854,6 +923,12 @@ app.post('/api/admin/save-jornada', async (req, res) => {
         console.error('[save-jornada] Error migrando participaciones:', migrationError)
       }
     }
+
+    await sendPushToAll({
+      title: '¡Nueva quiniela abierta!',
+      body: `${jornada.name} — ya puedes jugar`,
+      url: '/dashboard'
+    })
 
     res.json({ success: true, jornada })
   } catch (error) {
@@ -2838,6 +2913,11 @@ const autoCloseJornadaIfNeeded = async (jornada, partidos) => {
       .eq('id', jornada.id)
       .eq('status', 'active')
     console.log('[autoClose] Jornada cerrada automaticamente:', jornada.id)
+    await notifyJornadaParticipants(jornada, {
+      title: 'Quiniela cerrada',
+      body: `La quiniela ${jornada.name} cerró`,
+      url: '/dashboard'
+    })
     return { ...jornada, status: 'inactive' }
   } catch (e) {
     console.error('[autoClose] error:', e.message)
@@ -3192,6 +3272,32 @@ const distributeJornadaPrizes = async (jornada) => {
       .from('admin_jornadas')
       .update({ status: 'completed' })
       .eq('id', jornada.id)
+
+    // Notificacion de resultado a cada participante (por usuario, agregando folios)
+    try {
+      const prizesByUser = new Map()
+      const addPrize = (uid, place, amount) => {
+        const cur = prizesByUser.get(uid) || { first: 0, second: 0 }
+        if (place === 1) cur.first += amount
+        else cur.second += amount
+        prizesByUser.set(uid, cur)
+      }
+      for (const w of firstWinners) addPrize(w.user_id, 1, firstPlaceShare)
+      if (paySecondPlace) for (const w of secondWinners) addPrize(w.user_id, 2, secondPlaceShare)
+
+      const allUserIds = [...new Set(participations.map(p => p.user_id))]
+      for (const uid of allUserIds) {
+        const p = prizesByUser.get(uid)
+        let body
+        if (p?.first > 0 && p?.second > 0) body = `¡Ganaste $${(p.first + p.second).toFixed(2)} entre 1er y 2do lugar en ${jornada.name}!`
+        else if (p?.first > 0) body = `¡Ganaste $${p.first.toFixed(2)} de 1er lugar en ${jornada.name}!`
+        else if (p?.second > 0) body = `¡Ganaste $${p.second.toFixed(2)} de 2do lugar en ${jornada.name}!`
+        else body = `Terminó ${jornada.name} — esta vez sin premio. ¡Suerte en la próxima!`
+        await sendPushToUsers([uid], { title: 'Resultados de quiniela', body, url: '/dashboard' })
+      }
+    } catch (e) {
+      console.error('[push] prize notifications error:', e.message)
+    }
   } catch (payError) {
     // Permitir reintento: sin el registro de distribucion el bloqueo se libera
     await supabase.from('prize_distributions').delete().eq('id', distribution.id)
@@ -3540,6 +3646,11 @@ app.post('/api/admin/jornada-status', async (req, res) => {
         .eq('id', jornada.id)
 
       if (error) throw error
+      await notifyJornadaParticipants(jornada, {
+        title: 'Quiniela cerrada',
+        body: `La quiniela ${jornada.name} cerró`,
+        url: '/dashboard'
+      })
       return res.json({ message: 'Quiniela cerrada', jornada: { ...jornada, status: 'inactive' } })
     }
 
@@ -3579,6 +3690,61 @@ app.post('/api/admin/jornada-status', async (req, res) => {
   } catch (error) {
     console.error('Error updating jornada status:', error)
     res.status(500).json({ error: error.message })
+  }
+})
+
+// ============================================================
+// WEB PUSH: suscripcion del usuario autenticado
+// ============================================================
+app.get('/api/push/vapid-key', (req, res) => {
+  res.json({ key: VAPID_PUBLIC || null })
+})
+
+app.post('/api/push/subscribe', async (req, res) => {
+  try {
+    const user = getUserFromToken(req)
+    if (!user) return res.status(401).json({ error: 'No autorizado' })
+
+    const subscription = req.body?.subscription
+    const endpoint = subscription?.endpoint
+    const p256dh = subscription?.keys?.p256dh
+    const auth = subscription?.keys?.auth
+    if (!endpoint || !p256dh || !auth) {
+      return res.status(400).json({ error: 'Suscripción inválida' })
+    }
+
+    const { error } = await supabase
+      .from('push_subscriptions')
+      .upsert(
+        { user_id: user.id, endpoint, p256dh, auth },
+        { onConflict: 'endpoint' }
+      )
+
+    if (error) throw error
+    res.json({ success: true })
+  } catch (error) {
+    console.error('push subscribe error:', error)
+    res.status(500).json({ error: 'Error al guardar suscripción' })
+  }
+})
+
+app.post('/api/push/unsubscribe', async (req, res) => {
+  try {
+    const user = getUserFromToken(req)
+    if (!user) return res.status(401).json({ error: 'No autorizado' })
+
+    const endpoint = req.body?.endpoint
+    if (!endpoint) return res.status(400).json({ error: 'Endpoint requerido' })
+
+    await supabase
+      .from('push_subscriptions')
+      .delete()
+      .eq('endpoint', endpoint)
+      .eq('user_id', user.id)
+
+    res.json({ success: true })
+  } catch (error) {
+    res.status(500).json({ error: 'Error al eliminar suscripción' })
   }
 })
 
