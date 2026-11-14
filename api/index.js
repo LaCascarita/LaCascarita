@@ -6,8 +6,12 @@ import express from 'express'
 import { createRequire } from 'module'
 import { bbvaConfigured, createSpeiTransfer, getSpeiStatus, bbvaErrorMessage } from './_lib/bbva.js'
 
-const require = createRequire(import.meta.url)
-const webpush = require('web-push')
+let webpush = null
+try {
+  webpush = createRequire(import.meta.url)('web-push')
+} catch (e) {
+  console.error('[push] web-push no disponible:', e.message)
+}
 
 const app = express()
 app.use(express.json())
@@ -105,7 +109,7 @@ const sendAdminNotification = async (subject, lines) => {
 // ============================================================
 const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY || ''
 const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || ''
-const pushEnabled = !!(VAPID_PUBLIC && VAPID_PRIVATE)
+const pushEnabled = !!(webpush && VAPID_PUBLIC && VAPID_PRIVATE)
 if (pushEnabled) {
   webpush.setVapidDetails(
     process.env.VAPID_SUBJECT || 'mailto:noreply@quinielacascarita.com.mx',
