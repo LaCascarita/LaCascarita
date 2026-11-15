@@ -3,15 +3,7 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 import express from 'express'
-import { createRequire } from 'module'
 import { bbvaConfigured, createSpeiTransfer, getSpeiStatus, bbvaErrorMessage } from './_lib/bbva.js'
-
-let webpush = null
-try {
-  webpush = createRequire(import.meta.url)('web-push')
-} catch (e) {
-  console.error('[push] web-push no disponible:', e.message)
-}
 
 const app = express()
 app.use(express.json())
@@ -109,18 +101,37 @@ const sendAdminNotification = async (subject, lines) => {
 // ============================================================
 const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY || ''
 const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || ''
-const pushEnabled = !!(webpush && VAPID_PUBLIC && VAPID_PRIVATE)
-if (pushEnabled) {
-  webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT || 'mailto:noreply@quinielacascarita.com.mx',
-    VAPID_PUBLIC,
-    VAPID_PRIVATE
-  )
+const pushEnabled = !!(VAPID_PUBLIC && VAPID_PRIVATE)
+
+// Carga lazy con import(): el bundler de Vercel lo traza y empaqueta la
+// dependencia; un require() dinamico quedaria fuera del bundle.
+let webpushPromise = null
+const getWebpush = async () => {
+  if (!pushEnabled) return null
+  if (!webpushPromise) {
+    webpushPromise = import('web-push')
+      .then(mod => {
+        const wp = mod.default || mod
+        wp.setVapidDetails(
+          process.env.VAPID_SUBJECT || 'mailto:noreply@quinielacascarita.com.mx',
+          VAPID_PUBLIC,
+          VAPID_PRIVATE
+        )
+        return wp
+      })
+      .catch(e => {
+        console.error('[push] web-push no disponible:', e.message)
+        return null
+      })
+  }
+  return webpushPromise
 }
 
 const sendPushToSub = async (sub, payload) => {
   try {
-    await webpush.sendNotification(
+    const wp = await getWebpush()
+    if (!wp) return
+    await wp.sendNotification(
       { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
       JSON.stringify(payload),
       { TTL: 3600 }
