@@ -3725,6 +3725,40 @@ app.get('/api/push/vapid-key', (req, res) => {
   res.json({ key: VAPID_PUBLIC || null })
 })
 
+// ============================================================
+// CRON: barrido de jornadas para cierre automatico real
+// Servicios externos (cron-job.org etc.) lo llaman cada 15 min
+// ============================================================
+app.get('/api/cron/sweep-jornadas', async (req, res) => {
+  try {
+    const secret = process.env.CRON_SECRET
+    if (secret) {
+      const given = req.query.secret || (req.headers.authorization || '').replace(/^Bearer /, '')
+      if (given !== secret) return res.status(401).json({ error: 'No autorizado' })
+    }
+
+    const { data: jornadas } = await supabase
+      .from('admin_jornadas')
+      .select('*')
+      .eq('status', 'active')
+
+    const results = []
+    for (const jornada of jornadas || []) {
+      const { data: partidos } = await supabase
+        .from('admin_jornada_partidos')
+        .select('match_date')
+        .eq('jornada_id', jornada.id)
+      const updated = await autoCloseJornadaIfNeeded(jornada, partidos)
+      results.push({ name: jornada.name, status: updated.status })
+    }
+
+    res.json({ swept: results.length, results })
+  } catch (error) {
+    console.error('[cron] sweep error:', error)
+    res.status(500).json({ error: 'Error en barrido' })
+  }
+})
+
 app.post('/api/push/subscribe', async (req, res) => {
   try {
     const user = getUserFromToken(req)
