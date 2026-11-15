@@ -32,7 +32,14 @@ const Dashboard = () => {
   const [pushLoading, setPushLoading] = useState(false)
 
   useEffect(() => {
-    getPushState().then(setPushState).catch(() => setPushState('unsubscribed'))
+    // Si el permiso sigue concedido pero la suscripcion murio (expiro o se
+    // limpio en el servidor), se renueva sola sin molestar al usuario.
+    getPushState().then(async (state) => {
+      if (state === 'unsubscribed' && Notification.permission === 'granted') {
+        try { state = await subscribeToPush() } catch (e) { /* se intentara en la proxima visita */ }
+      }
+      setPushState(state)
+    }).catch(() => setPushState('unsubscribed'))
   }, [])
 
   const handleTogglePush = async () => {

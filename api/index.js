@@ -134,13 +134,15 @@ const sendPushToSub = async (sub, payload) => {
     await wp.sendNotification(
       { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
       JSON.stringify(payload),
-      { TTL: 3600 }
+      { TTL: 86400, urgency: 'high' }
     )
+    console.log('[push] enviado OK ->', sub.endpoint.slice(0, 50))
   } catch (e) {
     if (e.statusCode === 404 || e.statusCode === 410) {
       await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint)
+      console.log('[push] suscripcion expirada eliminada ->', sub.endpoint.slice(0, 50))
     } else {
-      console.error('[push] send error:', e.statusCode, e.message)
+      console.error('[push] send error:', e.statusCode, e.message, '->', sub.endpoint.slice(0, 50))
     }
   }
 }
