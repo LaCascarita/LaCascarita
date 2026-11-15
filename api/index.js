@@ -3704,6 +3704,11 @@ app.post('/api/admin/jornada-status', async (req, res) => {
       .eq('id', jornada.id)
 
     if (error) throw error
+    await sendPushToAll({
+      title: 'Quiniela reabierta',
+      body: `La quiniela ${jornada.name} reabrió — puedes volver a jugar`,
+      url: '/dashboard'
+    })
     res.json({ message: 'Quiniela reabierta', jornada: { ...jornada, status: 'active' } })
   } catch (error) {
     console.error('Error updating jornada status:', error)
