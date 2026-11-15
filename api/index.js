@@ -3740,16 +3740,39 @@ app.get('/api/cron/sweep-jornadas', async (req, res) => {
     const { data: jornadas } = await supabase
       .from('admin_jornadas')
       .select('*')
-      .eq('status', 'active')
+      .in('status', ['active', 'inactive'])
 
     const results = []
     for (const jornada of jornadas || []) {
-      const { data: partidos } = await supabase
-        .from('admin_jornada_partidos')
-        .select('match_date')
-        .eq('jornada_id', jornada.id)
-      const updated = await autoCloseJornadaIfNeeded(jornada, partidos)
-      results.push({ name: jornada.name, status: updated.status })
+      if (jornada.status === 'active') {
+        const { data: partidos } = await supabase
+          .from('admin_jornada_partidos')
+          .select('match_date')
+          .eq('jornada_id', jornada.id)
+        const updated = await autoCloseJornadaIfNeeded(jornada, partidos)
+        results.push({ name: jornada.name, status: updated.status })
+        if (updated.status === 'inactive') {
+          await syncJornadaResults(jornada.id)
+        }
+      } else {
+        // inactive: sincronizar resultados; al completar marcadores reparte
+        // premios y envia las notificaciones personalizadas sola.
+        // Solo si su ultimo partido es reciente: jornadas viejas con datos
+        // faltantes en la API quedan para el resultado manual del admin.
+        const { data: partidos } = await supabase
+          .from('admin_jornada_partidos')
+          .select('match_date, home_score')
+          .eq('jornada_id', jornada.id)
+        const lastTs = Math.max(...(partidos || []).map(p => new Date(p.match_date).getTime()).filter(t => !isNaN(t)))
+        const hasPending = (partidos || []).some(p => p.home_score == null)
+        const isRecent = isFinite(lastTs) && (Date.now() - lastTs) < 3 * 24 * 3600 * 1000
+        if (hasPending && isRecent) {
+          await syncJornadaResults(jornada.id)
+          results.push({ name: jornada.name, status: 'inactive', synced: true })
+        } else {
+          results.push({ name: jornada.name, status: 'inactive', synced: false })
+        }
+      }
     }
 
     res.json({ swept: results.length, results })
