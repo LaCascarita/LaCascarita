@@ -455,16 +455,18 @@ const Dashboard = () => {
         {/* Content based on active section */}
         {activeSection === 'overview' && (
           <>
-            {(pushState === 'unsubscribed' || pushState === 'subscribed' || pushState === 'denied') && (
+            {pushState && (
               <div className="bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2.5 mb-4 sm:mb-6 flex items-center justify-between gap-3">
                 <p className="text-slate-300 text-xs sm:text-sm truncate">
                   🔔 {pushState === 'denied'
                     ? 'Notificaciones bloqueadas en tu navegador'
                     : pushState === 'subscribed'
                       ? 'Notificaciones activas'
-                      : 'Activa avisos de quinielas y premios'}
+                      : pushState === 'unsupported'
+                        ? 'Instala la app para recibir avisos'
+                        : 'Activa avisos de quinielas y premios'}
                 </p>
-                {pushState !== 'denied' && (
+                {(pushState === 'unsubscribed' || pushState === 'subscribed') && (
                   <button
                     onClick={handleTogglePush}
                     disabled={pushLoading}
