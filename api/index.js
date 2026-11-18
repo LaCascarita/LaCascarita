@@ -4188,12 +4188,13 @@ app.get('/api/jornada-leaderboard', async (req, res) => {
 
     if (partsError) throw partsError
 
-    // Misma posicion para folios empatados en aciertos (1, 2, 2, 4...)
+    // Dense ranking: empatados comparten lugar y el siguiente puntaje toma
+    // el numero inmediato (1, 1, 2, 3), alineado con las posiciones de premio
     let lastScore = null
     let lastPos = 0
-    const leaderboard = (parts || []).map((p, idx) => {
+    const leaderboard = (parts || []).map((p) => {
       const score = p.correct_predictions || 0
-      const pos = score === lastScore ? lastPos : idx + 1
+      const pos = score === lastScore ? lastPos : lastPos + 1
       lastScore = score
       lastPos = pos
       return {
@@ -4347,7 +4348,14 @@ app.get('/api/ranking', async (req, res) => {
     const ranking = [...byUser.values()]
     ranking.sort((a, b) => b.points - a.points)
 
-    const ranked = ranking.map((u, idx) => ({ pos: idx + 1, ...u }))
+    let lastPts = null
+    let lastPos = 0
+    const ranked = ranking.map((u) => {
+      const pos = u.points === lastPts ? lastPos : lastPos + 1
+      lastPts = u.points
+      lastPos = pos
+      return { pos, ...u }
+    })
     const my = ranked.find(r => r.user_id === user.id)
 
     res.json({ ranking: ranked, currentUser: my || null })
